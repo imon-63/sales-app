@@ -1,0 +1,115 @@
+erDiagram
+  USERS {
+    uuid id PK
+    string email "unique"
+    string password_hash
+    string role "admin|sales"
+    timestamptz created_at
+  }
+
+  WAREHOUSES {
+    uuid id PK
+    string name "unique"
+  }
+
+  PRODUCTS {
+    uuid id PK
+    string name "unique"
+    string unit
+  }
+
+  LOTS {
+    uuid id PK
+    uuid product_id FK
+    string lot_number
+  }
+
+  LOT_BATCHES {
+    uuid id PK
+    uuid lot_id FK
+    uuid warehouse_id FK
+    date acquired_at
+    numeric unit_cost
+    numeric original_quantity
+    numeric remaining_quantity
+  }
+
+  PURCHASES {
+    uuid id PK
+    date purchase_date
+    uuid warehouse_id FK
+    uuid created_by FK
+  }
+
+  PURCHASE_ITEMS {
+    uuid id PK
+    uuid purchase_id FK
+    uuid product_id FK
+    uuid lot_id FK
+    numeric quantity
+    numeric unit_cost
+  }
+
+  SALES {
+    uuid id PK
+    date sale_date
+    uuid warehouse_id FK "source warehouse"
+    uuid created_by FK
+  }
+
+  SALES_ITEMS {
+    uuid id PK
+    uuid sale_id FK
+    uuid product_id FK
+    numeric quantity
+    numeric unit_price
+  }
+
+  SALES_ITEM_ALLOCATIONS {
+    uuid id PK
+    uuid sales_item_id FK
+    uuid lot_batch_id FK
+    numeric quantity_allocated
+    numeric unit_cost_at_time
+  }
+
+  INVENTORY_TRANSFERS {
+    uuid id PK
+    date transfer_date
+    uuid from_warehouse_id FK
+    uuid to_warehouse_id FK
+    uuid created_by FK
+  }
+
+  INVENTORY_TRANSFER_LINES {
+    uuid id PK
+    uuid transfer_id FK
+    uuid lot_batch_id FK
+    numeric quantity
+  }
+
+  USERS ||--o{ PURCHASES : created
+  USERS ||--o{ SALES : created
+  USERS ||--o{ INVENTORY_TRANSFERS : created
+
+  WAREHOUSES ||--o{ PURCHASES : destination
+  WAREHOUSES ||--o{ SALES : source
+  WAREHOUSES ||--o{ INVENTORY_TRANSFERS : from
+  WAREHOUSES ||--o{ INVENTORY_TRANSFERS : to
+
+  PRODUCTS ||--o{ LOTS : has
+  LOTS ||--o{ LOT_BATCHES : splits_into_batches
+
+  PURCHASES ||--o{ PURCHASE_ITEMS : contains
+  PRODUCTS ||--o{ PURCHASE_ITEMS : item_product
+  LOTS ||--o{ PURCHASE_ITEMS : item_lot
+
+  SALES ||--o{ SALES_ITEMS : contains
+  PRODUCTS ||--o{ SALES_ITEMS : item_product
+
+  SALES_ITEMS ||--o{ SALES_ITEM_ALLOCATIONS : consumes_from_lots
+  LOT_BATCHES ||--o{ SALES_ITEM_ALLOCATIONS : allocates_stock
+
+  INVENTORY_TRANSFERS ||--o{ INVENTORY_TRANSFER_LINES : contains
+  LOT_BATCHES ||--o{ INVENTORY_TRANSFER_LINES : moves_stock
+
