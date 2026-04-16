@@ -1,0 +1,222 @@
+diff --git a/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js b/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js
+index c97e1c1..1b75c67 100644
+--- a/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js
++++ b/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js
+@@ -19,7 +19,7 @@ import Context from '../Context';
+ import InfiniteAgendaList from './infiniteAgendaList';
+ import { AgendaSectionHeader } from './commons';
+ const viewabilityConfig = {
+-    itemVisiblePercentThreshold: 20 // 50 means if 50% of the item is visible
++    itemVisiblePercentThreshold: 10
+ };
+ /**
+  * @description: AgendaList component
+@@ -34,6 +34,8 @@ const AgendaList = forwardRef((props, ref) => {
+     const list = useCombinedRefs(ref);
+     const _topSection = useRef(sections[0]?.title);
+     const didScroll = useRef(false);
++    /** Section at top when viewability ran before the first onScroll (didScroll still false). */
++    const pendingListSection = useRef(undefined);
+     const sectionScroll = useRef(false);
+     const sectionHeight = useRef(0);
+     useEffect(() => {
+@@ -110,20 +112,22 @@ const AgendaList = forwardRef((props, ref) => {
+             list?.current.scrollToLocation({
+                 animated: true,
+                 sectionIndex: sectionIndex,
+-                itemIndex: 1,
++                itemIndex: 0,
+                 viewPosition: 0,
+                 viewOffset: (constants.isAndroid ? sectionHeight.current : 0) + viewOffset
+             });
+         }
+-    }, 1000, { leading: true, trailing: true }), [viewOffset, sections]);
++    }, 350, { leading: true, trailing: true }), [viewOffset, sections]);
+     const _onViewableItemsChanged = useCallback((info) => {
+         if (info?.viewableItems && !sectionScroll.current) {
+             const topSection = get(info?.viewableItems[0], 'section.title');
+             if (topSection && topSection !== _topSection.current) {
+-                _topSection.current = topSection;
+                 if (didScroll.current && !avoidDateUpdates) {
+-                    // to avoid setDate() on first load (while setting the initial context.date value)
+-                    setDate?.(_topSection.current, UpdateSources.LIST_DRAG);
++                    _topSection.current = topSection;
++                    setDate?.(topSection, UpdateSources.LIST_DRAG);
++                }
++                else if (!didScroll.current) {
++                    pendingListSection.current = topSection;
+                 }
+             }
+         }
+@@ -133,9 +137,15 @@ const AgendaList = forwardRef((props, ref) => {
+         if (!didScroll.current) {
+             didScroll.current = true;
+             scrollToSection.cancel();
++            const pending = pendingListSection.current;
++            if (pending && pending !== _topSection.current && !avoidDateUpdates) {
++                _topSection.current = pending;
++                setDate?.(pending, UpdateSources.LIST_DRAG);
++            }
++            pendingListSection.current = undefined;
+         }
+         onScroll?.(event);
+-    }, [onScroll]);
++    }, [onScroll, avoidDateUpdates, setDate]);
+     const _onMomentumScrollBegin = useCallback((event) => {
+         setDisabled?.(true);
+         onMomentumScrollBegin?.(event);
+diff --git a/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js b/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js
+index b7e3a65..bd5aa6e 100644
+--- a/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js
++++ b/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js
+@@ -1,4 +1,4 @@
+-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
++import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+ import { View } from 'react-native';
+ import XDate from 'xdate';
+ import InfiniteList from '../../infinite-list';
+@@ -29,13 +29,56 @@ const WeekCalendar = (props) => {
+     const weekStyle = useMemo(() => {
+         return [{ width: containerWidth }, props.style];
+     }, [containerWidth, props.style]);
+-    useEffect(() => {
+-        if (updateSource !== UpdateSources.WEEK_SCROLL) {
+-            const pageIndex = items.findIndex(item => sameWeek(item, date, firstDay));
++    const scrollWeekToPageIndex = useCallback((pageIndex) => {
++        const inst = list.current;
++        if (!inst || pageIndex < 0) {
++            return;
++        }
++        if (typeof inst.scrollToIndex === 'function') {
++            inst.scrollToIndex(pageIndex, false);
++        }
++        else {
+             // @ts-expect-error
+-            list.current?.scrollToOffset?.(pageIndex * containerWidth, 0, false);
++            inst.scrollToOffset?.(pageIndex * containerWidth, 0, false);
++        }
++    }, [containerWidth]);
++    useLayoutEffect(() => {
++        if (updateSource === UpdateSources.WEEK_SCROLL) {
++            return;
++        }
++        const pageIndex = items.findIndex(item => sameWeek(item, date, firstDay));
++        if (pageIndex < 0) {
++            setItems(getDatesArray(date, firstDay, NUMBER_OF_PAGES));
++            return;
++        }
++        scrollWeekToPageIndex(pageIndex);
++    }, [date, updateSource, items, firstDay, scrollWeekToPageIndex]);
++    useEffect(() => {
++        if (updateSource === UpdateSources.WEEK_SCROLL) {
++            return;
++        }
++        const pageIndex = items.findIndex(item => sameWeek(item, date, firstDay));
++        if (pageIndex < 0) {
++            return;
+         }
+-    }, [date]);
++        let innerRaf = 0;
++        const outerRaf = requestAnimationFrame(() => {
++            scrollWeekToPageIndex(pageIndex);
++            innerRaf = requestAnimationFrame(() => scrollWeekToPageIndex(pageIndex));
++        });
++        const t1 = setTimeout(() => scrollWeekToPageIndex(pageIndex), 50);
++        const t2 = setTimeout(() => scrollWeekToPageIndex(pageIndex), 200);
++        const t3 = setTimeout(() => scrollWeekToPageIndex(pageIndex), 450);
++        return () => {
++            cancelAnimationFrame(outerRaf);
++            if (innerRaf) {
++                cancelAnimationFrame(innerRaf);
++            }
++            clearTimeout(t1);
++            clearTimeout(t2);
++            clearTimeout(t3);
++        };
++    }, [date, updateSource, items, firstDay, scrollWeekToPageIndex]);
+     const onDayPress = useCallback((dateData) => {
+         context.setDate?.(dateData.dateString, UpdateSources.DAY_PRESS);
+         props.onDayPress?.(dateData);
+@@ -60,7 +103,7 @@ const WeekCalendar = (props) => {
+           <WeekDaysNames firstDay={firstDay} style={style.current.dayHeader}/>
+         </View>)}
+       <View>
+-        <InfiniteList key="week-list" isHorizontal ref={list} data={items} renderItem={renderItem} reloadPages={reloadPages} onReachNearEdgeThreshold={Math.round(NUMBER_OF_PAGES * 0.4)} extendedState={extraData} style={style.current.container} initialPageIndex={NUMBER_OF_PAGES} pageHeight={calendarHeight} pageWidth={containerWidth} onPageChange={onPageChange} scrollViewProps={{
++        <InfiniteList key="week-list" isHorizontal ref={list} data={items} disableScrollOnDataChange renderItem={renderItem} reloadPages={reloadPages} onReachNearEdgeThreshold={Math.round(NUMBER_OF_PAGES * 0.4)} extendedState={extraData} style={style.current.container} initialPageIndex={NUMBER_OF_PAGES} pageHeight={calendarHeight} pageWidth={containerWidth} onPageChange={onPageChange} scrollViewProps={{
+             showsHorizontalScrollIndicator: false
+         }}/>
+       </View>
+diff --git a/node_modules/react-native-calendars/src/expandableCalendar/index.js b/node_modules/react-native-calendars/src/expandableCalendar/index.js
+index bea00e0..fe66755 100644
+--- a/node_modules/react-native-calendars/src/expandableCalendar/index.js
++++ b/node_modules/react-native-calendars/src/expandableCalendar/index.js
+@@ -353,8 +353,10 @@ const ExpandableCalendar = forwardRef((props, ref) => {
+                 if (year) {
+                     visibleYear.current = year;
+                 }
+-                // for horizontal scroll
+-                if (visibleMonth.current !== getMonth(date)) {
++                // Horizontal month sync — only while expanded. When collapsed, CalendarList is not
++                // user-scrolled but still reports visible months; calling scrollPage here overwrites
++                // context date (e.g. agenda-selected day) and leaves the week strip on the wrong row.
++                if (horizontal && isOpen && visibleMonth.current !== getMonth(date)) {
+                     const next = isLaterDate(newDate, date);
+                     scrollPage(next);
+                 }
+@@ -372,7 +374,7 @@ const ExpandableCalendar = forwardRef((props, ref) => {
+                 }, 0);
+             }
+         }
+-    }, 100, { trailing: true, leading: false }), [date, scrollPage]);
++    }, 100, { trailing: true, leading: false }), [date, scrollPage, isOpen, horizontal]);
+     /** Renders */
+     const _renderArrow = useCallback((direction) => {
+         if (isFunction(renderArrow)) {
+@@ -402,7 +404,7 @@ const ExpandableCalendar = forwardRef((props, ref) => {
+     const renderWeekCalendar = () => {
+         const WeekComponent = disableWeekScroll ? Week : WeekCalendar;
+         return (<Animated.View ref={weekCalendarWrapper} style={weekCalendarStyle} pointerEvents={isOpen ? 'none' : 'auto'}>
+-        <WeekComponent testID={`${testID}.weekCalendar`} firstDay={firstDay} {...others} allowShadow={disableWeekScroll ? undefined : false} current={disableWeekScroll ? date : undefined} theme={themeObject} style={calendarStyle} hideDayNames={true} onDayPress={_onDayPress} accessibilityElementsHidden // iOS
++        <WeekComponent testID={`${testID}.weekCalendar`} firstDay={firstDay} {...others} {...(disableWeekScroll ? { context: _context } : {})} allowShadow={disableWeekScroll ? undefined : false} current={date} theme={themeObject} style={calendarStyle} hideDayNames={true} onDayPress={_onDayPress} accessibilityElementsHidden // iOS
+          importantForAccessibility={'no-hide-descendants'} // Android
+         />
+       </Animated.View>);
+diff --git a/node_modules/react-native-calendars/src/infinite-list/index.js b/node_modules/react-native-calendars/src/infinite-list/index.js
+index 93dcd52..380f048 100644
+--- a/node_modules/react-native-calendars/src/infinite-list/index.js
++++ b/node_modules/react-native-calendars/src/infinite-list/index.js
+@@ -4,7 +4,6 @@ import noop from 'lodash/noop';
+ import React, { forwardRef, useCallback, useEffect, useMemo, useRef } from 'react';
+ import { DataProvider, LayoutProvider, RecyclerListView } from 'recyclerlistview';
+ import constants from '../commons/constants';
+-import { useCombinedRefs } from '../hooks';
+ const dataProviderMaker = (items) => new DataProvider((item1, item2) => item1 !== item2).cloneWithRows(items);
+ const InfiniteList = (props, ref) => {
+     const { isHorizontal, renderItem, data, reloadPages = noop, pageWidth = constants.screenWidth, pageHeight = constants.screenHeight, onPageChange, onReachEdge, onReachNearEdge, onReachNearEdgeThreshold, initialPageIndex = 0, initialOffset, extendedState, scrollViewProps, positionIndex = 0, disableScrollOnDataChange, onEndReachedThreshold, onVisibleIndicesChanged, layoutProvider, onScroll, onEndReached, renderFooter } = props;
+@@ -18,7 +17,17 @@ const InfiniteList = (props, ref) => {
+     const shouldFixRTL = useMemo(() => {
+         return isHorizontal && constants.isRTL && (constants.isRN73() || constants.isAndroid);
+     }, [isHorizontal]);
+-    const listRef = useCombinedRefs(ref);
++    const listRef = useRef();
++    const assignListRef = useCallback((node) => {
++        listRef.current = node;
++        if (typeof ref === 'function') {
++            ref(node);
++        }
++        else if (ref) {
++            // @ts-expect-error
++            ref.current = node;
++        }
++    }, [ref]);
+     const pageIndex = useRef();
+     const isOnEdge = useRef(false);
+     const isNearEdge = useRef(false);
+@@ -95,6 +104,6 @@ const InfiniteList = (props, ref) => {
+     }, [pageHeight]);
+     return (<RecyclerListView 
+     // @ts-expect-error
+-    ref={listRef} isHorizontal={isHorizontal} rowRenderer={renderItem} dataProvider={dataProvider} layoutProvider={layoutProvider ?? _layoutProvider.current} extendedState={extendedState} initialRenderIndex={initialOffset ? undefined : initialPageIndex} initialOffset={initialOffset} renderAheadOffset={5 * pageWidth} onScroll={_onScroll} style={style} scrollViewProps={scrollViewPropsMemo} onEndReached={onEndReached} onEndReachedThreshold={onEndReachedThreshold} onVisibleIndicesChanged={onVisibleIndicesChanged} renderFooter={renderFooter}/>);
++    ref={assignListRef} isHorizontal={isHorizontal} rowRenderer={renderItem} dataProvider={dataProvider} layoutProvider={layoutProvider ?? _layoutProvider.current} extendedState={extendedState} initialRenderIndex={initialOffset ? undefined : initialPageIndex} initialOffset={initialOffset} renderAheadOffset={5 * pageWidth} onScroll={_onScroll} style={style} scrollViewProps={scrollViewPropsMemo} onEndReached={onEndReached} onEndReachedThreshold={onEndReachedThreshold} onVisibleIndicesChanged={onVisibleIndicesChanged} renderFooter={renderFooter}/>);
+ };
+ export default forwardRef(InfiniteList);
