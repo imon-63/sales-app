@@ -6,7 +6,7 @@ import { palette } from '../theme/designSystem';
 const BRAND = require('../assets/hs-brand-logo.png');
 
 /** Shown along an arc inside the circular mark (not as a separate block above). */
-const ARC_NAME = 'Homaira Siddika Enterprise';
+const ARC_NAME = 'Homaira Enterprise';
 
 /**
  * Trig angles: 0° = right, 90° = down — arc hugs the bottom-right rim.
@@ -47,7 +47,9 @@ type Props = {
 type ArcChar = { char: string; angle: number };
 
 /** Angular gap between words along the arc (relative to one letter = 1). */
-const ARC_SPACE_UNITS = 0.58;
+const ARC_SPACE_UNITS = 0.86;
+/** Increase per-letter units to reduce angular gaps between letters on the arc. */
+const ARC_LETTER_UNITS = 1.16;
 
 function buildArcPlacements(
   text: string,
@@ -55,7 +57,10 @@ function buildArcPlacements(
   endDeg: number,
 ): ArcChar[] {
   const chars = text.split('');
-  const totalUnits = chars.reduce((acc, c) => acc + (c === ' ' ? ARC_SPACE_UNITS : 1), 0);
+  const totalUnits = chars.reduce(
+    (acc, c) => acc + (c === ' ' ? ARC_SPACE_UNITS : ARC_LETTER_UNITS),
+    0,
+  );
   const start = (startDeg * Math.PI) / 180;
   const span = ((endDeg - startDeg) * Math.PI) / 180;
   const placements: ArcChar[] = [];
@@ -67,7 +72,7 @@ function buildArcPlacements(
     }
     const angle = start + (u / totalUnits) * span;
     placements.push({ char, angle });
-    u += 1;
+    u += ARC_LETTER_UNITS;
   }
   return placements;
 }
@@ -113,7 +118,7 @@ function CircularArcText({
         const x = cx + radius * Math.cos(angle);
         const y = cy + radius * Math.sin(angle);
         const rotateDeg = (angle * 180) / Math.PI + (arcRunsBackward ? -90 : 90);
-        const w = Math.max(fontSize * 0.62, 8);
+        const w = Math.max(fontSize * 0.6, 8);
         const h = Math.max(fontSize * 1.15, 10);
         return (
           <View

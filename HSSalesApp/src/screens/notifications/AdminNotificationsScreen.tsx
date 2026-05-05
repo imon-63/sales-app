@@ -1,5 +1,5 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -44,14 +44,25 @@ export function AdminNotificationsScreen() {
   const t = useT();
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const dispatch = useAppDispatch();
-  const { items, status, error } = useAppSelector((s) => s.notifications);
+  const { items, status, error, lastFetchedAt } = useAppSelector((s) => s.notifications);
   const { users } = useAppSelector((s) => s.salesData);
   const tabBottomPad = useTabScreenBottomPadding();
+  const listRef = useRef<FlatList<AdminNotification>>(null);
+  const STALE_MS = 30_000;
 
   useFocusEffect(
     useCallback(() => {
-      dispatch(fetchNotifications());
-    }, [dispatch]),
+      // Always open this tab at top.
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      });
+
+      // Avoid repeated API calls on quick focus changes.
+      const stale = !lastFetchedAt || Date.now() - lastFetchedAt > STALE_MS;
+      if (status !== 'loading' && (status === 'idle' || stale)) {
+        dispatch(fetchNotifications());
+      }
+    }, [dispatch, lastFetchedAt, status]),
   );
 
   const onOpen = useCallback(
@@ -105,7 +116,7 @@ export function AdminNotificationsScreen() {
       <SafeAreaView
         style={styles.safe}
         edges={['top']}>
-        <ScreenHeader title={t('notifications.title')} tag={t('notifications.tag')} />
+        <ScreenHeader title={t('notifications.title')} />
 
         {status === 'loading' && items.length === 0 ? (
           <View style={styles.center}>
@@ -118,6 +129,7 @@ export function AdminNotificationsScreen() {
           </View>
         ) : (
           <FlatList
+            ref={listRef}
             data={items}
             keyExtractor={(it) => it.id}
             renderItem={renderItem}

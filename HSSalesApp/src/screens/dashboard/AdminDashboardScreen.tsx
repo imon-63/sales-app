@@ -53,15 +53,6 @@ export function AdminDashboardScreen() {
     [locale],
   );
 
-  const roleLabel =
-    user?.role === 'admin'
-      ? t('account.role_admin')
-      : user?.role === 'sales'
-        ? t('account.role_sales')
-        : user?.role
-          ? String(user.role)
-          : t('account.role_admin');
-
   const [selectedDate, setSelectedDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -146,19 +137,24 @@ export function AdminDashboardScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <View style={styles.profileCard}>
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminBadgeText}>Admin</Text>
+            </View>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{(user?.name || 'A').charAt(0)}</Text>
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>
-                {user?.name || t('dashboard.admin.fallbackName')}
-              </Text>
-              <Text style={styles.userEmail}>
-                {user?.email || t('dashboard.admin.fallbackEmail')}
-              </Text>
-              <View style={[styles.roleBadge, user?.role === 'admin' ? styles.adminBadge : styles.salesBadge]}>
-                <Text style={styles.roleText}>{roleLabel}</Text>
+              <View style={styles.userNameRow}>
+                <Text style={styles.userName}>
+                  {user?.name || t('dashboard.admin.fallbackName')}
+                </Text>
+                <View style={styles.dateTreeBadge}>
+                  <Text style={styles.dateTreeIcon} accessibilityElementsHidden>
+                    🌴
+                  </Text>
+                </View>
               </View>
+              <Text style={styles.welcomeBack}>Welcome Back!</Text>
             </View>
           </View>
 
@@ -222,14 +218,24 @@ export function AdminDashboardScreen() {
                   enableSwipeMonths
                   theme={adminCalendarTheme}
                 />
-                <Pressable
-                  onPress={() => setCalendarOpen(false)}
-                  style={({ pressed }) => [
-                    styles.modalDone,
-                    pressed && styles.modalDonePressed,
-                  ]}>
-                  <Text style={styles.modalDoneText}>{t('common.done')}</Text>
-                </Pressable>
+                <View style={styles.modalActions}>
+                  <Pressable
+                    onPress={() => setCalendarOpen(false)}
+                    style={({ pressed }) => [
+                      styles.modalCancel,
+                      pressed && styles.modalCancelPressed,
+                    ]}>
+                    <Text style={styles.modalCancelText}>{t('common.close')}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setCalendarOpen(false)}
+                    style={({ pressed }) => [
+                      styles.modalDone,
+                      pressed && styles.modalDonePressed,
+                    ]}>
+                    <Text style={styles.modalDoneText}>{t('common.done')}</Text>
+                  </Pressable>
+                </View>
               </GlassCard>
             </View>
           </View>
@@ -354,6 +360,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 16,
     padding: 16,
+    position: 'relative',
     borderRadius: radii.xl,
     backgroundColor: 'rgba(0, 230, 118, 0.06)',
     borderWidth: 1,
@@ -361,6 +368,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  adminBadge: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderTopRightRadius: radii.xl,
+    borderBottomLeftRadius: radii.sm,
+    backgroundColor: palette.emeraldDeep,
+  },
+  adminBadgeText: {
+    color: palette.onAccent,
+    fontSize: 9,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   avatar: {
     width: 48,
@@ -376,31 +400,41 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   userInfo: { flex: 1, gap: 2 },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   userName: {
     color: palette.text,
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    fontFamily: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+      default: undefined,
+    }),
   },
-  userEmail: {
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
+  dateTreeBadge: {
+    marginTop: -1,
+    marginLeft: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  roleBadge: {
+  dateTreeIcon: {
+    fontSize: 24,
+    lineHeight: 24,
+    color: '#1E8E3E',
+  },
+  welcomeBack: {
     marginTop: 4,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
-  },
-  adminBadge: { backgroundColor: palette.emeraldDeep },
-  salesBadge: { backgroundColor: palette.cyan },
-  roleText: {
-    color: 'white',
-    fontSize: 9,
+    color: '#FFD60A',
+    fontSize: 14,
     fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    textShadowColor: 'rgba(255, 214, 10, 0.98)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   greetingText: { flex: 1, paddingRight: 20 },
   hello: { 
@@ -447,12 +481,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 32,
   },
-  modalCard: { overflow: 'hidden', paddingBottom: 12 },
-  modalDone: {
+  modalCard: {
+    overflow: 'hidden',
+    paddingBottom: 12,
+    alignSelf: 'center',
+    width: '92%',
+    maxWidth: 360,
+  },
+  modalActions: {
     marginTop: 4,
     marginHorizontal: 12,
     marginBottom: 4,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  modalCancel: {
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.stroke,
+    backgroundColor: palette.inputInset,
+    alignItems: 'center',
+  },
+  modalCancelPressed: { opacity: 0.85 },
+  modalCancelText: { color: palette.textMuted, fontWeight: '900', fontSize: 14 },
+  modalDone: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
     borderRadius: radii.md,
     backgroundColor: palette.emerald,
     alignItems: 'center',

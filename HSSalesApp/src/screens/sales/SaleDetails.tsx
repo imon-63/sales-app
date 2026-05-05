@@ -337,7 +337,6 @@ export function SaleDetails() {
                 </View>
               </Pressable>
 
-              <Text style={styles.printDrawerFooter}>{t('saleDetails.printOpensDialog')}</Text>
             </Animated.View>
           </View>
         </Modal>
@@ -686,13 +685,4 @@ const styles = StyleSheet.create({
   printDrawerRowText: { gap: 4 },
   printDrawerRowTitle: { color: palette.text, fontSize: 16, fontWeight: '900' },
   printDrawerRowHint: { color: palette.textMuted, fontSize: 13, fontWeight: '600', lineHeight: 18 },
-  printDrawerFooter: {
-    marginTop: 6,
-    paddingHorizontal: 14,
-    paddingTop: 4,
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
 });

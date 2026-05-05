@@ -1,5 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,13 +21,11 @@ import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { useT } from '../../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { palette, radii } from '../../theme/designSystem';
-import type { MainStackParamList } from '../../navigation/mainStackTypes';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
 import { showToast } from '../../store/slices/uiSlice';
 
 export function OperationsScreen() {
   const t = useT();
-  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const dispatch = useAppDispatch();
   const tabBottomPad = useTabScreenBottomPadding();
   const token = useAppSelector((s) => s.auth.token);
@@ -133,7 +129,7 @@ export function OperationsScreen() {
       <SafeAreaView
         style={styles.safe}
         edges={['top']}>
-        <ScreenHeader title={t('operations.title')} tag={t('operations.tag')} />
+        <ScreenHeader title={t('operations.title')} />
 
         <KeyboardAvoidingView
           style={styles.flex}
@@ -255,33 +251,6 @@ export function OperationsScreen() {
               </GlassCard>
             )}
 
-            <View style={styles.grid}>
-              <Pressable 
-                onPress={() => navigation.navigate('StockRoom')}
-                style={styles.tile}>
-                <Text style={styles.tileTitle}>{t('operations.tileInventory')}</Text>
-                <Text style={styles.tileBody}>{t('operations.tileInventoryBody')}</Text>
-              </Pressable>
-              
-              <Pressable 
-                onPress={() => navigation.navigate('ReceiveStock')}
-                style={[styles.tile, styles.tileAlt]}>
-                <Text style={styles.tileTitle}>{t('operations.tileReceive')}</Text>
-                <Text style={styles.tileBody}>{t('operations.tileReceiveBody')}</Text>
-              </Pressable>
-              
-              <Pressable 
-                onPress={() => navigation.navigate('TransferStock')}
-                style={[styles.tile, styles.tileAlt2]}>
-                <Text style={styles.tileTitle}>{t('operations.tileTransfer')}</Text>
-                <Text style={styles.tileBody}>{t('operations.tileTransferBody')}</Text>
-              </Pressable>
-              
-              <View style={styles.tile}>
-                <Text style={styles.tileTitle}>{t('operations.tilePulse')}</Text>
-                <Text style={styles.tileBody}>{t('operations.tilePulseBody')}</Text>
-              </View>
-            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -360,27 +329,4 @@ const styles = StyleSheet.create({
   primaryDisabled: { opacity: 0.5 },
   primaryPressed: { backgroundColor: palette.emeraldDeep },
   primaryText: { color: palette.onAccent, fontWeight: '900', fontSize: 15 },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  tile: {
-    width: '48%',
-    borderRadius: radii.md,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: palette.chipSelectedBorder,
-    backgroundColor: palette.chipSelectedFill,
-  },
-  tileAlt: {
-    borderColor: 'rgba(154, 172, 143, 0.45)',
-    backgroundColor: 'rgba(221, 232, 224, 0.55)',
-  },
-  tileAlt2: {
-    borderColor: 'rgba(200, 180, 90, 0.4)',
-    backgroundColor: 'rgba(255, 249, 196, 0.65)',
-  },
-  tileTitle: { color: palette.text, fontWeight: '900' },
-  tileBody: { marginTop: 8, color: palette.textMuted, fontWeight: '600', lineHeight: 18 },
 });

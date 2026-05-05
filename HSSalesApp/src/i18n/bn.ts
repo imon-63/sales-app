@@ -116,9 +116,9 @@ export const bn = {
   'operations.errPasswordShort': 'কমপক্ষে ৬ অক্ষর',
   'operations.errConfirmMismatch': 'পাসওয়ার্ড মিলছে না',
 
-  'notifications.title': 'অ্যালার্ট',
+  'notifications.title': 'নোটিফিকেশন',
   'notifications.tag': 'অ্যাডমিন',
-  'notifications.noAlerts': 'কোনো অ্যালার্ট নেই',
+  'notifications.noAlerts': 'কোনো নোটিফিকেশন নেই',
 
   'calendar.title': 'পালস',
   'calendar.tagAll': 'সব বিক্রয়',

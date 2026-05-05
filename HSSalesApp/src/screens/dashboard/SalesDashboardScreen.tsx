@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { KpiTile } from '../../components/ui/KpiTile';
 import { MeshBackground } from '../../components/ui/MeshBackground';
-import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { useT } from '../../i18n/useT';
 import { useAppSelector } from '../../store/hooks';
 import { palette, radii } from '../../theme/designSystem';
@@ -71,8 +70,6 @@ export function SalesDashboardScreen() {
       <SafeAreaView
         style={styles.safe}
         edges={['top']}>
-        <ScreenHeader title={t('dashboard.sales.title')} tag={t('dashboard.sales.tag')} />
-
         {status === 'loading' ? (
           <View style={styles.loading}>
             <ActivityIndicator color={palette.emerald} />
@@ -87,6 +84,19 @@ export function SalesDashboardScreen() {
           <ScrollView
             contentContainerStyle={[styles.scroll, { paddingBottom: tabBottomPad }]}
             showsVerticalScrollIndicator={false}>
+            <View style={styles.profileCard}>
+              <View style={styles.salesBadge}>
+                <Text style={styles.salesBadgeText}>Sales</Text>
+              </View>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{(user?.name || 'S').charAt(0)}</Text>
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{user?.name || 'Sales User'}</Text>
+                <Text style={styles.welcomeBack}>Welcome Back!</Text>
+              </View>
+            </View>
+
             <GlassCard style={styles.hero} accentColor={palette.emerald}>
               <Text style={styles.heroEyebrow}>{t('dashboard.sales.revenue')}</Text>
               <Text style={styles.heroBig}>{money.format(revenue)}</Text>
@@ -135,7 +145,66 @@ export function SalesDashboardScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingBottom: 28, gap: 14 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28, gap: 14 },
+  profileCard: {
+    marginLeft: 4,
+    marginRight: 52,
+    padding: 16,
+    position: 'relative',
+    borderRadius: radii.xl,
+    backgroundColor: 'rgba(0, 230, 118, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 230, 118, 0.12)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: palette.emerald,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: palette.onAccent,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  userInfo: { flex: 1, gap: 2 },
+  userName: {
+    color: palette.text,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  welcomeBack: {
+    marginTop: 2,
+    color: '#FFD60A',
+    fontSize: 14,
+    fontWeight: '900',
+    textShadowColor: 'rgba(255, 214, 10, 0.98)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  salesBadge: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderTopRightRadius: radii.xl,
+    borderBottomLeftRadius: radii.sm,
+    backgroundColor: palette.emeraldDeep,
+  },
+  salesBadgeText: {
+    color: palette.onAccent,
+    fontSize: 9,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   loading: {
     paddingHorizontal: 20,
     paddingTop: 30,

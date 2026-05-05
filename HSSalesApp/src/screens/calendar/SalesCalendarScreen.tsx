@@ -1,4 +1,4 @@
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -223,10 +223,7 @@ export function SalesCalendarScreen() {
       <SafeAreaView
         style={styles.safe}
         edges={['top']}>
-        <ScreenHeader
-          title={t('calendar.title')}
-          tag={user?.role === 'admin' ? t('calendar.tagAll') : t('calendar.tagMy')}
-        />
+        <ScreenHeader title={t('calendar.tagAll')} />
 
         {status === 'loading' && sales.length === 0 ? (
           <View style={styles.center}>
@@ -243,55 +240,58 @@ export function SalesCalendarScreen() {
             <Text style={styles.centerText}>{t('common.apiHint')}</Text>
           </View>
         ) : (
-          <CalendarProvider
-            date={selectedDate}
-            onDateChanged={onCalendarDateChanged}
-            disabledOpacity={0.35}>
-            <ExpandableCalendar
-              horizontal
-              markedDates={markedDates}
-              markingType="multi-dot"
-              theme={calendarTheme}
-              firstDay={1}
-              allowShadow={false}
-              hideArrows={false}
-              hideExtraDays={false}
-              pastScrollRange={50}
-              futureScrollRange={50}
-              openThreshold={25}
-              closeThreshold={-40}
-              calendarStyle={{ backgroundColor: palette.paper }}
-            />
-            <AgendaList
-              sections={sections}
-              renderItem={renderItem}
-              renderSectionHeader={
-                renderSectionHeader as unknown as React.ComponentProps<
-                  typeof AgendaList
-                >['renderSectionHeader']
-              }
-              stickySectionHeadersEnabled={false}
-              scrollToNextEvent={false}
-              avoidDateUpdates={false}
-              viewOffset={8}
-              keyExtractor={(item) => item.id}
-              theme={calendarTheme}
-              style={styles.listWrap}
-              contentContainerStyle={[
-                styles.listContent,
-                { paddingBottom: tabBottomPad + 28 },
-              ]}
-              ListEmptyComponent={
-                <View style={styles.empty}>
-                  <Text style={styles.emptyTitle}>No sales yet</Text>
-                  <Text style={styles.emptyBody}>
-                    Add rows to `sales` / `salesItems` in `backend-json-server/db.json`
-                    and reload.
-                  </Text>
-                </View>
-              }
-            />
-          </CalendarProvider>
+          <View style={styles.calendarShell}>
+            <CalendarProvider
+              date={selectedDate}
+              onDateChanged={onCalendarDateChanged}
+              disabledOpacity={0.35}>
+              <ExpandableCalendar
+                horizontal
+                markedDates={markedDates}
+                markingType="multi-dot"
+                theme={calendarTheme}
+                firstDay={1}
+                allowShadow={false}
+                hideArrows={false}
+                hideExtraDays={false}
+                pastScrollRange={50}
+                futureScrollRange={50}
+                openThreshold={25}
+                closeThreshold={-40}
+                calendarStyle={{ backgroundColor: palette.paper }}
+                initialPosition={ExpandableCalendar.positions.OPEN}
+              />
+              <AgendaList
+                sections={sections}
+                renderItem={renderItem}
+                renderSectionHeader={
+                  renderSectionHeader as unknown as React.ComponentProps<
+                    typeof AgendaList
+                  >['renderSectionHeader']
+                }
+                stickySectionHeadersEnabled={false}
+                scrollToNextEvent={false}
+                avoidDateUpdates={false}
+                viewOffset={8}
+                keyExtractor={(item) => item.id}
+                theme={calendarTheme}
+                style={styles.listWrap}
+                contentContainerStyle={[
+                  styles.listContent,
+                  { paddingBottom: tabBottomPad + 28 },
+                ]}
+                ListEmptyComponent={
+                  <View style={styles.empty}>
+                    <Text style={styles.emptyTitle}>No sales yet</Text>
+                    <Text style={styles.emptyBody}>
+                      Add rows to `sales` / `salesItems` in `backend-json-server/db.json`
+                      and reload.
+                    </Text>
+                  </View>
+                }
+              />
+            </CalendarProvider>
+          </View>
         )}
       </SafeAreaView>
     </MeshBackground>
@@ -306,6 +306,10 @@ const money = new Intl.NumberFormat('en-BD', {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  calendarShell: {
+    flex: 1,
+    minHeight: 0,
+  },
   listWrap: { flex: 1 },
   listContent: {
     paddingBottom: 120,

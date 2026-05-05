@@ -72,6 +72,7 @@ export function LogSaleScreen() {
     defaultCurrency ? [newLine('', defaultCurrency)] : [],
   );
   const [busy, setBusy] = useState(false);
+  const [collapsedLineIds, setCollapsedLineIds] = useState<Record<string, boolean>>({});
   const [unitModal, setUnitModal] = useState(false);
   const [unitDraft, setUnitDraft] = useState('');
   const [catalogBusy, setCatalogBusy] = useState(false);
@@ -183,6 +184,10 @@ export function LogSaleScreen() {
     await submitSaleRequest();
   }
 
+  function toggleLineCollapsed(lineId: string) {
+    setCollapsedLineIds((prev) => ({ ...prev, [lineId]: !prev[lineId] }));
+  }
+
   async function submitSaleRequest() {
     if (!token || !canSubmit) return;
     try {
@@ -244,7 +249,7 @@ export function LogSaleScreen() {
       <SafeAreaView
         style={styles.safe}
         edges={['top']}>
-        <ScreenHeader title={t('logSale.title')} tag={t('logSale.tag')} />
+        <ScreenHeader title={t('logSale.title')} />
 
         <KeyboardAvoidingView
           style={styles.flex}
@@ -299,16 +304,17 @@ export function LogSaleScreen() {
             {lines.map((ln, idx) => {
               const prod = products.find((p) => p.id === ln.productId);
               const unitLbl = prod ? unitLabelForProduct(prod, units) : '';
+              const isCollapsed = Boolean(collapsedLineIds[ln.id]);
               
               // Resolve all valid units (base + conversions)
-              const allUnitLabels = useMemo(() => {
+              const allUnitLabels = (() => {
                 if (!prod) return '';
                 const ids = [prod.unitId, ...Object.keys(prod.conversions || {})];
                 return ids
                   .map((id) => units.find((u) => u.id === id)?.label)
                   .filter(Boolean)
                   .join(', ');
-              }, [prod, units]);
+              })();
 
               // Aggregated availability: subtract usage from other lines for the same product
               const availInWarehouse =
@@ -316,17 +322,20 @@ export function LogSaleScreen() {
                   ? (stockMap.get(`${warehouseId}__${ln.productId}`) ?? 0)
                   : 0;
               
-              const consumedByOtherLinesBase = useMemo(() => {
+              const consumedByOtherLinesBase = (() => {
                 if (!ln.productId) return 0;
                 return lines.reduce((acc, other, oIdx) => {
                   if (oIdx === idx || other.productId !== ln.productId) return acc;
                   const q = Number(other.quantity) || 0;
-                  const otherProd = products.find(p => p.id === other.productId);
-                  const otherUnit = units.find(u => u.id === other.unitId);
-                  const factor = otherUnit?.globalFactor ?? otherProd?.conversions?.[otherUnit?.id || ''] ?? 1;
-                  return acc + (q * factor);
+                  const otherProd = products.find((p) => p.id === other.productId);
+                  const otherUnit = units.find((u) => u.id === other.unitId);
+                  const factor =
+                    otherUnit?.globalFactor ??
+                    otherProd?.conversions?.[otherUnit?.id || ''] ??
+                    1;
+                  return acc + q * factor;
                 }, 0);
-              }, [lines, idx, ln.productId, products, units]);
+              })();
 
               const avail = Math.max(0, availInWarehouse - consumedByOtherLinesBase);
               const qtyN = Number(ln.quantity);
@@ -338,7 +347,12 @@ export function LogSaleScreen() {
                   style={styles.lineCard}
                   accentColor={role === 'admin' ? palette.emeraldDeep : palette.emerald}>
                   <View style={styles.lineHead}>
-                    <Text style={styles.cardTitle}>Line {idx + 1}</Text>
+                    <Pressable
+                      onPress={() => toggleLineCollapsed(ln.id)}
+                      style={({ pressed }) => [styles.lineHeadMain, pressed && { opacity: 0.85 }]}>
+                      <Text style={styles.cardTitle}>Line {idx + 1}</Text>
+                      <Text style={styles.foldChevron}>{isCollapsed ? '▸' : '▾'}</Text>
+                    </Pressable>
                     {lines.length > 1 ? (
                       <Pressable
                         hitSlop={8}
@@ -349,112 +363,111 @@ export function LogSaleScreen() {
                       </Pressable>
                     ) : null}
                   </View>
+                  {!isCollapsed ? (
+                    <>
+                      <SelectMenu
+                        label="Product"
+                        value={ln.productId}
+                        options={productOptions}
+                        onChange={(pid) => {
+                          const p = products.find(prod => prod.id === pid);
+                          setLines((prev) =>
+                            prev.map((x) =>
+                              x.id === ln.id ? { ...x, productId: pid, unitId: p?.unitId || '' } : x,
+                            ),
+                          )
+                        }}
+                        placeholder="Select product"
+                      />
 
-                  <SelectMenu
-                    label="Product"
-                    value={ln.productId}
-                    options={productOptions}
-                    onChange={(pid) => {
-                      const p = products.find(prod => prod.id === pid);
-                      setLines((prev) =>
-                        prev.map((x) =>
-                          x.id === ln.id ? { ...x, productId: pid, unitId: p?.unitId || '' } : x,
-                        ),
-                      )
-                    }}
-                    placeholder="Select product"
-                  />
-
-                  {prod ? (
-                    <View>
-                      <Text style={styles.unitPill}>Unit: {unitLbl}</Text>
-                      {allUnitLabels ? (
-                        <Text style={styles.allUnits}>Available in: {allUnitLabels}</Text>
+                      {prod ? (
+                        <View>
+                          <Text style={styles.unitPill}>Unit: {unitLbl}</Text>
+                          {allUnitLabels ? (
+                            <Text style={styles.allUnits}>Available in: {allUnitLabels}</Text>
+                          ) : null}
+                        </View>
                       ) : null}
-                    </View>
-                  ) : null}
 
-                  {warehouseId && ln.productId ? (
-                    <View style={styles.lotList}>
-                      <Text style={styles.lotListTitle}>Available Lots:</Text>
-                      {lotBatches
-                        .filter(b => b.warehouseId === warehouseId && b.remainingQuantity > 0)
-                        .filter(b => {
-                          const lot = lots.find(l => l.id === b.lotId);
-                          return lot && lot.productId === ln.productId;
-                        })
-                        .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)))
-                        .map((b) => {
-                          const lot = lots.find(l => l.id === b.lotId);
-                          return (
-                            <Text key={b.id} style={styles.lotItem}>
-                              • {lot?.lotNumber ?? 'Unknown'}: {b.remainingQuantity.toLocaleString()} {unitLbl} left
-                            </Text>
-                          );
-                        })}
-                    </View>
-                  ) : null}
+                      {warehouseId && ln.productId ? (
+                        <View style={styles.lotList}>
+                          <Text style={styles.lotListTitle}>Available Lots:</Text>
+                          {lotBatches
+                            .filter(b => b.warehouseId === warehouseId && b.remainingQuantity > 0)
+                            .filter(b => {
+                              const lot = lots.find(l => l.id === b.lotId);
+                              return lot && lot.productId === ln.productId;
+                            })
+                            .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)))
+                            .map((b) => {
+                              const lot = lots.find(l => l.id === b.lotId);
+                              return (
+                                <Text key={b.id} style={styles.lotItem}>
+                                  • {lot?.lotNumber ?? 'Unknown'}: {b.remainingQuantity.toLocaleString()} {unitLbl} left
+                                </Text>
+                              );
+                            })}
+                        </View>
+                      ) : null}
 
+                      <View style={styles.qtyUnitRow}>
+                        <View style={styles.qtyCol}>
+                          <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
+                          <TextInput
+                            value={ln.quantity}
+                            onChangeText={(t) =>
+                              setLines((prev) =>
+                                prev.map((x) =>
+                                  x.id === ln.id ? { ...x, quantity: t } : x,
+                                ),
+                              )
+                            }
+                            keyboardType="decimal-pad"
+                            placeholder="0"
+                            placeholderTextColor={palette.textMuted}
+                            style={styles.input}
+                          />
+                        </View>
+                        <View style={styles.unitCol}>
+                          <SelectMenu
+                            label="Unit"
+                            value={ln.unitId}
+                            options={units
+                              .filter(u => {
+                                if (!prod) return u.globalFactor !== undefined || u.label === 'BOSTA';
+                                return u.globalFactor !== undefined || (prod.conversions && prod.conversions[u.id] !== undefined) || u.id === prod.unitId;
+                              })
+                              .map(u => ({ value: u.id, label: u.label }))
+                            }
+                            onChange={(uid) =>
+                              setLines((prev) =>
+                                prev.map((x) => (x.id === ln.id ? { ...x, unitId: uid } : x)),
+                              )
+                            }
+                            placeholder="Unit"
+                          />
+                        </View>
+                      </View>
 
-
-                  <View style={styles.qtyUnitRow}>
-                    <View style={styles.qtyCol}>
-                      <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
+                      <Text style={[styles.label, styles.labelSpaced]}>
+                        Unit price (BDT)
+                      </Text>
                       <TextInput
-                        value={ln.quantity}
+                        value={ln.unitPrice}
                         onChangeText={(t) =>
                           setLines((prev) =>
                             prev.map((x) =>
-                              x.id === ln.id ? { ...x, quantity: t } : x,
+                              x.id === ln.id ? { ...x, unitPrice: t } : x,
                             ),
                           )
                         }
                         keyboardType="decimal-pad"
-                        placeholder="0"
+                        placeholder="0.00"
                         placeholderTextColor={palette.textMuted}
                         style={styles.input}
                       />
-                    </View>
-                    <View style={styles.unitCol}>
-                      <SelectMenu
-                        label="Unit"
-                        value={ln.unitId}
-                        options={units
-                          .filter(u => {
-                            if (!prod) return u.globalFactor !== undefined || u.label === 'BOSTA';
-                            return u.globalFactor !== undefined || (prod.conversions && prod.conversions[u.id] !== undefined) || u.id === prod.unitId;
-                          })
-                          .map(u => ({ value: u.id, label: u.label }))
-                        }
-                        onChange={(uid) =>
-                          setLines((prev) =>
-                            prev.map((x) => (x.id === ln.id ? { ...x, unitId: uid } : x)),
-                          )
-                        }
-                        placeholder="Unit"
-                      />
-                    </View>
-                  </View>
-
-                  {/* Availability/Remaining stock text removed per user request. "Available Lots" and "Available in" labels are kept. */}
-
-                  <Text style={[styles.label, styles.labelSpaced]}>
-                    Unit price (BDT)
-                  </Text>
-                  <TextInput
-                    value={ln.unitPrice}
-                    onChangeText={(t) =>
-                      setLines((prev) =>
-                        prev.map((x) =>
-                          x.id === ln.id ? { ...x, unitPrice: t } : x,
-                        ),
-                      )
-                    }
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor={palette.textMuted}
-                    style={styles.input}
-                  />
+                    </>
+                  ) : null}
                 </GlassCard>
               );
             })}
@@ -622,6 +635,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  lineHeadMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  foldChevron: {
+    color: palette.textMuted,
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: -1,
   },
   remove: { color: palette.rose, fontWeight: '800', fontSize: 13 },
   secondary: {

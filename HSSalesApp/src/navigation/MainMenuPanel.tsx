@@ -52,8 +52,18 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
   const role = user?.role;
 
   function go(screen: MenuScreenKey) {
-    navigation.navigate(screen);
     onClose();
+    requestAnimationFrame(() => {
+      if (screen === 'Work') {
+        // Force-reset so Home always lands on the root tab, even when already inside Work.
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Work' }],
+        });
+        return;
+      }
+      navigation.navigate(screen);
+    });
   }
 
   function onSignOut() {
@@ -62,6 +72,19 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
   }
 
   const filteredItems = items.filter((it) => !it.adminOnly || role === 'admin');
+  const currentScreen = (() => {
+    const state = navigation.getState();
+    const active = state.routes[state.index]?.name as MenuScreenKey | string | undefined;
+    if (
+      active === 'Work' ||
+      active === 'StockRoom' ||
+      active === 'ReceiveStock' ||
+      active === 'TransferStock'
+    ) {
+      return active;
+    }
+    return 'Work';
+  })();
 
   return (
     <ScrollView
@@ -70,12 +93,14 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
       showsVerticalScrollIndicator={false}>
       
       <View style={styles.header}>
-        <HSLogo variant="brand" size={100} style={styles.menuLogo} />
+        <HSLogo variant="brand" size={86} style={styles.menuLogo} />
         <View style={styles.brandColumn}>
           <View style={styles.brandTopRow}>
-            <Text style={styles.brandTitle} numberOfLines={1}>
-              HS Sales
-            </Text>
+            <View style={styles.brandTextWrap}>
+              <Text style={styles.brandTitle} numberOfLines={2}>
+                {'HS\nSales'}
+              </Text>
+            </View>
             <Pressable
               onPress={onSignOut}
               accessibilityRole="button"
@@ -84,30 +109,41 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
                 styles.signOutHeader,
                 pressed && styles.signOutHeaderPressed,
               ]}>
-              <Text style={styles.signOutHeaderText}>{t('menu.signOut')}</Text>
+              <View style={styles.signOutInner}>
+                <View style={styles.signOutIconChip}>
+                  <Text style={styles.signOutIcon}>⎋</Text>
+                </View>
+                <Text style={styles.signOutHeaderText}>{t('menu.signOut')}</Text>
+              </View>
             </Pressable>
           </View>
         </View>
       </View>
 
-      <View style={styles.gridContainer}>
+      <View style={styles.menuSection}>
         <Text style={styles.sectionHeader}>{t('menu.section')}</Text>
-        <View style={styles.grid}>
-          {filteredItems.map((it) => (
-            <Pressable
-              key={it.key}
-              onPress={() => go(it.screen)}
-              style={({ pressed }) => [
-                styles.tile,
-                pressed && styles.tilePressed,
-                role === 'admin' ? styles.adminTile : styles.salesTile
-              ]}>
-              <View style={styles.tileIconBg}>
-                <Text style={styles.tileIcon}>{it.icon}</Text>
-              </View>
-              <Text style={styles.tileLabel}>{t(it.labelKey)}</Text>
-            </Pressable>
-          ))}
+        <View style={styles.menuList}>
+          {filteredItems.map((it) => {
+            const isActive = it.screen === currentScreen;
+            return (
+              <Pressable
+                key={it.key}
+                onPress={() => go(it.screen)}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  isActive && styles.menuRowPrimary,
+                  pressed && styles.menuRowPressed,
+                ]}>
+                <View style={styles.menuRowLeft}>
+                  <View style={styles.menuIconChip}>
+                    <Text style={styles.menuIcon}>{it.icon}</Text>
+                  </View>
+                  <Text style={styles.menuLabel}>{t(it.labelKey)}</Text>
+                </View>
+                <Text style={styles.menuArrow}>›</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </ScrollView>
@@ -119,7 +155,7 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 28 },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 12,
     paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -127,6 +163,7 @@ const styles = StyleSheet.create({
   },
   menuLogo: { flexShrink: 0 },
   brandColumn: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  brandTextWrap: { flex: 1, minWidth: 0 },
   brandTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,20 +180,42 @@ const styles = StyleSheet.create({
   },
   signOutHeader: {
     flexShrink: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: radii.md,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.35)',
-    backgroundColor: 'rgba(255, 82, 82, 0.08)',
+    borderColor: 'rgba(255, 82, 82, 0.5)',
+    backgroundColor: 'rgba(255, 82, 82, 0.14)',
   },
-  signOutHeaderPressed: { backgroundColor: 'rgba(255, 82, 82, 0.15)' },
+  signOutHeaderPressed: { backgroundColor: 'rgba(255, 82, 82, 0.22)' },
+  signOutInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  signOutIconChip: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 82, 82, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 82, 82, 0.4)',
+  },
+  signOutIcon: {
+    color: palette.rose,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   signOutHeaderText: {
     color: palette.rose,
     fontWeight: '900',
-    fontSize: 13,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
-  gridContainer: {
+  menuSection: {
     marginTop: 28,
     paddingHorizontal: 20,
   },
@@ -169,38 +228,60 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginLeft: 4,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 14,
-  },
-  tile: {
-    width: '47.8%',
-    aspectRatio: 1,
-    borderRadius: radii.xl,
-    padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  menuList: {
+    gap: 10,
+    padding: 10,
+    borderTopRightRadius: radii.xl,
+    borderBottomRightRadius: 0,
+    borderBottomLeftRadius: radii.sm,
+    borderTopLeftRadius: 0,
     borderWidth: 1,
-    backgroundColor: palette.glass,
+    borderColor: 'rgba(0, 230, 118, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
-  adminTile: { borderColor: 'rgba(0, 230, 118, 0.2)' },
-  salesTile: { borderColor: 'rgba(105, 240, 174, 0.2)' },
-  tilePressed: { opacity: 0.7, scale: 0.98 } as any,
-  tileIconBg: {
-    width: 54,
-    height: 54,
-    borderRadius: radii.lg,
+  menuRow: {
+    borderTopRightRadius: radii.lg,
+    borderBottomRightRadius: 0,
+    borderBottomLeftRadius: radii.sm,
+    borderTopLeftRadius: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 230, 118, 0.16)',
+    backgroundColor: palette.glass,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  menuRowPrimary: {
+    borderColor: 'rgba(0, 230, 118, 0.28)',
     backgroundColor: 'rgba(0, 230, 118, 0.08)',
+  },
+  menuRowPressed: { opacity: 0.8 },
+  menuRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  menuIconChip: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    backgroundColor: 'rgba(0, 230, 118, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 230, 118, 0.2)',
   },
-  tileIcon: { fontSize: 28 },
-  tileLabel: {
+  menuIcon: { fontSize: 15 },
+  menuLabel: {
     color: palette.text,
     fontSize: 15,
     fontWeight: '900',
-    textAlign: 'center',
+  },
+  menuArrow: {
+    color: palette.textMuted,
+    fontSize: 20,
+    fontWeight: '700',
   },
 });

@@ -114,9 +114,9 @@ export const en = {
   'operations.errPasswordShort': 'At least 6 characters',
   'operations.errConfirmMismatch': 'Passwords do not match',
 
-  'notifications.title': 'Alerts',
+  'notifications.title': 'Notifications',
   'notifications.tag': 'Admin',
-  'notifications.noAlerts': 'No alerts',
+  'notifications.noAlerts': 'No notifications',
 
   'calendar.title': 'Pulse',
   'calendar.tagAll': 'All sales',

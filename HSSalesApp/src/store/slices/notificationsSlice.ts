@@ -13,12 +13,14 @@ export type NotificationsState = {
   items: AdminNotification[];
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
+  lastFetchedAt: number | null;
 };
 
 const initialState: NotificationsState = {
   items: [],
   status: 'idle',
   error: null,
+  lastFetchedAt: null,
 };
 
 export const fetchNotifications = createAsyncThunk<
@@ -68,6 +70,7 @@ const notificationsSlice = createSlice({
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.items = action.payload;
+        state.lastFetchedAt = Date.now();
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.status = 'failed';
