@@ -242,25 +242,29 @@ export function SalesCalendarScreen() {
         ) : (
           <View style={styles.calendarShell}>
             <CalendarProvider
+              style={styles.calendarProvider}
               date={selectedDate}
               onDateChanged={onCalendarDateChanged}
               disabledOpacity={0.35}>
-              <ExpandableCalendar
-                horizontal
-                markedDates={markedDates}
-                markingType="multi-dot"
-                theme={calendarTheme}
-                firstDay={1}
-                allowShadow={false}
-                hideArrows={false}
-                hideExtraDays={false}
-                pastScrollRange={50}
-                futureScrollRange={50}
-                openThreshold={25}
-                closeThreshold={-40}
-                calendarStyle={{ backgroundColor: palette.paper }}
-                initialPosition={ExpandableCalendar.positions.OPEN}
-              />
+              <View style={styles.expandableWrap}>
+                <ExpandableCalendar
+                  horizontal
+                  markedDates={markedDates}
+                  markingType="multi-dot"
+                  theme={calendarTheme}
+                  firstDay={1}
+                  allowShadow={false}
+                  hideArrows={false}
+                  hideExtraDays={false}
+                  pastScrollRange={50}
+                  futureScrollRange={50}
+                  openThreshold={25}
+                  closeThreshold={-40}
+                closeOnDayPress={false}
+                  calendarStyle={{ backgroundColor: palette.paper }}
+                  initialPosition={ExpandableCalendar.positions.OPEN}
+                />
+              </View>
               <AgendaList
                 sections={sections}
                 renderItem={renderItem}
@@ -309,6 +313,14 @@ const styles = StyleSheet.create({
   calendarShell: {
     flex: 1,
     minHeight: 0,
+    paddingTop: 8,
+  },
+  calendarProvider: {
+    flex: 1,
+  },
+  expandableWrap: {
+    zIndex: 8,
+    elevation: 8,
   },
   listWrap: { flex: 1 },
   listContent: {

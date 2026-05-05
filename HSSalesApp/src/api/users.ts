@@ -1,6 +1,6 @@
 import { getJsonServerBaseUrl } from '../config/apiBase';
 
-import { requestJson } from './http';
+import { requestGraphql } from './http';
 
 export type CreatedSalesUser = {
   id: string;
@@ -19,18 +19,33 @@ export async function createSalesUser(
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<CreateSalesUserResponse>({
-    method: 'POST',
+  const data = await requestGraphql<
+    { createSalesUser: CreateSalesUserResponse },
+    { input: { name: string; phone?: string; email: string; password: string } }
+  >({
     baseUrl,
-    path: '/api/users',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: {
-      name: payload.name.trim(),
-      phone: payload.phone?.trim() || undefined,
-      email: payload.email.trim().toLowerCase(),
-      password: payload.password,
+    token,
+    query: `
+      mutation CreateSalesUser($input: CreateSalesUserInput!) {
+        createSalesUser(input: $input) {
+          user {
+            id
+            email
+            name
+            phone
+            role
+          }
+        }
+      }
+    `,
+    variables: {
+      input: {
+        name: payload.name.trim(),
+        phone: payload.phone?.trim() || undefined,
+        email: payload.email.trim().toLowerCase(),
+        password: payload.password,
+      },
     },
   });
+  return data.createSalesUser;
 }

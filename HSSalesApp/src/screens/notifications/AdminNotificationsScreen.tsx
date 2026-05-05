@@ -2,6 +2,8 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   Pressable,
   StyleSheet,
@@ -38,6 +40,33 @@ function formatWhen(iso: string) {
   } catch {
     return iso;
   }
+}
+
+function BlinkingUnreadDot() {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.25,
+          duration: 520,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 520,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return <Animated.View style={[styles.dot, { opacity }]} />;
 }
 
 export function AdminNotificationsScreen() {
@@ -91,7 +120,7 @@ export function AdminNotificationsScreen() {
         <GlassCard style={cardStyle} accentColor={palette.emeraldDeep}>
           <View style={styles.cardTop}>
             <Text style={styles.title}>{item.title}</Text>
-            {item.unread ? <View style={styles.dot} /> : null}
+            {item.unread ? <BlinkingUnreadDot /> : null}
           </View>
           <Text style={styles.meta}>{formatWhen(item.createdAt)}</Text>
           {seller && (

@@ -36,6 +36,7 @@ type LineDraft = {
   quantity: string;
   unitPrice: string;
   unitId: string;
+  lotIds: string[];
 };
 
 function newLine(productId: string = '', currencyId: string = '', unitId: string = ''): LineDraft {
@@ -46,6 +47,7 @@ function newLine(productId: string = '', currencyId: string = '', unitId: string
     quantity: '1',
     unitPrice: '',
     unitId,
+    lotIds: [],
   };
 }
 
@@ -95,10 +97,149 @@ export function LogSaleScreen() {
   const stockMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of stockRows) {
-      m.set(`${r.warehouseId}__${r.productId}`, r.quantityOnHand);
+      const k = `${r.warehouseId}__${r.productId}`;
+      m.set(k, (m.get(k) ?? 0) + r.quantityOnHand);
     }
     return m;
   }, [stockRows]);
+
+  const toBaseQty = useCallback(
+    (line: LineDraft) => {
+      const q = Number(line.quantity);
+      if (!Number.isFinite(q) || q <= 0) return 0;
+      const u = units.find((x) => x.id === line.unitId);
+      const p = products.find((x) => x.id === line.productId);
+      const factor = u?.globalFactor ?? p?.conversions?.[u?.id || ''] ?? 1;
+      return q * factor;
+    },
+    [products, units],
+  );
+
+  const lineAvailability = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        requestedBase: number;
+        remainingProductBase: number;
+        remainingSelectedLotsBase: number | null;
+      }
+    >();
+
+    for (const target of lines) {
+      if (!target.productId || !warehouseId) {
+        map.set(target.id, {
+          requestedBase: 0,
+          remainingProductBase: 0,
+          remainingSelectedLotsBase: null,
+        });
+        continue;
+      }
+
+      const requestedBase = toBaseQty(target);
+      const totalProductBase = stockMap.get(`${warehouseId}__${target.productId}`) ?? 0;
+
+      const consumedByOtherLines = lines.reduce((acc, ln) => {
+        if (ln.id === target.id) return acc;
+        if (ln.productId !== target.productId) return acc;
+        return acc + toBaseQty(ln);
+      }, 0);
+
+      const remainingProductBase = Math.max(0, totalProductBase - consumedByOtherLines);
+
+      let remainingSelectedLotsBase: number | null = null;
+      if (target.lotIds.length > 0) {
+        const selectedLotsTotal = lotBatches
+          .filter((b) => b.warehouseId === warehouseId && Number(b.remainingQuantity) > 0)
+          .filter((b) => target.lotIds.includes(b.lotId))
+          .reduce((sum, b) => sum + Number(b.remainingQuantity), 0);
+
+        const consumedByOtherOverlappingLots = lines.reduce((acc, ln) => {
+          if (ln.id === target.id) return acc;
+          if (ln.productId !== target.productId) return acc;
+          if (!ln.lotIds.length) return acc;
+          const overlaps = ln.lotIds.some((lid) => target.lotIds.includes(lid));
+          if (!overlaps) return acc;
+          return acc + toBaseQty(ln);
+        }, 0);
+
+        remainingSelectedLotsBase = Math.max(
+          0,
+          selectedLotsTotal - consumedByOtherOverlappingLots,
+        );
+      }
+
+      map.set(target.id, {
+        requestedBase,
+        remainingProductBase,
+        remainingSelectedLotsBase,
+      });
+    }
+    return map;
+  }, [lines, warehouseId, stockMap, lotBatches, toBaseQty]);
+
+  const lineLotRemaining = useMemo(() => {
+    const out = new Map<string, Map<string, number>>();
+    if (!warehouseId) return out;
+
+    const consumeFromOrder = (
+      stockByLot: Map<string, number>,
+      orderedLotIds: string[],
+      qtyBase: number,
+    ) => {
+      let remaining = Math.max(0, qtyBase);
+      for (const lid of orderedLotIds) {
+        if (remaining <= 0) break;
+        const cur = stockByLot.get(lid) ?? 0;
+        if (cur <= 0) continue;
+        const take = Math.min(cur, remaining);
+        stockByLot.set(lid, cur - take);
+        remaining -= take;
+      }
+    };
+
+    for (const target of lines) {
+      if (!target.productId) {
+        out.set(target.id, new Map());
+        continue;
+      }
+
+      const productBatches = lotBatches
+        .filter((b) => b.warehouseId === warehouseId && Number(b.remainingQuantity) > 0)
+        .filter((b) => {
+          const lot = lots.find((l) => l.id === b.lotId);
+          return lot && lot.productId === target.productId;
+        });
+
+      const stockByLot = new Map<string, number>();
+      for (const b of productBatches) {
+        stockByLot.set(b.lotId, (stockByLot.get(b.lotId) ?? 0) + Number(b.remainingQuantity));
+      }
+
+      const fifoLotOrder = Array.from(
+        new Set(
+          productBatches
+            .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)))
+            .map((b) => b.lotId),
+        ),
+      );
+
+      for (const other of lines) {
+        if (other.id === target.id) continue;
+        if (other.productId !== target.productId) continue;
+        const reqBase = toBaseQty(other);
+        if (reqBase <= 0) continue;
+        consumeFromOrder(
+          stockByLot,
+          other.lotIds.length > 0 ? other.lotIds : fifoLotOrder,
+          reqBase,
+        );
+      }
+
+      out.set(target.id, stockByLot);
+    }
+
+    return out;
+  }, [lines, warehouseId, lotBatches, lots, toBaseQty]);
 
   const warehouseOptions = useMemo(
     () => warehouses.map((w) => ({ value: w.id, label: w.name })),
@@ -168,16 +309,26 @@ export function LogSaleScreen() {
       if (!Number.isFinite(p) || p < 0) return false;
 
       // --- Hard Stock Block ---
-      const avail = warehouseId && ln.productId ? (stockMap.get(`${warehouseId}__${ln.productId}`) ?? 0) : 0;
-      const factory = u?.globalFactor ?? prod?.conversions?.[u?.id || ''] ?? 1;
-      const requestedBase = q * factory;
-      if (requestedBase > avail) return false; // Hard block if over stock
+      const availability = lineAvailability.get(ln.id);
+      const requestedBase = availability?.requestedBase ?? 0;
+      const remainingProductBase = availability?.remainingProductBase ?? 0;
+      if (requestedBase > remainingProductBase) return false;
+      if (
+        ln.lotIds.length > 0 &&
+        requestedBase >
+          ln.lotIds.reduce(
+            (sum, lid) => sum + (lineLotRemaining.get(ln.id)?.get(lid) ?? 0),
+            0,
+          )
+      ) {
+        return false;
+      }
 
       // Enforce whole numbers for specific units
       if (u?.isWholeNumber && !Number.isInteger(q)) return false;
     }
     return true;
-  }, [token, busy, warehouseId, lines]);
+  }, [token, busy, warehouseId, lines, lineAvailability, lineLotRemaining, units, products]);
 
   async function onSubmit() {
     if (!token || !canSubmit) return;
@@ -203,6 +354,7 @@ export function LogSaleScreen() {
             unitPrice: Number(ln.unitPrice),
             currencyId: ln.currencyId,
             unitId: ln.unitId,
+            lotIds: ln.lotIds,
           })),
         },
         token,
@@ -214,9 +366,11 @@ export function LogSaleScreen() {
         message: 'Your admin will see this in Signals.',
         type: 'success'
       }));
+      setWarehouseId('');
       setNotes('');
       const cid = currencies[0]?.id ?? '';
       setLines(cid ? [newLine('', cid)] : []);
+      setCollapsedLineIds({});
       setSaleDate(new Date().toISOString().slice(0, 10));
     } catch (e: any) {
       dispatch(showToast({
@@ -340,6 +494,16 @@ export function LogSaleScreen() {
               const avail = Math.max(0, availInWarehouse - consumedByOtherLinesBase);
               const qtyN = Number(ln.quantity);
               const over = Number.isFinite(qtyN) && qtyN > avail;
+              const lineAvail = lineAvailability.get(ln.id);
+              const requestedBase = lineAvail?.requestedBase ?? 0;
+              const remainingProductBase = lineAvail?.remainingProductBase ?? 0;
+              const selectedLotsRemainingNow = ln.lotIds.reduce(
+                (sum, lid) => sum + (lineLotRemaining.get(ln.id)?.get(lid) ?? 0),
+                0,
+              );
+              const overProduct = requestedBase > remainingProductBase;
+              const overSelectedLots =
+                ln.lotIds.length > 0 && requestedBase > selectedLotsRemainingNow;
 
               return (
                 <GlassCard 
@@ -373,7 +537,7 @@ export function LogSaleScreen() {
                           const p = products.find(prod => prod.id === pid);
                           setLines((prev) =>
                             prev.map((x) =>
-                              x.id === ln.id ? { ...x, productId: pid, unitId: p?.unitId || '' } : x,
+                              x.id === ln.id ? { ...x, productId: pid, unitId: p?.unitId || '', lotIds: [] } : x,
                             ),
                           )
                         }}
@@ -396,18 +560,124 @@ export function LogSaleScreen() {
                             .filter(b => b.warehouseId === warehouseId && b.remainingQuantity > 0)
                             .filter(b => {
                               const lot = lots.find(l => l.id === b.lotId);
-                              return lot && lot.productId === ln.productId;
+                              if (!lot || lot.productId !== ln.productId) return false;
+                              const rem = lineLotRemaining.get(ln.id)?.get(lot.id) ?? 0;
+                              return rem > 0;
                             })
                             .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)))
                             .map((b) => {
                               const lot = lots.find(l => l.id === b.lotId);
+                              const rem = lineLotRemaining.get(ln.id)?.get(b.lotId) ?? 0;
                               return (
                                 <Text key={b.id} style={styles.lotItem}>
-                                  • {lot?.lotNumber ?? 'Unknown'}: {b.remainingQuantity.toLocaleString()} {unitLbl} left
+                                  • {lot?.lotNumber ?? 'Unknown'}: {rem.toLocaleString()} {unitLbl} left
                                 </Text>
                               );
                             })}
+                          <SelectMenu
+                            label="Add lot priority"
+                            value=""
+                            options={Array.from(
+                              new Map(
+                                lotBatches
+                                  .filter(b => b.warehouseId === warehouseId && b.remainingQuantity > 0)
+                                  .filter(b => {
+                                    const lot = lots.find(l => l.id === b.lotId);
+                                    if (!lot || lot.productId !== ln.productId) return false;
+                                    if (ln.lotIds.includes(lot.id)) return false;
+                                    const rem = lineLotRemaining.get(ln.id)?.get(lot.id) ?? 0;
+                                    return rem > 0;
+                                  })
+                                  .map((b) => {
+                                    const lot = lots.find(l => l.id === b.lotId);
+                                    const rem = lineLotRemaining.get(ln.id)?.get(b.lotId) ?? 0;
+                                    return [
+                                      b.lotId,
+                                      {
+                                        value: b.lotId,
+                                        label: `${lot?.lotNumber ?? 'Unknown'} • ${rem.toLocaleString()} ${unitLbl}`,
+                                      },
+                                    ] as const;
+                                  }),
+                              ).values(),
+                            )}
+                            onChange={(lotId) =>
+                              setLines((prev) =>
+                                prev.map((x) =>
+                                  x.id === ln.id ? { ...x, lotIds: [...x.lotIds, lotId] } : x,
+                                ),
+                              )
+                            }
+                            placeholder="Select lot to add"
+                          />
+                          {ln.lotIds.length > 0 ? (
+                            <View style={styles.selectedLotsBox}>
+                              <Text style={styles.selectedLotsTitle}>Selected lot order:</Text>
+                              {ln.lotIds.map((lid, li) => {
+                                const lot = lots.find((l) => l.id === lid);
+                                return (
+                                  <View key={`${ln.id}-${lid}-${li}`} style={styles.selectedLotRow}>
+                                    <Text style={styles.selectedLotText}>
+                                      {li + 1}. {lot?.lotNumber ?? 'Unknown'}
+                                    </Text>
+                                    <View style={styles.selectedLotActions}>
+                                      <Pressable
+                                        onPress={() =>
+                                          setLines((prev) =>
+                                            prev.map((x) => {
+                                              if (x.id !== ln.id || li === 0) return x;
+                                              const next = [...x.lotIds];
+                                              [next[li - 1], next[li]] = [next[li], next[li - 1]];
+                                              return { ...x, lotIds: next };
+                                            }),
+                                          )
+                                        }>
+                                        <Text style={styles.lotActionBtn}>↑</Text>
+                                      </Pressable>
+                                      <Pressable
+                                        onPress={() =>
+                                          setLines((prev) =>
+                                            prev.map((x) => {
+                                              if (x.id !== ln.id || li === x.lotIds.length - 1) return x;
+                                              const next = [...x.lotIds];
+                                              [next[li + 1], next[li]] = [next[li], next[li + 1]];
+                                              return { ...x, lotIds: next };
+                                            }),
+                                          )
+                                        }>
+                                        <Text style={styles.lotActionBtn}>↓</Text>
+                                      </Pressable>
+                                      <Pressable
+                                        onPress={() =>
+                                          setLines((prev) =>
+                                            prev.map((x) =>
+                                              x.id === ln.id
+                                                ? { ...x, lotIds: x.lotIds.filter((_, i) => i !== li) }
+                                                : x,
+                                            ),
+                                          )
+                                        }>
+                                        <Text style={styles.lotActionBtnRemove}>✕</Text>
+                                      </Pressable>
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          ) : null}
                         </View>
+                      ) : null}
+
+                      {warehouseId && ln.productId ? (
+                        <Text style={[styles.avail, overProduct && styles.availWarn]}>
+                          Available after other lines: {remainingProductBase.toLocaleString()} {unitLbl || 'base units'}
+                        </Text>
+                      ) : null}
+
+                      {overSelectedLots ? (
+                        <Text style={[styles.avail, styles.availWarn]}>
+                          Selected lots are insufficient for requested quantity. Add/reorder lots.
+                        </Text>
                       ) : null}
 
                       <View style={styles.qtyUnitRow}>
@@ -626,6 +896,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.text,
     lineHeight: 18,
+  },
+  selectedLotsBox: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 8,
+    gap: 6,
+  },
+  selectedLotsTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: palette.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  selectedLotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectedLotText: {
+    color: palette.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  selectedLotActions: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  lotActionBtn: {
+    color: palette.emerald,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  lotActionBtnRemove: {
+    color: palette.rose,
+    fontSize: 13,
+    fontWeight: '900',
   },
   lineCard: { marginTop: 0 },
   qtyUnitRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },

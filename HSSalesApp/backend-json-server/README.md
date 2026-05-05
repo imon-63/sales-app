@@ -1,6 +1,9 @@
-# HS Sales - JSON Server Backend (Demo)
+# HS Sales GraphQL Backend (Demo)
 
-This is a temporary backend using `json-server` so the mobile app can work while you build the real PostgreSQL-backed API later.
+This backend is **GraphQL-only** and runs at `/graphql`.
+
+- No REST fallback routes are exposed.
+- The data model still uses the same `db.json` collections/fields, so migration to MongoDB later can focus on storage, not API shape.
 
 ## Start
 
@@ -10,128 +13,133 @@ npm install
 npm run dev
 ```
 
-Server URL:
+Server URLs:
 - `http://localhost:3001`
+- `http://localhost:3001/graphql`
 
-## Demo login
+## Authentication
 
-POST `/api/login`
-
-Request:
-```json
-{ "email": "admin@hs.com", "password": "admin123" }
-```
-
-Or sales:
-```json
-{ "email": "sales@hs.com", "password": "sales123" }
-```
-
-Response:
-```json
-{ "token": "demo-token-...", "user": { "id": "...", "email": "...", "role": "admin|sales" } }
-```
-
-## Data endpoints
-
-JSON Server exposes CRUD endpoints under `/api/*`, for example:
-- `GET /api/users`
-- `GET /api/products`
-- `GET /api/sales`
-
-## Admin only: add a sales user
-
-`POST /api/users` is **not** public self-registration. It is handled by a custom route that:
-
-- Requires `Authorization: Bearer <token>` where `<token>` is the same value returned from `/api/login` (e.g. `demo-token-<userId>`).
-- Requires the authenticated user to have role **`admin`**.
-- Creates a new user with role **`sales`** (role cannot be escalated from the client).
-
-Request:
+1. Run `login` mutation to get token.
+2. Send token in header for protected operations:
 
 ```http
-POST /api/users
-Authorization: Bearer demo-token-00000000-0000-0000-0000-000000000001
-Content-Type: application/json
-
-{ "email": "newrep@hs.com", "password": "changeme12" }
+Authorization: Bearer demo-token-<userId>
 ```
 
-Response `201`:
+Example login:
 
-```json
-{ "user": { "id": "...", "email": "newrep@hs.com", "role": "sales" } }
-```
-
-## Log a sale (sales or admin)
-
-`POST /api/sales` requires a valid Bearer token. **`sales`** and **`admin`** may create sales.
-
-When a **`sales`** user creates a sale, the server appends an entry to **`notifications`** so admins can review it in the app (Signals tab).
-
-Request:
-
-```http
-POST /api/sales
-Authorization: Bearer demo-token-00000000-0000-0000-0000-000000000002
-Content-Type: application/json
-
-{
-  "warehouseId": "20000000-0000-0000-0000-000000000001",
-  "saleDate": "2026-04-16",
-  "notes": "Optional",
-  "items": [
-    { "productId": "10000000-0000-0000-0000-000000000001", "quantity": 10, "unitPrice": 3.5 }
-  ]
+```graphql
+mutation {
+  login(email: "admin@hs.com", password: "admin123") {
+    token
+    user {
+      id
+      email
+      name
+      phone
+      role
+    }
+  }
 }
 ```
 
-Response `201`: `{ "sale": { ... }, "items": [ ... ] }`
+## Common operations
 
-## Admin notifications
+Create sales user (admin only):
 
-### List (admin only)
-
-`GET /api/notifications` — returns all notifications, newest first, each with an **`unread`** boolean for the signed-in admin (from `readByUserIds`).
-
-### Mark read (admin only)
-
-`POST /api/notifications/:id/read` — records the admin’s user id in `readByUserIds`.
-
-## Inventory (authenticated)
-
-### Stock on hand
-
-`GET /api/inventory/stock` — aggregates `lotBatches` by product + warehouse (any signed-in user).
-
-### Receive inbound (admin only)
-
-`POST /api/purchases` — creates a `purchases` row, `purchaseItems`, new `lots`, and `lotBatches` at the chosen warehouse.
-
-```json
-{
-  "warehouseId": "20000000-0000-0000-0000-000000000001",
-  "purchaseDate": "2026-04-16",
-  "notes": "Vendor invoice",
-  "items": [{ "productId": "10000000-0000-0000-0000-000000000001", "quantity": 50, "unitCost": 2.2 }]
+```graphql
+mutation {
+  createSalesUser(
+    input: {
+      email: "newrep@hs.com"
+      password: "changeme12"
+      name: "New Rep"
+      phone: "01700000000"
+    }
+  ) {
+    user {
+      id
+      email
+      role
+    }
+  }
 }
 ```
 
-### Transfer between warehouses (admin only)
+Create sale (admin or sales):
 
-`POST /api/inventory/transfers` — FIFO-decrements source `lotBatches`, creates destination lots/batches, and appends `inventoryTransfers` + `inventoryTransferLines`.
+```graphql
+mutation {
+  createSale(
+    input: {
+      warehouseId: "20000000-0000-0000-0000-000000000001"
+      saleDate: "2026-05-05"
+      notes: "GraphQL sale"
+      items: [
+        {
+          productId: "10000000-0000-0000-0000-000000000001"
+          quantity: 3
+          unitPrice: 120
+          currencyId: "a0000000-0000-0000-0000-000000000002"
+        }
+      ]
+    }
+  ) {
+    sale {
+      id
+      saleDate
+      warehouseId
+      createdBy
+    }
+    items {
+      id
+      productId
+      quantity
+      unitPrice
+    }
+  }
+}
+```
 
-```json
-{
-  "fromWarehouseId": "20000000-0000-0000-0000-000000000001",
-  "toWarehouseId": "20000000-0000-0000-0000-000000000002",
-  "transferDate": "2026-04-16",
-  "lines": [{ "productId": "10000000-0000-0000-0000-000000000001", "quantity": 5 }]
+Fetch notifications (admin only):
+
+```graphql
+query {
+  notifications {
+    id
+    type
+    title
+    body
+    createdAt
+    unread
+  }
+}
+```
+
+Mark notification read (admin only):
+
+```graphql
+mutation {
+  markNotificationRead(id: "notification-id")
+}
+```
+
+Stock summary:
+
+```graphql
+query {
+  inventoryStock {
+    warehouseName
+    productName
+    quantityOnHand
+    unit
+    unitCost
+  }
 }
 ```
 
 ## Notes
 
 - Passwords are plaintext for demo purposes only.
-- Inventory reconciliation / FIFO allocation should be implemented in the real backend later.
+- Inventory logic (FIFO allocation and depletion notifications) is implemented in GraphQL resolvers.
 

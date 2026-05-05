@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
-import { requestJson } from '../../api/http';
+import { requestGraphql } from '../../api/http';
 import { getJsonServerBaseUrl } from '../../config/apiBase';
 import type {
   Currency,
@@ -55,77 +55,83 @@ const initialState: SalesDataState = {
 
 export const fetchSalesDataset = createAsyncThunk(
   'salesData/fetchAll',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     const baseUrl = getJsonServerBaseUrl();
+    const token = (getState() as any)?.auth?.token as string | null;
     try {
-      const [
-        sales,
-        salesItems,
-        products,
-        warehouses,
-        units,
-        currencies,
-        users,
-        lots,
-        lotBatches,
-        salesItemAllocations,
-        inventoryTransfers,
-        inventoryTransferLines,
-      ] = await Promise.all([
-        requestJson<Sale[]>({ method: 'GET', baseUrl, path: '/api/sales' }),
-        requestJson<SalesItem[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/salesItems',
-        }),
-        requestJson<Product[]>({ method: 'GET', baseUrl, path: '/api/products' }),
-        requestJson<Warehouse[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/warehouses',
-        }),
-        requestJson<Unit[]>({ method: 'GET', baseUrl, path: '/api/units' }),
-        requestJson<Currency[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/currencies',
-        }),
-        requestJson<User[]>({ method: 'GET', baseUrl, path: '/api/users' }),
-        requestJson<Lot[]>({ method: 'GET', baseUrl, path: '/api/lots' }),
-        requestJson<LotBatch[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/lotBatches',
-        }),
-        requestJson<SalesItemAllocation[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/salesItemAllocations',
-        }),
-        requestJson<InventoryTransfer[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/inventoryTransfers',
-        }),
-        requestJson<InventoryTransferLine[]>({
-          method: 'GET',
-          baseUrl,
-          path: '/api/inventoryTransferLines',
-        }),
-      ]);
+      const data = await requestGraphql<{
+        sales: Sale[];
+        salesItems: SalesItem[];
+        products: Product[];
+        warehouses: Warehouse[];
+        units: Unit[];
+        currencies: Currency[];
+        users: User[];
+        lots: Lot[];
+        lotBatches: LotBatch[];
+        salesItemAllocations: SalesItemAllocation[];
+        inventoryTransfers: InventoryTransfer[];
+        inventoryTransferLines: InventoryTransferLine[];
+      }>({
+        baseUrl,
+        token: token ?? undefined,
+        query: `
+          query SalesDataset {
+            sales { id saleDate warehouseId createdBy notes }
+            salesItems { id saleId productId quantity unitPrice currencyId unitId }
+            products { id name unitId unit }
+            warehouses { id name }
+            units { id label globalFactor isWholeNumber }
+            currencies { id code }
+            users { id email name phone role }
+            lots { id productId lotNumber }
+            lotBatches {
+              id
+              lotId
+              warehouseId
+              acquiredAt
+              unitCost
+              originalQuantity
+              remainingQuantity
+            }
+            salesItemAllocations {
+              id
+              salesItemId
+              lotBatchId
+              quantityAllocated
+              unitCostAtTime
+            }
+            inventoryTransfers {
+              id
+              transferDate
+              fromWarehouseId
+              toWarehouseId
+              createdBy
+              notes
+            }
+            inventoryTransferLines {
+              id
+              transferId
+              productId
+              lotId
+              quantity
+            }
+          }
+        `,
+      });
       return {
-        sales,
-        salesItems,
-        products,
-        warehouses,
-        units,
-        currencies,
-        users,
-        lots,
-        lotBatches,
-        salesItemAllocations,
-        inventoryTransfers,
-        inventoryTransferLines,
+        sales: data.sales,
+        salesItems: data.salesItems,
+        products: data.products,
+        warehouses: data.warehouses,
+        units: data.units,
+        currencies: data.currencies,
+        users: data.users,
+        lots: data.lots,
+        lotBatches: data.lotBatches,
+        salesItemAllocations: data.salesItemAllocations,
+        inventoryTransfers: data.inventoryTransfers,
+        inventoryTransferLines: data.inventoryTransferLines,
       };
     } catch (e: any) {
       return rejectWithValue(e?.message ?? 'Failed to load data');

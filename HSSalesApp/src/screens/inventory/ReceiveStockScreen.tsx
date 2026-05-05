@@ -155,8 +155,11 @@ export function ReceiveStockScreen() {
         message: 'Purchase recorded. Stock room reflects new lots.',
         type: 'success'
       }));
+      setWarehouseId('');
       setNotes('');
-      setLines(products[0] ? [newLine(products[0].id, products[0].unitId)] : []);
+      const freshLine = newLine();
+      setLines([freshLine]);
+      setExpandedLines(new Set([freshLine.id]));
       setPurchaseDate(new Date().toISOString().slice(0, 10));
     } catch (e: any) {
       dispatch(showToast({

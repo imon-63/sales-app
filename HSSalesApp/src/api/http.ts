@@ -15,6 +15,14 @@ type RequestOptions = {
   timeoutMs?: number;
 };
 
+type GraphqlOptions<V> = {
+  baseUrl: string;
+  query: string;
+  variables?: V;
+  token?: string;
+  timeoutMs?: number;
+};
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -67,5 +75,46 @@ export async function requestJson<T>({
   }
 
   return payload as T;
+}
+
+export async function requestGraphql<T, V = Record<string, unknown>>({
+  baseUrl,
+  query,
+  variables,
+  token,
+  timeoutMs = 15000,
+}: GraphqlOptions<V>): Promise<T> {
+  const url = `${baseUrl.replace(/\/$/, '')}/graphql`;
+  const res = await withTimeout(
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ query, variables }),
+    }),
+    timeoutMs,
+  );
+
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message =
+      (payload && typeof payload === 'object' && 'errors' in payload
+        ? String((payload as any)?.errors?.[0]?.message ?? '')
+        : '') || `Request failed (${res.status})`;
+    throw { message, status: res.status, details: payload } satisfies ApiError;
+  }
+
+  const gqlErrors = (payload as any)?.errors;
+  if (Array.isArray(gqlErrors) && gqlErrors.length > 0) {
+    throw {
+      message: String(gqlErrors[0]?.message ?? 'GraphQL error'),
+      details: gqlErrors,
+    } satisfies ApiError;
+  }
+
+  return (payload as any).data as T;
 }
 

@@ -55,12 +55,18 @@ export type SalesItem = {
 
 /** Aggregated on-hand from lot batches (GET /api/inventory/stock). */
 export type StockRow = {
+  id?: string;
+  batchLotId?: string;
+  lotId?: string;
+  lotNumber?: string;
   productId: string;
   productName: string;
   unit: string;
   warehouseId: string;
   warehouseName: string;
   quantityOnHand: number;
+  unitCost?: number;
+  acquiredAt?: string;
 };
 
 export type AdminNotification = {

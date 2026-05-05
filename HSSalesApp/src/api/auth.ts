@@ -1,4 +1,4 @@
-import { requestJson } from './http';
+import { requestGraphql } from './http';
 import { getJsonServerBaseUrl } from '../config/apiBase';
 import type { User } from '../types/models';
 
@@ -13,10 +13,23 @@ export type LoginResponse = {
 };
 
 export async function login(payload: LoginRequest, baseUrl = getJsonServerBaseUrl()) {
-  return requestJson<LoginResponse>({
-    method: 'POST',
+  const data = await requestGraphql<{ login: LoginResponse }, LoginRequest>({
     baseUrl,
-    path: '/api/login',
-    body: payload,
+    query: `
+      mutation Login($email: String!, $password: String!) {
+        login(email: $email, password: $password) {
+          token
+          user {
+            id
+            email
+            name
+            phone
+            role
+          }
+        }
+      }
+    `,
+    variables: payload,
   });
+  return data.login;
 }

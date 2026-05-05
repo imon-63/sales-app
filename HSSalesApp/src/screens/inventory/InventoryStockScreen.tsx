@@ -257,7 +257,9 @@ export function InventoryStockScreen() {
         ) : (
           <SectionList
             sections={sections}
-            keyExtractor={(item) => `${item.productId}-${item.warehouseId}`}
+            keyExtractor={(item) =>
+              item.id || `${item.productId}-${item.warehouseId}-${item.lotId || item.lotNumber || 'row'}`
+            }
             contentContainerStyle={styles.list}
             stickySectionHeadersEnabled={false}
             renderSectionHeader={({ section }) => (
@@ -286,6 +288,10 @@ export function InventoryStockScreen() {
                       <View style={styles.cardGrid}>
                         <View style={styles.cardMain}>
                           <Text style={styles.pname}>{item.productName}</Text>
+                          <Text style={styles.lotLine}>
+                            Lot: {item.lotNumber || 'N/A'}
+                            {item.acquiredAt ? `  •  ${item.acquiredAt}` : ''}
+                          </Text>
                           <View style={styles.healthBarContainer}>
                             <View
                               style={[
@@ -448,6 +454,12 @@ const styles = StyleSheet.create({
   cardMain: { flex: 1, gap: 8 },
   cardSide: { alignItems: 'flex-end', minWidth: 80 },
   pname: { color: palette.text, fontSize: 17, fontWeight: '900', letterSpacing: -0.3 },
+  lotLine: {
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: -3,
+  },
   healthBarContainer: {
     height: 4,
     width: '85%',

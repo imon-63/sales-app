@@ -1,20 +1,29 @@
 import { getJsonServerBaseUrl } from '../config/apiBase';
 import type { Currency, Unit } from '../types/models';
 
-import { requestJson } from './http';
+import { requestGraphql } from './http';
 
 export async function createUnit(
   payload: { label: string },
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<Unit>({
-    method: 'POST',
+  const data = await requestGraphql<{ createUnit: Unit }, { label: string }>({
     baseUrl,
-    path: '/api/units',
-    headers: { Authorization: `Bearer ${token}` },
-    body: payload,
+    token,
+    query: `
+      mutation CreateUnit($label: String!) {
+        createUnit(label: $label) {
+          id
+          label
+          globalFactor
+          isWholeNumber
+        }
+      }
+    `,
+    variables: payload,
   });
+  return data.createUnit;
 }
 
 export async function createCurrency(
@@ -22,11 +31,18 @@ export async function createCurrency(
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<Currency>({
-    method: 'POST',
+  const data = await requestGraphql<{ createCurrency: Currency }, { code: string }>({
     baseUrl,
-    path: '/api/currencies',
-    headers: { Authorization: `Bearer ${token}` },
-    body: payload,
+    token,
+    query: `
+      mutation CreateCurrency($code: String!) {
+        createCurrency(code: $code) {
+          id
+          code
+        }
+      }
+    `,
+    variables: payload,
   });
+  return data.createCurrency;
 }

@@ -87,6 +87,20 @@ index c97e1c1..1b75c67 100644
      const _onMomentumScrollBegin = useCallback((event) => {
          setDisabled?.(true);
          onMomentumScrollBegin?.(event);
+diff --git a/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/index.js b/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/index.js
+index 8aa5ea8..4312170 100644
+--- a/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/index.js
++++ b/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/index.js
+@@ -48,7 +48,8 @@ const WeekCalendar = (props) => {
+                     firstDateInRange: item
+                 }) :
+                 sameWeek(item, date, firstDay));
+-            if (pageIndex !== currentIndex.current) {
++            // Re-scroll on LIST_DRAG even when index matches — FlatList can desync from context date in shrink mode.
++            if (pageIndex !== currentIndex.current || updateSource === UpdateSources.LIST_DRAG) {
+                 const adjustedIndexFrScroll = shouldFixRTL ? NUM_OF_ITEMS - 1 - pageIndex : pageIndex;
+                 if (pageIndex >= 0) {
+                     visibleWeek.current = items.current[adjustedIndexFrScroll];
 diff --git a/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js b/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js
 index b7e3a65..bd5aa6e 100644
 --- a/node_modules/react-native-calendars/src/expandableCalendar/WeekCalendar/new.js
@@ -172,6 +186,28 @@ diff --git a/node_modules/react-native-calendars/src/expandableCalendar/index.js
 index bea00e0..fe66755 100644
 --- a/node_modules/react-native-calendars/src/expandableCalendar/index.js
 +++ b/node_modules/react-native-calendars/src/expandableCalendar/index.js
+@@ -60,7 +60,7 @@ const ExpandableCalendar = forwardRef((props, ref) => {
+     /** CalendarList props */
+     horizontal = true, calendarStyle, theme, style: propsStyle, firstDay = 0, onDayPress, hideArrows, onPressArrowLeft, onPressArrowRight, renderArrow, testID, ...others } = props;
+     const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
+-    const [headerHeight, setHeaderHeight] = useState(0);
++    const [headerHeight, setHeaderHeight] = useState(DEFAULT_HEADER_HEIGHT);
+     const onHeaderLayout = useCallback(({ nativeEvent: { layout: { height } } }) => {
+         setHeaderHeight(height || DEFAULT_HEADER_HEIGHT);
+     }, []);
+@@ -126,6 +126,12 @@ const ExpandableCalendar = forwardRef((props, ref) => {
+             setPosition(Positions.CLOSED);
+         }
+     }, [numberOfDays]);
++    useEffect(() => {
++        if (horizontal) {
++            _weekCalendarStyles.style.opacity = isOpen ? 0 : 1;
++            updateNativeStyles();
++        }
++    }, [horizontal, isOpen]);
+     /** Components' refs */
+     const wrapper = useRef();
+     const calendarList = useRef();
 @@ -353,8 +353,10 @@ const ExpandableCalendar = forwardRef((props, ref) => {
                  if (year) {
                      visibleYear.current = year;
@@ -203,6 +239,19 @@ index bea00e0..fe66755 100644
           importantForAccessibility={'no-hide-descendants'} // Android
          />
        </Animated.View>);
+@@ -165,7 +165,7 @@ const ExpandableCalendar = forwardRef((props, ref) => {
+     const weekCalendarStyle = useMemo(() => {
+         return [style.current.weekContainer, isOpen ? style.current.hidden : style.current.visible, { top: headerHeight }];
+     }, [isOpen, headerHeight]);
+-    const containerStyle = useMemo(() => {
+-        return [allowShadow && style.current.containerShadow, propsStyle, headerHeight === 0 && style.current.hidden, { overflow: 'hidden' }];
+-    }, [allowShadow, propsStyle, headerHeight]);
++    const containerStyle = useMemo(() => {
++        return [allowShadow && style.current.containerShadow, propsStyle, { overflow: 'hidden' }];
++    }, [allowShadow, propsStyle]);
+     const wrapperStyle = useMemo(() => {
+         return { height: deltaY };
+     }, [deltaY]);
 diff --git a/node_modules/react-native-calendars/src/infinite-list/index.js b/node_modules/react-native-calendars/src/infinite-list/index.js
 index 93dcd52..380f048 100644
 --- a/node_modules/react-native-calendars/src/infinite-list/index.js

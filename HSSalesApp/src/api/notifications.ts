@@ -1,34 +1,82 @@
 import { getJsonServerBaseUrl } from '../config/apiBase';
 import type { AdminNotification } from '../types/models';
-import { requestJson } from './http';
+import { requestGraphql } from './http';
 
 export async function createNotification(
   payload: Omit<AdminNotification, 'id' | 'createdAt'>,
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<AdminNotification>({
-    method: 'POST',
+  const data = await requestGraphql<
+    { createNotification: AdminNotification },
+    {
+      input: {
+        type: string;
+        saleId?: string;
+        lotId?: string;
+        title: string;
+        body: string;
+        actorUserId: string;
+        readByUserIds?: string[];
+      };
+    }
+  >({
     baseUrl,
-    path: '/api/notifications',
-    headers: { Authorization: `Bearer ${token}` },
-    body: {
-      ...payload,
-      createdAt: new Date().toISOString(),
+    token,
+    query: `
+      mutation CreateNotification($input: CreateNotificationInput!) {
+        createNotification(input: $input) {
+          id
+          type
+          saleId
+          lotId
+          title
+          body
+          createdAt
+          actorUserId
+          unread
+        }
+      }
+    `,
+    variables: {
+      input: {
+        type: payload.type,
+        saleId: payload.saleId,
+        lotId: payload.lotId,
+        title: payload.title,
+        body: payload.body,
+        actorUserId: payload.actorUserId,
+        readByUserIds: payload.readByUserIds,
+      },
     },
   });
+  return data.createNotification;
 }
 
 export async function fetchNotifications(
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<AdminNotification[]>({
-    method: 'GET',
+  const data = await requestGraphql<{ notifications: AdminNotification[] }>({
     baseUrl,
-    path: '/api/notifications',
-    headers: { Authorization: `Bearer ${token}` },
+    token,
+    query: `
+      query Notifications {
+        notifications {
+          id
+          type
+          saleId
+          lotId
+          title
+          body
+          createdAt
+          actorUserId
+          unread
+        }
+      }
+    `,
   });
+  return data.notifications;
 }
 
 export async function markNotificationRead(
@@ -36,10 +84,15 @@ export async function markNotificationRead(
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<{ ok: boolean }>({
-    method: 'POST',
+  const data = await requestGraphql<{ markNotificationRead: boolean }, { id: string }>({
     baseUrl,
-    path: `/api/notifications/${id}/read`,
-    headers: { Authorization: `Bearer ${token}` },
+    token,
+    query: `
+      mutation MarkNotificationRead($id: ID!) {
+        markNotificationRead(id: $id)
+      }
+    `,
+    variables: { id },
   });
+  return { ok: data.markNotificationRead };
 }

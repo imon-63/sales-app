@@ -1,7 +1,7 @@
 import { getJsonServerBaseUrl } from '../config/apiBase';
 import type { StockRow } from '../types/models';
 
-import { requestJson } from './http';
+import { requestGraphql } from './http';
 
 export type PurchaseLine = { productId: string; quantity: number; unitCost: number };
 
@@ -23,12 +23,58 @@ export type CreateTransferRequest = {
 };
 
 export async function fetchStockRows(token: string, baseUrl = getJsonServerBaseUrl()) {
-  return requestJson<StockRow[]>({
-    method: 'GET',
-    baseUrl,
-    path: '/api/inventory/stock',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  try {
+    const data = await requestGraphql<{ inventoryStock: StockRow[] }>({
+      baseUrl,
+      token,
+      query: `
+        query InventoryStock {
+          inventoryStock {
+            id
+            batchLotId
+            lotId
+            lotNumber
+            productId
+            productName
+            unit
+            warehouseId
+            warehouseName
+            quantityOnHand
+            unitCost
+            acquiredAt
+          }
+        }
+      `,
+    });
+    return data.inventoryStock;
+  } catch (e: any) {
+    const msg = String(e?.message ?? '');
+    const schemaMismatch =
+      msg.includes('Cannot query field "id" on type "StockRow"') ||
+      msg.includes('Cannot query field "batchLotId" on type "StockRow"') ||
+      msg.includes('Cannot query field "lotNumber" on type "StockRow"');
+    if (!schemaMismatch) throw e;
+
+    // Backward-compatible fallback while backend process is still on old schema.
+    const fallback = await requestGraphql<{ inventoryStock: StockRow[] }>({
+      baseUrl,
+      token,
+      query: `
+        query InventoryStockLegacy {
+          inventoryStock {
+            productId
+            productName
+            unit
+            warehouseId
+            warehouseName
+            quantityOnHand
+            unitCost
+          }
+        }
+      `,
+    });
+    return fallback.inventoryStock;
+  }
 }
 
 export async function createPurchase(
@@ -36,13 +82,23 @@ export async function createPurchase(
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<{ purchaseId: string; ok: boolean }>({
-    method: 'POST',
+  const data = await requestGraphql<
+    { createPurchase: { purchaseId: string; ok: boolean } },
+    { input: CreatePurchaseRequest }
+  >({
     baseUrl,
-    path: '/api/purchases',
-    headers: { Authorization: `Bearer ${token}` },
-    body: payload,
+    token,
+    query: `
+      mutation CreatePurchase($input: CreatePurchaseInput!) {
+        createPurchase(input: $input) {
+          purchaseId
+          ok
+        }
+      }
+    `,
+    variables: { input: payload },
   });
+  return data.createPurchase;
 }
 
 export async function createTransfer(
@@ -50,11 +106,21 @@ export async function createTransfer(
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
-  return requestJson<{ transferId: string; ok: boolean }>({
-    method: 'POST',
+  const data = await requestGraphql<
+    { createInventoryTransfer: { transferId: string; ok: boolean } },
+    { input: CreateTransferRequest }
+  >({
     baseUrl,
-    path: '/api/inventory/transfers',
-    headers: { Authorization: `Bearer ${token}` },
-    body: payload,
+    token,
+    query: `
+      mutation CreateInventoryTransfer($input: CreateTransferInput!) {
+        createInventoryTransfer(input: $input) {
+          transferId
+          ok
+        }
+      }
+    `,
+    variables: { input: payload },
   });
+  return data.createInventoryTransfer;
 }

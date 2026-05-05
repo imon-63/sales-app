@@ -3,7 +3,7 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 import { AdminDashboardScreen } from '../../screens/dashboard/AdminDashboardScreen';
 import { SalesCalendarScreen } from '../../screens/calendar/SalesCalendarScreen';
@@ -30,13 +30,81 @@ function AdminFloatingTabBar(props: BottomTabBarProps) {
 
 function AdminAlertsTabIcon({ color }: { color: string }) {
   const unread = useAppSelector(selectUnreadNotificationCount);
+  const dotOpacity = React.useRef(new Animated.Value(1)).current;
+  const arrowNudge = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (unread > 0) {
+      const dotLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotOpacity, {
+            toValue: 0.2,
+            duration: 500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotOpacity, {
+            toValue: 1,
+            duration: 500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      const arrowLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(arrowNudge, {
+            toValue: 1,
+            duration: 420,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(arrowNudge, {
+            toValue: 0,
+            duration: 420,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      dotLoop.start();
+      arrowLoop.start();
+      return () => {
+        dotLoop.stop();
+        arrowLoop.stop();
+      };
+    }
+    dotOpacity.stopAnimation();
+    arrowNudge.stopAnimation();
+    dotOpacity.setValue(1);
+    arrowNudge.setValue(0);
+  }, [unread, arrowNudge, dotOpacity]);
+
+  const arrowStyle = {
+    opacity: dotOpacity,
+    transform: [
+      {
+        translateX: arrowNudge.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-8, -2],
+        }),
+      },
+    ],
+  };
+
   return (
     <View style={styles.iconWrap}>
+      {unread > 0 ? (
+        <Animated.View style={[styles.arrowCueWrap, arrowStyle]}>
+          <Text style={styles.arrowCue}>➜</Text>
+        </Animated.View>
+      ) : null}
       <Text style={[styles.icon, { color }]} allowFontScaling={false}>
         {'\uD83D\uDD14'}
       </Text>
       {unread > 0 ? (
         <View style={styles.badge}>
+          <Animated.View style={[styles.badgeBlinkDot, { opacity: dotOpacity }]} />
           <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
         </View>
       ) : null}
@@ -142,5 +210,29 @@ const styles = StyleSheet.create({
     color: palette.paper,
     fontSize: 10,
     fontWeight: '900',
+  },
+  badgeBlinkDot: {
+    position: 'absolute',
+    left: -4,
+    top: -3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: palette.emerald,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 15, 13, 0.7)',
+  },
+  arrowCueWrap: {
+    position: 'absolute',
+    left: -18,
+    top: 5,
+  },
+  arrowCue: {
+    color: palette.emerald,
+    fontSize: 12,
+    fontWeight: '900',
+    textShadowColor: 'rgba(0,230,118,0.85)',
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 0 },
   },
 });
