@@ -3,4 +3,6 @@ export type MainStackParamList = {
   StockRoom: undefined;
   ReceiveStock: undefined;
   TransferStock: undefined;
+  SaleDetails: { saleId: string };
+  LotReport: { lotId: string };
 };

@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { palette } from '../../theme/designSystem';
 
 /**
- * Soft organic backdrop: cream base + mint / lime / butter blobs (reference UI).
+ * Dark-mode backdrop: deep forest base + glowing green blobs.
  */
 export function MeshBackground({ children }: { children: React.ReactNode }) {
   return (
@@ -33,27 +33,27 @@ const styles = StyleSheet.create({
     height: 420,
     top: -150,
     right: -100,
-    backgroundColor: palette.emeraldLight,
-    opacity: 0.55,
+    backgroundColor: 'rgba(0, 230, 118, 0.14)',
+    opacity: 0.92,
   },
   blob2: {
     width: 380,
     height: 380,
     bottom: -120,
     left: -130,
-    backgroundColor: palette.night,
-    opacity: 0.85,
+    backgroundColor: 'rgba(0, 200, 83, 0.11)',
+    opacity: 0.88,
   },
   blob3: {
     width: 280,
     height: 280,
     top: '36%',
     left: '12%',
-    backgroundColor: palette.amber,
-    opacity: 0.35,
+    backgroundColor: 'rgba(105, 240, 174, 0.08)',
+    opacity: 0.65,
   },
   wash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(243, 244, 237, 0.72)',
+    backgroundColor: 'rgba(6, 28, 18, 0.42)',
   },
 });

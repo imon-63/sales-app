@@ -14,16 +14,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import * as catalogApi from '../../api/catalog';
 import * as salesApi from '../../api/sales';
+import * as catalogApi from '../../api/catalog';
 import { SelectMenu } from '../../components/ui/SelectMenu';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useT } from '../../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
 import { fetchInventoryStock } from '../../store/slices/inventorySlice';
 import { palette, radii } from '../../theme/designSystem';
+import { showToast } from '../../store/slices/uiSlice';
 import { unitLabelForProduct } from '../../utils/sales';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
 
@@ -33,58 +35,56 @@ type LineDraft = {
   currencyId: string;
   quantity: string;
   unitPrice: string;
+  unitId: string;
 };
 
-function newLine(productId: string, currencyId: string): LineDraft {
+function newLine(productId: string = '', currencyId: string = '', unitId: string = ''): LineDraft {
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     productId,
     currencyId,
     quantity: '1',
     unitPrice: '',
+    unitId,
   };
 }
 
 export function LogSaleScreen() {
+  const t = useT();
   const dispatch = useAppDispatch();
   const token = useAppSelector((s) => s.auth.token);
-  const { products, warehouses, units, currencies, status } = useAppSelector(
+  const { products, warehouses, units, currencies, lots, lotBatches, status } = useAppSelector(
     (s) => s.salesData,
   );
+  const role = useAppSelector((s) => s.auth.user?.role);
   const stockRows = useAppSelector((s) => s.inventory.stockRows);
 
   const defaultWh = warehouses[0]?.id ?? '';
   const defaultProduct = products[0]?.id ?? '';
   const defaultCurrency = currencies[0]?.id ?? '';
 
-  const [warehouseId, setWarehouseId] = useState(defaultWh);
+  const [warehouseId, setWarehouseId] = useState('');
   const [saleDate, setSaleDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineDraft[]>(() =>
-    defaultProduct && defaultCurrency
-      ? [newLine(defaultProduct, defaultCurrency)]
-      : [],
+    defaultCurrency ? [newLine('', defaultCurrency)] : [],
   );
   const [busy, setBusy] = useState(false);
   const [unitModal, setUnitModal] = useState(false);
-  const [currencyModal, setCurrencyModal] = useState(false);
   const [unitDraft, setUnitDraft] = useState('');
-  const [currencyDraft, setCurrencyDraft] = useState('');
   const [catalogBusy, setCatalogBusy] = useState(false);
 
   const tabBottomPad = useTabScreenBottomPadding();
 
-  useEffect(() => {
-    if (!warehouseId && warehouses[0]) setWarehouseId(warehouses[0].id);
-  }, [warehouseId, warehouses]);
+  // Removed auto-select first warehouse logic to keep it empty initially
 
   useEffect(() => {
-    if (lines.length === 0 && products[0] && defaultCurrency) {
-      setLines([newLine(products[0].id, defaultCurrency)]);
+    if (lines.length === 0 && defaultCurrency) {
+      setLines([newLine('', defaultCurrency)]);
     }
-  }, [lines.length, products, defaultCurrency]);
+  }, [lines.length, defaultCurrency]);
 
   useEffect(() => {
     if (!token) return;
@@ -104,10 +104,17 @@ export function LogSaleScreen() {
     [warehouses],
   );
 
-  const productOptions = useMemo(
-    () => products.map((p) => ({ value: p.id, label: p.name })),
-    [products],
-  );
+  const productOptions = useMemo(() => {
+    if (!warehouseId) return [];
+    return products
+      .filter((p) => (stockMap.get(`${warehouseId}__${p.id}`) ?? 0) > 0)
+      .map((p) => ({ value: p.id, label: p.name }));
+  }, [products, warehouseId, stockMap]);
+
+  // Reset line selections whenever the warehouse changes
+  useEffect(() => {
+    setLines((prev) => prev.map((ln) => ({ ...ln, productId: '', unitId: '' })));
+  }, [warehouseId]);
 
   const currencyOptions = useMemo(
     () => currencies.map((c) => ({ value: c.id, label: c.code })),
@@ -123,14 +130,7 @@ export function LogSaleScreen() {
     [dispatch, token],
   );
 
-  const onAddCurrency = useCallback(
-    async (code: string) => {
-      if (!token) return;
-      await catalogApi.createCurrency({ code }, token);
-      await dispatch(fetchSalesDataset()).unwrap();
-    },
-    [dispatch, token],
-  );
+
 
   async function saveNewUnit() {
     if (!token) return;
@@ -142,61 +142,44 @@ export function LogSaleScreen() {
       setUnitModal(false);
       setUnitDraft('');
     } catch (e: any) {
-      Alert.alert('Could not add unit', e?.message ?? 'Error');
+      dispatch(showToast({
+        title: 'Could not add unit',
+        message: e?.message ?? 'Error',
+        type: 'error'
+      }));
     } finally {
       setCatalogBusy(false);
     }
   }
 
-  async function saveNewCurrency() {
-    if (!token) return;
-    const t = currencyDraft.trim();
-    if (!t) return;
-    try {
-      setCatalogBusy(true);
-      await onAddCurrency(t);
-      setCurrencyModal(false);
-      setCurrencyDraft('');
-    } catch (e: any) {
-      Alert.alert('Could not add currency', e?.message ?? 'Error');
-    } finally {
-      setCatalogBusy(false);
-    }
-  }
+
 
   const canSubmit = useMemo(() => {
     if (!token || busy || !warehouseId || lines.length === 0) return false;
     for (const ln of lines) {
       const q = Number(ln.quantity);
       const p = Number(ln.unitPrice);
-      if (!ln.productId || !ln.currencyId) return false;
+      const u = units.find(x => x.id === ln.unitId);
+      const prod = products.find(x => x.id === ln.productId);
+      
+      if (!ln.productId || !ln.unitId || !ln.currencyId) return false;
       if (!Number.isFinite(q) || q <= 0) return false;
       if (!Number.isFinite(p) || p < 0) return false;
+
+      // --- Hard Stock Block ---
+      const avail = warehouseId && ln.productId ? (stockMap.get(`${warehouseId}__${ln.productId}`) ?? 0) : 0;
+      const factory = u?.globalFactor ?? prod?.conversions?.[u?.id || ''] ?? 1;
+      const requestedBase = q * factory;
+      if (requestedBase > avail) return false; // Hard block if over stock
+
+      // Enforce whole numbers for specific units
+      if (u?.isWholeNumber && !Number.isInteger(q)) return false;
     }
     return true;
   }, [token, busy, warehouseId, lines]);
 
   async function onSubmit() {
     if (!token || !canSubmit) return;
-    const anyOver = lines.some((ln) => {
-      const q = Number(ln.quantity);
-      const avail =
-        stockMap.get(`${warehouseId}__${ln.productId}`) ?? 0;
-      return Number.isFinite(q) && q > avail;
-    });
-    if (anyOver) {
-      const proceed = await new Promise<boolean>((resolve) => {
-        Alert.alert(
-          'Quantity above on-hand',
-          'At least one line exceeds available stock in the selected warehouse. Submit anyway?',
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Submit anyway', onPress: () => resolve(true) },
-          ],
-        );
-      });
-      if (!proceed) return;
-    }
     await submitSaleRequest();
   }
 
@@ -214,20 +197,28 @@ export function LogSaleScreen() {
             quantity: Number(ln.quantity),
             unitPrice: Number(ln.unitPrice),
             currencyId: ln.currencyId,
+            unitId: ln.unitId,
           })),
         },
         token,
       );
       await dispatch(fetchSalesDataset()).unwrap();
       await dispatch(fetchInventoryStock());
-      Alert.alert('Sale logged', 'Your admin will see this in Signals.');
+      dispatch(showToast({
+        title: 'Sale logged',
+        message: 'Your admin will see this in Signals.',
+        type: 'success'
+      }));
       setNotes('');
-      const pid = products[0]?.id ?? '';
       const cid = currencies[0]?.id ?? '';
-      setLines(pid && cid ? [newLine(pid, cid)] : []);
+      setLines(cid ? [newLine('', cid)] : []);
       setSaleDate(new Date().toISOString().slice(0, 10));
     } catch (e: any) {
-      Alert.alert('Could not log sale', e?.message ?? 'Unknown error');
+      dispatch(showToast({
+        title: 'Could not log sale',
+        message: e?.message ?? 'Unknown error',
+        type: 'error'
+      }));
     } finally {
       setBusy(false);
     }
@@ -237,11 +228,11 @@ export function LogSaleScreen() {
     return (
       <MeshBackground>
         <SafeAreaView
-          style={[styles.safe, { paddingBottom: tabBottomPad }]}
+          style={styles.safe}
           edges={['top']}>
           <View style={styles.center}>
             <ActivityIndicator color={palette.emerald} />
-            <Text style={styles.hint}>Loading catalog…</Text>
+            <Text style={styles.hint}>{t('logSale.loadingCatalog')}</Text>
           </View>
         </SafeAreaView>
       </MeshBackground>
@@ -251,19 +242,15 @@ export function LogSaleScreen() {
   return (
     <MeshBackground>
       <SafeAreaView
-        style={[styles.safe, { paddingBottom: tabBottomPad }]}
+        style={styles.safe}
         edges={['top']}>
-        <ScreenHeader
-          title="Log a sale"
-          subtitle="Pick warehouse and lines. Availability is from received stock for that warehouse."
-          tag="Sales"
-        />
+        <ScreenHeader title={t('logSale.title')} tag={t('logSale.tag')} />
 
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
-            contentContainerStyle={styles.scroll}
+            contentContainerStyle={[styles.scroll, { paddingBottom: tabBottomPad }]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <GlassCard>
@@ -296,7 +283,7 @@ export function LogSaleScreen() {
             </GlassCard>
 
             <GlassCard style={styles.catalogCard}>
-              <Text style={styles.cardTitle}>Units & currencies</Text>
+              <Text style={styles.cardTitle}>Units</Text>
               <Text style={styles.catalogHint}>
                 New values are saved to the catalog and show up in line dropdowns.
               </Text>
@@ -306,26 +293,50 @@ export function LogSaleScreen() {
                   style={styles.catalogBtn}>
                   <Text style={styles.catalogBtnText}>+ Add unit</Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => setCurrencyModal(true)}
-                  style={styles.catalogBtn}>
-                  <Text style={styles.catalogBtnText}>+ Add currency</Text>
-                </Pressable>
               </View>
             </GlassCard>
 
             {lines.map((ln, idx) => {
               const prod = products.find((p) => p.id === ln.productId);
               const unitLbl = prod ? unitLabelForProduct(prod, units) : '';
-              const avail =
+              
+              // Resolve all valid units (base + conversions)
+              const allUnitLabels = useMemo(() => {
+                if (!prod) return '';
+                const ids = [prod.unitId, ...Object.keys(prod.conversions || {})];
+                return ids
+                  .map((id) => units.find((u) => u.id === id)?.label)
+                  .filter(Boolean)
+                  .join(', ');
+              }, [prod, units]);
+
+              // Aggregated availability: subtract usage from other lines for the same product
+              const availInWarehouse =
                 warehouseId && ln.productId
                   ? (stockMap.get(`${warehouseId}__${ln.productId}`) ?? 0)
                   : 0;
+              
+              const consumedByOtherLinesBase = useMemo(() => {
+                if (!ln.productId) return 0;
+                return lines.reduce((acc, other, oIdx) => {
+                  if (oIdx === idx || other.productId !== ln.productId) return acc;
+                  const q = Number(other.quantity) || 0;
+                  const otherProd = products.find(p => p.id === other.productId);
+                  const otherUnit = units.find(u => u.id === other.unitId);
+                  const factor = otherUnit?.globalFactor ?? otherProd?.conversions?.[otherUnit?.id || ''] ?? 1;
+                  return acc + (q * factor);
+                }, 0);
+              }, [lines, idx, ln.productId, products, units]);
+
+              const avail = Math.max(0, availInWarehouse - consumedByOtherLinesBase);
               const qtyN = Number(ln.quantity);
               const over = Number.isFinite(qtyN) && qtyN > avail;
 
               return (
-                <GlassCard key={ln.id} style={styles.lineCard}>
+                <GlassCard 
+                  key={ln.id} 
+                  style={styles.lineCard}
+                  accentColor={role === 'admin' ? palette.emeraldDeep : palette.emerald}>
                   <View style={styles.lineHead}>
                     <Text style={styles.cardTitle}>Line {idx + 1}</Text>
                     {lines.length > 1 ? (
@@ -343,59 +354,92 @@ export function LogSaleScreen() {
                     label="Product"
                     value={ln.productId}
                     options={productOptions}
-                    onChange={(pid) =>
+                    onChange={(pid) => {
+                      const p = products.find(prod => prod.id === pid);
                       setLines((prev) =>
                         prev.map((x) =>
-                          x.id === ln.id ? { ...x, productId: pid } : x,
+                          x.id === ln.id ? { ...x, productId: pid, unitId: p?.unitId || '' } : x,
                         ),
                       )
-                    }
+                    }}
                     placeholder="Select product"
                   />
 
                   {prod ? (
-                    <Text style={styles.unitPill}>Unit: {unitLbl}</Text>
+                    <View>
+                      <Text style={styles.unitPill}>Unit: {unitLbl}</Text>
+                      {allUnitLabels ? (
+                        <Text style={styles.allUnits}>Available in: {allUnitLabels}</Text>
+                      ) : null}
+                    </View>
                   ) : null}
 
-                  <SelectMenu
-                    label="Currency"
-                    value={ln.currencyId}
-                    options={currencyOptions}
-                    onChange={(cid) =>
-                      setLines((prev) =>
-                        prev.map((x) =>
-                          x.id === ln.id ? { ...x, currencyId: cid } : x,
-                        ),
-                      )
-                    }
-                    placeholder="Select currency"
-                  />
-
-                  <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
-                  <TextInput
-                    value={ln.quantity}
-                    onChangeText={(t) =>
-                      setLines((prev) =>
-                        prev.map((x) =>
-                          x.id === ln.id ? { ...x, quantity: t } : x,
-                        ),
-                      )
-                    }
-                    keyboardType="decimal-pad"
-                    placeholder="0"
-                    placeholderTextColor={palette.textMuted}
-                    style={styles.input}
-                  />
                   {warehouseId && ln.productId ? (
-                    <Text style={[styles.avail, over && styles.availWarn]}>
-                      Available in selected warehouse: {avail.toLocaleString()}{' '}
-                      {unitLbl || 'units'}
-                    </Text>
+                    <View style={styles.lotList}>
+                      <Text style={styles.lotListTitle}>Available Lots:</Text>
+                      {lotBatches
+                        .filter(b => b.warehouseId === warehouseId && b.remainingQuantity > 0)
+                        .filter(b => {
+                          const lot = lots.find(l => l.id === b.lotId);
+                          return lot && lot.productId === ln.productId;
+                        })
+                        .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)))
+                        .map((b) => {
+                          const lot = lots.find(l => l.id === b.lotId);
+                          return (
+                            <Text key={b.id} style={styles.lotItem}>
+                              • {lot?.lotNumber ?? 'Unknown'}: {b.remainingQuantity.toLocaleString()} {unitLbl} left
+                            </Text>
+                          );
+                        })}
+                    </View>
                   ) : null}
+
+
+
+                  <View style={styles.qtyUnitRow}>
+                    <View style={styles.qtyCol}>
+                      <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
+                      <TextInput
+                        value={ln.quantity}
+                        onChangeText={(t) =>
+                          setLines((prev) =>
+                            prev.map((x) =>
+                              x.id === ln.id ? { ...x, quantity: t } : x,
+                            ),
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={palette.textMuted}
+                        style={styles.input}
+                      />
+                    </View>
+                    <View style={styles.unitCol}>
+                      <SelectMenu
+                        label="Unit"
+                        value={ln.unitId}
+                        options={units
+                          .filter(u => {
+                            if (!prod) return u.globalFactor !== undefined || u.label === 'BOSTA';
+                            return u.globalFactor !== undefined || (prod.conversions && prod.conversions[u.id] !== undefined) || u.id === prod.unitId;
+                          })
+                          .map(u => ({ value: u.id, label: u.label }))
+                        }
+                        onChange={(uid) =>
+                          setLines((prev) =>
+                            prev.map((x) => (x.id === ln.id ? { ...x, unitId: uid } : x)),
+                          )
+                        }
+                        placeholder="Unit"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Availability/Remaining stock text removed per user request. "Available Lots" and "Available in" labels are kept. */}
 
                   <Text style={[styles.label, styles.labelSpaced]}>
-                    Unit price (
-                    {currencies.find((c) => c.id === ln.currencyId)?.code ?? '—'})
+                    Unit price (BDT)
                   </Text>
                   <TextInput
                     value={ln.unitPrice}
@@ -417,9 +461,8 @@ export function LogSaleScreen() {
 
             <Pressable
               onPress={() => {
-                const pid = products[0]?.id ?? '';
                 const cid = currencies[0]?.id ?? '';
-                if (pid && cid) setLines((prev) => [...prev, newLine(pid, cid)]);
+                if (cid) setLines((prev) => [...prev, newLine('', cid)]);
               }}
               style={styles.secondary}
               disabled={!products[0] || !currencies[0]}>
@@ -477,42 +520,7 @@ export function LogSaleScreen() {
           </Pressable>
         </Modal>
 
-        <Modal visible={currencyModal} transparent animationType="fade">
-          <Pressable
-            style={styles.modalBg}
-            onPress={() => !catalogBusy && setCurrencyModal(false)}>
-            <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.modalTitle}>New currency</Text>
-              <TextInput
-                value={currencyDraft}
-                onChangeText={setCurrencyDraft}
-                placeholder="e.g. EUR"
-                autoCapitalize="characters"
-                placeholderTextColor={palette.textMuted}
-                style={styles.input}
-                editable={!catalogBusy}
-              />
-              <View style={styles.modalActions}>
-                <Pressable
-                  onPress={() => !catalogBusy && setCurrencyModal(false)}
-                  style={styles.ghost}>
-                  <Text style={styles.ghostText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => void saveNewCurrency()}
-                  disabled={catalogBusy || !currencyDraft.trim()}
-                  style={[
-                    styles.primaryMini,
-                    (!currencyDraft.trim() || catalogBusy) && styles.primaryMiniOff,
-                  ]}>
-                  <Text style={styles.primaryMiniText}>
-                    {catalogBusy ? 'Saving…' : 'Save'}
-                  </Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
+
       </SafeAreaView>
     </MeshBackground>
   );
@@ -570,6 +578,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 12,
   },
+  allUnits: {
+    marginTop: 4,
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    fontStyle: 'italic',
+  },
   avail: {
     marginTop: 8,
     color: palette.textMuted,
@@ -577,7 +592,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   availWarn: { color: palette.danger },
+  lotList: {
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  lotListTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: palette.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  lotItem: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.text,
+    lineHeight: 18,
+  },
   lineCard: { marginTop: 0 },
+  qtyUnitRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-end' },
+  qtyCol: { flex: 0.6 },
+  unitCol: { flex: 0.4 },
   lineHead: {
     flexDirection: 'row',
     alignItems: 'center',

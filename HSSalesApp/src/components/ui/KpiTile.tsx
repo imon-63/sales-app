@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     minWidth: '46%',
     borderRadius: radii.md,
     borderWidth: 1,
-    backgroundColor: palette.paper,
+    backgroundColor: palette.glass,
     paddingVertical: 14,
     paddingHorizontal: 14,
     overflow: 'hidden',
@@ -41,9 +41,9 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   label: {
-    color: palette.textMuted,
+    color: palette.textLabel,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   hint: {
     marginTop: 6,
     color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

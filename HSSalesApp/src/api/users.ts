@@ -5,6 +5,8 @@ import { requestJson } from './http';
 export type CreatedSalesUser = {
   id: string;
   email: string;
+  name: string;
+  phone?: string;
   role: 'sales';
 };
 
@@ -13,7 +15,7 @@ export type CreateSalesUserResponse = {
 };
 
 export async function createSalesUser(
-  payload: { email: string; password: string },
+  payload: { name: string; phone?: string; email: string; password: string },
   token: string,
   baseUrl = getJsonServerBaseUrl(),
 ) {
@@ -25,6 +27,8 @@ export async function createSalesUser(
       Authorization: `Bearer ${token}`,
     },
     body: {
+      name: payload.name.trim(),
+      phone: payload.phone?.trim() || undefined,
       email: payload.email.trim().toLowerCase(),
       password: payload.password,
     },

@@ -59,6 +59,8 @@ server.post('/api/login', (req, res) => {
     user: {
       id: user.id,
       email: user.email,
+      name: user.name,
+      phone: user.phone,
       role: user.role,
     },
   });
@@ -112,6 +114,22 @@ server.post('/api/users', (req, res) => {
 });
 
 // Authenticated: log a sale (+ line items). When a sales rep logs it, admins get a notification.
+function getConversionFactor(productId, unitId) {
+  const units = router.db.get('units').value() ?? [];
+  const products = router.db.get('products').value() ?? [];
+  const unit = units.find((u) => u.id === unitId);
+  const product = products.find((p) => p.id === productId);
+
+  if (!unit) return 1;
+  // Priority 1: Global factor (Tons, Grams, etc.)
+  if (typeof unit.globalFactor === 'number') return unit.globalFactor;
+  // Priority 2: Product-specific conversion (Bags, boxes, etc.)
+  if (product && product.conversions && typeof product.conversions[unitId] === 'number') {
+    return product.conversions[unitId];
+  }
+  return 1;
+}
+
 server.post('/api/sales', (req, res) => {
   const userId = parseBearerUserId(req);
   if (!userId) {
@@ -167,6 +185,7 @@ server.post('/api/sales', (req, res) => {
       quantity: qty,
       unitPrice: price,
       currencyId,
+      unitId: it.unitId, // Store the unit used in the transaction
     };
     createdItems.push(line);
   }
@@ -183,9 +202,70 @@ server.post('/api/sales', (req, res) => {
     notes: notes != null ? String(notes) : '',
   };
 
+  // --- PRE-VALIDATION: Check total available stock ---
+  const allBatchesForAudit = router.db.get('lotBatches').value() ?? [];
+  const allLotsForAudit = router.db.get('lots').value() ?? [];
+  
+  for (const line of createdItems) {
+    const requestedBaseQty = line.quantity * getConversionFactor(line.productId, line.unitId);
+    
+    const availableBaseQty = allBatchesForAudit
+      .filter(b => b.warehouseId === warehouseId && Number(b.remainingQuantity) > 0)
+      .filter(b => {
+        const lot = allLotsForAudit.find(l => l.id === b.lotId);
+        return lot && lot.productId === line.productId;
+      })
+      .reduce((sum, b) => sum + Number(b.remainingQuantity), 0);
+
+    if (requestedBaseQty > availableBaseQty) {
+      const p = products.find(x => x.id === line.productId);
+      return res.status(400).json({ 
+        error: `Insufficient stock for ${p?.name || 'product'}. Available: ${availableBaseQty}, Requested: ${requestedBaseQty} (in base units)` 
+      });
+    }
+  }
+
   router.db.get('sales').push(sale).write();
   for (const line of createdItems) {
     router.db.get('salesItems').push(line).write();
+
+    // --- FIFO AUTOMATIC ALLOCATION ---
+    const allBatches = router.db.get('lotBatches').value() ?? [];
+    const allLots = router.db.get('lots').value() ?? [];
+    
+    // Sort batches for this product + warehouse by date (Oldest first)
+    const candidates = allBatches
+      .filter(b => b.warehouseId === warehouseId && Number(b.remainingQuantity) > 0)
+      .filter(b => {
+        const lot = allLots.find(l => l.id === b.lotId);
+        return lot && lot.productId === line.productId;
+      })
+      .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)));
+
+    let remainingToDeduct = line.quantity * getConversionFactor(line.productId, line.unitId);
+    ensureCollection('salesItemAllocations', []);
+
+    for (const batch of candidates) {
+      if (remainingToDeduct <= 0) break;
+      const currentRemaining = Number(batch.remainingQuantity);
+      const take = Math.min(remainingToDeduct, currentRemaining);
+      
+      // Permanently deduct from this batch
+      router.db.get('lotBatches').find({ id: batch.id }).assign({
+        remainingQuantity: currentRemaining - take
+      }).write();
+
+      // Mirror the allocation for detailed profit/cost reporting
+      router.db.get('salesItemAllocations').push({
+        id: crypto.randomUUID(),
+        salesItemId: line.id,
+        lotBatchId: batch.id,
+        quantityAllocated: take,
+        unitCostAtTime: Number(batch.unitCost)
+      }).write();
+
+      remainingToDeduct -= take;
+    }
   }
 
   if (actor.role === 'sales') {
@@ -215,6 +295,48 @@ server.post('/api/sales', (req, res) => {
       readByUserIds: [],
     };
     router.db.get('notifications').push(notif).write();
+  }
+
+  // --- LOT DEPLETION CHECK ---
+  // If any lot used in this sale just hit 0 across all warehouses, notify the admin
+  const lotIdsUsed = new Set();
+  const allUsedAllocations = router.db.get('salesItemAllocations').value() ?? [];
+  for (const line of createdItems) {
+    const lineAllocations = allUsedAllocations.filter(a => a.salesItemId === line.id);
+    for (const a of lineAllocations) {
+      const batch = router.db.get('lotBatches').find({ id: a.lotBatchId }).value();
+      if (batch) lotIdsUsed.add(batch.lotId);
+    }
+  }
+
+  for (const lid of lotIdsUsed) {
+    const totalRemaining = router.db.get('lotBatches').value()
+      .filter(b => b.lotId === lid)
+      .reduce((s, b) => s + Number(b.remainingQuantity), 0);
+    
+    if (totalRemaining === 0) {
+      const lot = router.db.get('lots').find({ id: lid }).value();
+      const prod = products.find(p => p.id === lot?.productId);
+      const lotNotifId = crypto.randomUUID();
+      
+      // Ensure we don't spam duplicate depletion notifications for the same lot
+      const existing = router.db.get('notifications').find({ type: 'lot_depleted', lotId: lid }).value();
+      
+      if (!existing && lot) {
+        const lotNotif = {
+          id: lotNotifId,
+          type: 'lot_depleted',
+          lotId: lid,
+          title: 'Lot Fully Sold Out',
+          body: `Inventory Alert: Lot ${lot.lotNumber} (${prod?.name || 'Product'}) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.`,
+          createdAt: new Date().toISOString(),
+          actorUserId: userId,
+          readByUserIds: []
+        };
+        ensureNotificationsArray();
+        router.db.get('notifications').push(lotNotif).write();
+      }
+    }
   }
 
   return res.status(201).json({ sale, items: createdItems });
@@ -300,11 +422,15 @@ server.get('/api/inventory/stock', (req, res) => {
     const lot = lots.find((l) => l.id === b.lotId);
     if (!lot) continue;
     const key = `${lot.productId}__${b.warehouseId}`;
-    summaryMap.set(key, (summaryMap.get(key) ?? 0) + rem);
+    const existing = summaryMap.get(key) || { qty: 0, oldestCost: b.unitCost };
+    summaryMap.set(key, { 
+      qty: existing.qty + rem, 
+      oldestCost: existing.oldestCost // Keep the first (oldest) cost found
+    });
   }
 
   const rows = [];
-  for (const [key, qty] of summaryMap) {
+  for (const [key, data] of summaryMap) {
     const [productId, warehouseId] = key.split('__');
     const p = products.find((x) => x.id === productId);
     const w = warehouses.find((x) => x.id === warehouseId);
@@ -316,7 +442,8 @@ server.get('/api/inventory/stock', (req, res) => {
       unit: unitLabel,
       warehouseId,
       warehouseName: w?.name ?? 'Warehouse',
-      quantityOnHand: qty,
+      quantityOnHand: data.qty,
+      unitCost: data.oldestCost || 0,
     });
   }
   rows.sort((a, b) => {
@@ -362,7 +489,13 @@ server.post('/api/purchases', (req, res) => {
     if (!Number.isFinite(qty) || qty <= 0) continue;
     if (!Number.isFinite(uc) || uc < 0) continue;
     if (!products.some((p) => p.id === it.productId)) continue;
-    createdLines.push({ productId: it.productId, quantity: qty, unitCost: uc });
+    createdLines.push({ 
+      productId: it.productId, 
+      quantity: qty, 
+      unitCost: uc, 
+      lotNumber: it.lotNumber ? String(it.lotNumber).trim() : null,
+      unitId: it.unitId,
+    });
   }
 
   if (createdLines.length === 0) {
@@ -385,7 +518,7 @@ server.post('/api/purchases', (req, res) => {
     const lotId = crypto.randomUUID();
     const batchId = crypto.randomUUID();
     const purchaseItemId = crypto.randomUUID();
-    const lotNumber = `RCV-${dateStr}-${String(cl.productId).slice(-6)}-${String(batchId).slice(0, 4)}`;
+    const lotNumber = cl.lotNumber || `RCV-${dateStr}-${String(cl.productId).slice(-6)}-${String(batchId).slice(0, 4)}`;
     router.db
       .get('lots')
       .push({
@@ -405,6 +538,7 @@ server.post('/api/purchases', (req, res) => {
         unitCost: cl.unitCost,
       })
       .write();
+    const cFactor = getConversionFactor(cl.productId, cl.unitId);
     router.db
       .get('lotBatches')
       .push({
@@ -413,8 +547,8 @@ server.post('/api/purchases', (req, res) => {
         warehouseId,
         acquiredAt: dateStr,
         unitCost: cl.unitCost,
-        originalQuantity: cl.quantity,
-        remainingQuantity: cl.quantity,
+        originalQuantity: cl.quantity * cFactor,
+        remainingQuantity: cl.quantity * cFactor,
       })
       .write();
   }
@@ -514,49 +648,74 @@ server.post('/api/inventory/transfers', (req, res) => {
     for (const m of moves) {
       const row = router.db.get('lotBatches').find({ id: m.batchId }).value();
       if (!row) continue;
-      const next = Number(row.remainingQuantity) - m.take;
-      router.db.get('lotBatches').find({ id: m.batchId }).assign({ remainingQuantity: next }).write();
-    }
+      
+      const nextRemaining = Number(row.remainingQuantity) - m.take;
+      router.db.get('lotBatches').find({ id: m.batchId }).assign({ remainingQuantity: nextRemaining }).write();
 
-    let totalQty = 0;
-    let totalCost = 0;
-    for (const m of moves) {
-      totalQty += m.take;
-      totalCost += m.take * m.unitCost;
+      // NEW: reuse the same lotId for the destination batch to track lifecycle
+      const sourceLotId = row.lotId;
+      const newBatchId = crypto.randomUUID();
+      
+      router.db
+        .get('lotBatches')
+        .push({
+          id: newBatchId,
+          lotId: sourceLotId,
+          warehouseId: toWarehouseId,
+          acquiredAt: dateStr,
+          unitCost: m.unitCost,
+          originalQuantity: m.take,
+          remainingQuantity: m.take,
+        })
+        .write();
+
+      router.db
+        .get('inventoryTransferLines')
+        .push({
+          id: crypto.randomUUID(),
+          transferId,
+          productId: nl.productId,
+          lotId: sourceLotId, // NEW: link transfer line to specific lot
+          quantity: m.take,
+        })
+        .write();
     }
-    const avgCost = totalQty > 0 ? totalCost / totalQty : 0;
-    const newLotId = crypto.randomUUID();
-    const newBatchId = crypto.randomUUID();
-    const lotNumber = `TRF-${dateStr}-${String(transferId).slice(0, 8)}`;
-    router.db
-      .get('lots')
-      .push({
-        id: newLotId,
-        productId: nl.productId,
-        lotNumber,
-      })
-      .write();
-    router.db
-      .get('lotBatches')
-      .push({
-        id: newBatchId,
-        lotId: newLotId,
-        warehouseId: toWarehouseId,
-        acquiredAt: dateStr,
-        unitCost: avgCost,
-        originalQuantity: totalQty,
-        remainingQuantity: totalQty,
-      })
-      .write();
-    router.db
-      .get('inventoryTransferLines')
-      .push({
-        id: crypto.randomUUID(),
-        transferId,
-        productId: nl.productId,
-        quantity: totalQty,
-      })
-      .write();
+  }
+
+
+  // --- DEPLETION CHECK FOR TRANSFERS ---
+  // If moving stock emptied out a lot in the source warehouse, check if it's 0 everywhere else
+  const lotIdsMoved = new Set();
+  const allTransferLines = router.db.get('inventoryTransferLines').value() ?? [];
+  const linesForThisTransfer = allTransferLines.filter(l => l.transferId === transferId);
+  for (const tl of linesForThisTransfer) {
+     if (tl.lotId) lotIdsMoved.add(tl.lotId);
+  }
+
+  for (const lid of lotIdsMoved) {
+    const totalRemaining = router.db.get('lotBatches').value()
+      .filter(b => b.lotId === lid)
+      .reduce((s, b) => s + Number(b.remainingQuantity), 0);
+    
+    if (totalRemaining === 0) {
+      const existing = router.db.get('notifications').find({ type: 'lot_depleted', lotId: lid }).value();
+      if (!existing) {
+        const lot = router.db.get('lots').find({ id: lid }).value();
+        const prod = router.db.get('products').find({ id: lot?.productId }).value();
+        const lotNotif = {
+          id: crypto.randomUUID(),
+          type: 'lot_depleted',
+          lotId: lid,
+          title: 'Lot Fully Sold Out (via Transfer)',
+          body: `Inventory Alert: Lot ${lot?.lotNumber} (${prod?.name || 'Product'}) has been moved and sold until depletion. No stock remains.`,
+          createdAt: new Date().toISOString(),
+          actorUserId: userId,
+          readByUserIds: []
+        };
+        ensureNotificationsArray();
+        router.db.get('notifications').push(lotNotif).write();
+      }
+    }
   }
 
   return res.status(201).json({ transferId, ok: true });

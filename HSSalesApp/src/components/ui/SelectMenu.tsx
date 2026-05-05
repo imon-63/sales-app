@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   wrap: { marginTop: 4 },
   fieldLabel: {
     marginTop: 14,
-    color: palette.text,
+    color: palette.textLabel,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.4,
@@ -190,13 +190,13 @@ const styles = StyleSheet.create({
   },
   triggerDisabled: { opacity: 0.45 },
   triggerPressed: { opacity: 0.85 },
-  triggerText: { flex: 1, fontWeight: '700', fontSize: 15 },
+  triggerText: { flex: 1, fontWeight: '700', fontSize: 16 },
   triggerTextValue: { color: palette.text },
   triggerTextMuted: { color: palette.textMuted },
   chev: { color: palette.textMuted, fontSize: 14, marginLeft: 8 },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(13,27,17,0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -222,8 +222,8 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.stroke,
   },
   rowOn: { backgroundColor: palette.chipSelectedFill },
-  rowText: { fontSize: 15, fontWeight: '600', color: palette.text },
-  rowTextOn: { fontWeight: '800' },
+  rowText: { fontSize: 16, fontWeight: '700', color: palette.text },
+  rowTextOn: { fontWeight: '800', color: palette.emerald },
   addRow: { paddingVertical: 14, paddingHorizontal: 20 },
   addText: { color: palette.emerald, fontWeight: '900', fontSize: 15 },
   cancelBtn: { paddingVertical: 12, alignItems: 'center' },
@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: palette.text,
     fontWeight: '600',
+    backgroundColor: palette.inputInset,
   },
   addActions: {
     marginTop: 16,

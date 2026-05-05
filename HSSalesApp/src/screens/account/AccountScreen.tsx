@@ -1,40 +1,82 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useT } from '../../i18n/useT';
+import { persistAppLocale } from '../../i18n/localeStorage';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { clearSession } from '../../store/slices/authSlice';
+import { setLocale, type AppLocale } from '../../store/slices/uiSlice';
 import { palette, radii } from '../../theme/designSystem';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
 
 export function AccountScreen() {
+  const t = useT();
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
+  const locale = useAppSelector((s) => s.ui.locale);
   const tabBottomPad = useTabScreenBottomPadding();
+
+  async function pickLanguage(next: AppLocale) {
+    dispatch(setLocale(next));
+    await persistAppLocale(next);
+  }
+
+  const roleLabel =
+    user?.role === 'admin'
+      ? t('account.role_admin')
+      : user?.role === 'sales'
+        ? t('account.role_sales')
+        : user?.role ?? '';
 
   return (
     <MeshBackground>
-      <SafeAreaView
-        style={[styles.safe, { paddingBottom: tabBottomPad }]}
-        edges={['top']}>
-        <ScreenHeader
-          title="Your identity"
-          subtitle="A crisp profile surface — sign out cleanly when you’re done for the day."
-          tag="Account"
-        />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenHeader title={t('account.title')} tag={t('account.tagProfile')} />
 
-        <View style={styles.body}>
+        <ScrollView
+          contentContainerStyle={[styles.body, { paddingBottom: tabBottomPad }]}
+          showsVerticalScrollIndicator={false}>
           <GlassCard>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t('account.email')}</Text>
             <Text style={styles.value}>{user?.email}</Text>
 
             <View style={{ height: 14 }} />
 
-            <Text style={styles.label}>Role</Text>
-            <Text style={styles.value}>{user?.role}</Text>
+            <Text style={styles.label}>{t('account.role')}</Text>
+            <Text style={styles.value}>{roleLabel}</Text>
+          </GlassCard>
+
+          <GlassCard style={styles.langCard}>
+            <Text style={styles.label}>{t('account.language')}</Text>
+            <View style={styles.langTextRow}>
+              <Pressable
+                onPress={() => pickLanguage('en')}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 4 }}
+                accessibilityRole="link"
+                accessibilityState={{ selected: locale === 'en' }}>
+                <Text
+                  style={[styles.langPlain, locale === 'en' ? styles.langPlainActive : null]}
+                  numberOfLines={1}>
+                  {t('account.languageEn')}
+                </Text>
+              </Pressable>
+              <Text style={styles.langPlainSep}>·</Text>
+              <Pressable
+                onPress={() => pickLanguage('bn')}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}
+                accessibilityRole="link"
+                accessibilityState={{ selected: locale === 'bn' }}>
+                <Text
+                  style={[styles.langPlain, locale === 'bn' ? styles.langPlainActive : null]}
+                  numberOfLines={1}>
+                  {t('account.languageBn')}
+                </Text>
+              </Pressable>
+            </View>
           </GlassCard>
 
           <Pressable
@@ -43,9 +85,9 @@ export function AccountScreen() {
               styles.logout,
               pressed ? { opacity: 0.85 } : null,
             ]}>
-            <Text style={styles.logoutText}>Sign out</Text>
+            <Text style={styles.logoutText}>{t('account.signOut')}</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </MeshBackground>
   );
@@ -55,7 +97,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   body: { paddingHorizontal: 20, gap: 14, paddingTop: 6 },
   label: {
-    color: palette.textMuted,
+    color: palette.textLabel,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -66,6 +108,29 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontSize: 18,
     fontWeight: '900',
+  },
+  langCard: { marginTop: 0 },
+  langTextRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  langPlain: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.textMuted,
+  },
+  langPlainActive: {
+    color: palette.emerald,
+    fontWeight: '800',
+  },
+  langPlainSep: {
+    marginHorizontal: 10,
+    fontSize: 15,
+    color: palette.textMuted,
+    opacity: 0.45,
+    fontWeight: '600',
   },
   logout: {
     borderRadius: radii.lg,

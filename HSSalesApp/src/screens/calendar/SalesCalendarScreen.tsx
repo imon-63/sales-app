@@ -1,6 +1,8 @@
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -18,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useT } from '../../i18n/useT';
 import { useAppSelector } from '../../store/hooks';
 import { palette, radii } from '../../theme/designSystem';
 import {
@@ -26,6 +29,8 @@ import {
   type SaleAgendaItem,
 } from '../../utils/sales';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../../navigation/mainStackTypes';
 
 const calendarTheme = {
   backgroundColor: 'transparent',
@@ -122,9 +127,11 @@ function buildMarkedDates(sales: { saleDate: string }[]): MarkedDates {
 }
 
 export function SalesCalendarScreen() {
+  const t = useT();
   const tabBottomPad = useTabScreenBottomPadding();
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const user = useAppSelector((s) => s.auth.user);
-  const { sales, salesItems, products, warehouses, status, error } =
+  const { sales, salesItems, products, warehouses, users, status, error } =
     useAppSelector((s) => s.salesData);
 
   const visibleSales = useMemo(() => {
@@ -141,50 +148,60 @@ export function SalesCalendarScreen() {
   const markedDates = useMemo(
     () => buildMarkedDates(visibleSales),
     [visibleSales],
-  );
-
+  );  // Capture the anchor date ONLY once when data succeeds.
+  // This prevents parent re-renders from resetting the calendar's swipe position.
+  const todayStr = useMemo(() => ymd(new Date()), []);
   const initialDate = useMemo(() => {
     const titles = sections.map((s) => s.title);
     return pickInitialAgendaDate(titles);
   }, [sections]);
 
-  /**
-   * Keep `CalendarProvider`’s `date` prop aligned with internal context (via `onDateChanged`).
-   * If the prop stays fixed while the agenda calls `setDate`, `useDidUpdate` in the provider can
-   * reset the context to the stale prop — collapsed `Week` then shows the wrong row (e.g. first
-   * week of the month).
-   */
-  const [providerDate, setProviderDate] = useState(initialDate);
+  // Use a local state that defaults to Today immediately, then updates on data success.
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+
   useEffect(() => {
-    setProviderDate(initialDate);
-  }, [initialDate]);
+    if (status === 'succeeded') {
+      setSelectedDate(initialDate);
+    }
+  }, [status, initialDate]);
 
-  const onCalendarDateChanged = useCallback((d: string) => {
-    setProviderDate(d);
+  const onCalendarDateChanged = useCallback((date: string) => {
+    setSelectedDate(date);
   }, []);
-
-  const subtitle =
-    user?.role === 'admin'
-      ? 'Org-wide ledger — a dot marks any day with sales. Scroll the list — the calendar follows. Tap a day — the agenda jumps.'
-      : 'Your deals only — same sync, scoped to your footprint.';
 
   const renderItem = ({
     item,
     index,
     section,
   }: SectionListRenderItemInfo<SaleAgendaItem>) => {
+    const isAdmin = user?.role === 'admin';
+    const seller = isAdmin ? users.find((u) => u.id === item.createdBy) : null;
+
     const isLastInDay = index === section.data.length - 1;
     const cardStyle: ViewStyle = {
       ...styles.card,
       ...(index > 0 ? styles.cardStacked : {}),
       ...(isLastInDay ? styles.cardLastInDay : {}),
     };
+
     return (
-      <GlassCard style={cardStyle}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-        <Text style={styles.cardMeta}>{item.meta}</Text>
-      </GlassCard>
+      <Pressable
+        onPress={() => navigation.navigate('SaleDetails', { saleId: item.id })}
+        style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+        <GlassCard
+          style={cardStyle}
+          accentColor={isAdmin ? palette.emeraldDeep : palette.emerald}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          {seller && (
+            <View style={styles.sellerRow}>
+              <Text style={styles.sellerName}>{seller.name}</Text>
+              {!!seller.phone && <Text style={styles.sellerPhone}> • {seller.phone}</Text>}
+            </View>
+          )}
+          <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+          <Text style={styles.cardMeta}>{item.meta}</Text>
+        </GlassCard>
+      </Pressable>
     );
   };
 
@@ -204,80 +221,88 @@ export function SalesCalendarScreen() {
   return (
     <MeshBackground>
       <SafeAreaView
-        style={[styles.safe, { paddingBottom: tabBottomPad }]}
+        style={styles.safe}
         edges={['top']}>
         <ScreenHeader
-          title="Pulse"
-          subtitle={subtitle}
-          tag={user?.role === 'admin' ? 'All sales' : 'My sales'}
+          title={t('calendar.title')}
+          tag={user?.role === 'admin' ? t('calendar.tagAll') : t('calendar.tagMy')}
         />
 
-        {status === 'loading' ? (
+        {status === 'loading' && sales.length === 0 ? (
           <View style={styles.center}>
             <ActivityIndicator color={palette.emerald} />
-            <Text style={styles.centerText}>Loading agenda…</Text>
+            <Text style={styles.centerText}>{t('common.loading')}</Text>
           </View>
         ) : status === 'failed' ? (
           <View style={styles.center}>
-            <Text style={styles.error}>{error}</Text>
-            <Text style={styles.centerText}>
-              Start JSON Server: `cd backend-json-server && npm run dev`
-            </Text>
+            <GlassCard
+              style={{ marginHorizontal: 20 }}
+              accentColor={user?.role === 'admin' ? palette.emeraldDeep : palette.emerald}>
+              <Text style={styles.error}>{error}</Text>
+            </GlassCard>
+            <Text style={styles.centerText}>{t('common.apiHint')}</Text>
           </View>
         ) : (
           <CalendarProvider
-            key={user?.id ?? 'anon'}
-            date={providerDate}
+            date={selectedDate}
             onDateChanged={onCalendarDateChanged}
             disabledOpacity={0.35}>
             <ExpandableCalendar
+              horizontal
               markedDates={markedDates}
               markingType="multi-dot"
               theme={calendarTheme}
               firstDay={1}
               allowShadow={false}
-              /** Plain `Week` follows context `date`; avoids RecyclerList week-strip scroll bugs. */
-              disableWeekScroll
-              pastScrollRange={120}
-              futureScrollRange={120}
+              hideArrows={false}
+              hideExtraDays={false}
+              pastScrollRange={50}
+              futureScrollRange={50}
               openThreshold={25}
               closeThreshold={-40}
               calendarStyle={{ backgroundColor: palette.paper }}
             />
-            <View style={styles.listWrap}>
-              <AgendaList
-                sections={sections}
-                renderItem={renderItem}
-                // AgendaList calls this with the section date string; props inherit SectionList typings.
-                renderSectionHeader={
-                  renderSectionHeader as unknown as React.ComponentProps<
-                    typeof AgendaList
-                  >['renderSectionHeader']
-                }
-                stickySectionHeadersEnabled={false}
-                scrollToNextEvent
-                avoidDateUpdates={false}
-                viewOffset={8}
-                keyExtractor={(item) => item.id}
-                theme={calendarTheme}
-                contentContainerStyle={styles.listContent}
-                ListEmptyComponent={
-                  <View style={styles.empty}>
-                    <Text style={styles.emptyTitle}>No sales yet</Text>
-                    <Text style={styles.emptyBody}>
-                      Add rows to `sales` / `salesItems` in `backend-json-server/db.json`
-                      and reload.
-                    </Text>
-                  </View>
-                }
-              />
-            </View>
+            <AgendaList
+              sections={sections}
+              renderItem={renderItem}
+              renderSectionHeader={
+                renderSectionHeader as unknown as React.ComponentProps<
+                  typeof AgendaList
+                >['renderSectionHeader']
+              }
+              stickySectionHeadersEnabled={false}
+              scrollToNextEvent={false}
+              avoidDateUpdates={false}
+              viewOffset={8}
+              keyExtractor={(item) => item.id}
+              theme={calendarTheme}
+              style={styles.listWrap}
+              contentContainerStyle={[
+                styles.listContent,
+                { paddingBottom: tabBottomPad + 28 },
+              ]}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>No sales yet</Text>
+                  <Text style={styles.emptyBody}>
+                    Add rows to `sales` / `salesItems` in `backend-json-server/db.json`
+                    and reload.
+                  </Text>
+                </View>
+              }
+            />
           </CalendarProvider>
         )}
       </SafeAreaView>
     </MeshBackground>
   );
 }
+
+const money = new Intl.NumberFormat('en-BD', {
+  style: 'currency',
+  currency: 'BDT',
+  maximumFractionDigits: 0,
+});
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -333,8 +358,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.2,
   },
+  sellerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  sellerName: { color: palette.text, fontSize: 13, fontWeight: '900' },
+  sellerPhone: { color: palette.emeraldDeep, fontSize: 12, fontWeight: '800' },
   cardSubtitle: {
-    marginTop: 8,
+    marginTop: 6,
     color: palette.textMuted,
     fontSize: 13,
     fontWeight: '600',

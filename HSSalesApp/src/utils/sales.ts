@@ -34,6 +34,7 @@ export type SaleAgendaItem = {
   title: string;
   subtitle: string;
   meta: string;
+  createdBy: string;
 };
 
 export function buildAgendaSections(
@@ -82,6 +83,7 @@ export function buildAgendaSections(
       title: `${lines} line${lines === 1 ? '' : 's'} · ${wh}`,
       subtitle: `${productNames.join(' · ')}${extra}`,
       meta: sale.notes ? String(sale.notes) : 'Recorded sale',
+      createdBy: sale.createdBy,
     });
   }
 

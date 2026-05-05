@@ -3,46 +3,38 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { HSLogo } from '../components/HSLogo';
+import type { TxKey } from '../i18n/en';
+import { useT } from '../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { clearSession } from '../store/slices/authSlice';
 import { palette, radii } from '../theme/designSystem';
 
 import type { MainStackParamList } from './mainStackTypes';
 
-type NavKey = keyof MainStackParamList;
+type MenuScreenKey = 'Work' | 'StockRoom' | 'ReceiveStock' | 'TransferStock';
 
 type NavItem = {
   key: string;
-  label: string;
-  hint: string;
-  screen: NavKey;
+  labelKey: TxKey;
+  icon: string;
+  screen: MenuScreenKey;
   adminOnly?: boolean;
 };
 
 const items: NavItem[] = [
-  {
-    key: 'work',
-    label: 'Workspace',
-    hint: 'Tabs · home, sales, calendar',
-    screen: 'Work',
-  },
-  {
-    key: 'stock',
-    label: 'Stock room',
-    hint: 'On-hand by warehouse',
-    screen: 'StockRoom',
-  },
+  { key: 'work', labelKey: 'menu.home', icon: '🏠', screen: 'Work' },
+  { key: 'stock', labelKey: 'menu.stock', icon: '📦', screen: 'StockRoom' },
   {
     key: 'receive',
-    label: 'Receive stock',
-    hint: 'Inbound purchase → lots',
+    labelKey: 'menu.purchase',
+    icon: '📥',
     screen: 'ReceiveStock',
     adminOnly: true,
   },
   {
     key: 'transfer',
-    label: 'Move stock',
-    hint: 'Transfer between warehouses',
+    labelKey: 'menu.move',
+    icon: '🔄',
     screen: 'TransferStock',
     adminOnly: true,
   },
@@ -54,11 +46,12 @@ type Props = {
 };
 
 export function MainMenuPanel({ navigation, onClose }: Props) {
+  const t = useT();
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
   const role = user?.role;
 
-  function go(screen: NavKey) {
+  function go(screen: MenuScreenKey) {
     navigation.navigate(screen);
     onClose();
   }
@@ -68,138 +61,146 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
     dispatch(clearSession());
   }
 
+  const filteredItems = items.filter((it) => !it.adminOnly || role === 'admin');
+
   return (
     <ScrollView
       style={styles.drawer}
       contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled">
-      <View style={styles.brand}>
-        <HSLogo size={52} />
-        <Text style={styles.brandTitle}>HS Sales</Text>
-        <Text style={styles.brandSub}>Retail POS · inventory aware</Text>
-      </View>
-
-      <View style={styles.meta}>
-        <Text style={styles.metaLabel}>Signed in</Text>
-        <Text style={styles.metaEmail}>{user?.email}</Text>
-        <View style={styles.rolePill}>
-          <Text style={styles.roleText}>{role}</Text>
+      showsVerticalScrollIndicator={false}>
+      
+      <View style={styles.header}>
+        <HSLogo variant="brand" size={100} style={styles.menuLogo} />
+        <View style={styles.brandColumn}>
+          <View style={styles.brandTopRow}>
+            <Text style={styles.brandTitle} numberOfLines={1}>
+              HS Sales
+            </Text>
+            <Pressable
+              onPress={onSignOut}
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+              style={({ pressed }) => [
+                styles.signOutHeader,
+                pressed && styles.signOutHeaderPressed,
+              ]}>
+              <Text style={styles.signOutHeaderText}>{t('menu.signOut')}</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 
-      <Text style={styles.section}>Menu</Text>
-      {items
-        .filter((it) => !it.adminOnly || role === 'admin')
-        .map((it) => (
-          <Pressable
-            key={it.key}
-            onPress={() => go(it.screen)}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-            <Text style={styles.rowTitle}>{it.label}</Text>
-            <Text style={styles.rowHint}>{it.hint}</Text>
-          </Pressable>
-        ))}
-
-      <View style={styles.spacer} />
-
-      <Pressable
-        onPress={onSignOut}
-        style={({ pressed }) => [styles.signOut, pressed && styles.rowPressed]}>
-        <Text style={styles.signOutText}>Sign out</Text>
-      </Pressable>
+      <View style={styles.gridContainer}>
+        <Text style={styles.sectionHeader}>{t('menu.section')}</Text>
+        <View style={styles.grid}>
+          {filteredItems.map((it) => (
+            <Pressable
+              key={it.key}
+              onPress={() => go(it.screen)}
+              style={({ pressed }) => [
+                styles.tile,
+                pressed && styles.tilePressed,
+                role === 'admin' ? styles.adminTile : styles.salesTile
+              ]}>
+              <View style={styles.tileIconBg}>
+                <Text style={styles.tileIcon}>{it.icon}</Text>
+              </View>
+              <Text style={styles.tileLabel}>{t(it.labelKey)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  drawer: { backgroundColor: palette.paper, maxHeight: '88%' },
-  scroll: { paddingBottom: 28, paddingTop: 8 },
-  brand: {
-    paddingHorizontal: 20,
-    paddingBottom: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.stroke,
+  drawer: { backgroundColor: palette.paper },
+  scroll: { paddingBottom: 28 },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuLogo: { flexShrink: 0 },
+  brandColumn: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  brandTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   brandTitle: {
-    marginTop: 12,
+    flex: 1,
+    minWidth: 0,
     color: palette.text,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
-  brandSub: {
-    marginTop: 4,
-    color: palette.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  meta: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  metaLabel: {
-    color: palette.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  metaEmail: {
-    marginTop: 6,
-    color: palette.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  rolePill: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+  signOutHeader: {
+    flexShrink: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.chipSelectedBorder,
-    backgroundColor: palette.chipSelectedFill,
+    borderColor: 'rgba(255, 82, 82, 0.35)',
+    backgroundColor: 'rgba(255, 82, 82, 0.08)',
   },
-  roleText: {
-    color: palette.text,
+  signOutHeaderPressed: { backgroundColor: 'rgba(255, 82, 82, 0.15)' },
+  signOutHeaderText: {
+    color: palette.rose,
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  gridContainer: {
+    marginTop: 28,
+    paddingHorizontal: 20,
+  },
+  sectionHeader: {
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 1.2,
+    marginBottom: 16,
+    marginLeft: 4,
   },
-  section: {
-    marginTop: 18,
-    marginBottom: 8,
-    paddingHorizontal: 20,
-    color: palette.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
   },
-  row: {
-    marginHorizontal: 12,
-    marginBottom: 6,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: radii.md,
+  tile: {
+    width: '47.8%',
+    aspectRatio: 1,
+    borderRadius: radii.xl,
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: palette.stroke,
     backgroundColor: palette.glass,
   },
-  rowPressed: { opacity: 0.9 },
-  rowTitle: { color: palette.text, fontSize: 16, fontWeight: '900' },
-  rowHint: { marginTop: 4, color: palette.textMuted, fontSize: 12, fontWeight: '600' },
-  spacer: { minHeight: 24 },
-  signOut: {
-    marginHorizontal: 12,
-    paddingVertical: 16,
+  adminTile: { borderColor: 'rgba(0, 230, 118, 0.2)' },
+  salesTile: { borderColor: 'rgba(105, 240, 174, 0.2)' },
+  tilePressed: { opacity: 0.7, scale: 0.98 } as any,
+  tileIconBg: {
+    width: 54,
+    height: 54,
     borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.45)',
-    backgroundColor: 'rgba(248,113,113,0.10)',
+    backgroundColor: 'rgba(0, 230, 118, 0.08)',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  signOutText: { color: palette.text, fontWeight: '900', fontSize: 15 },
+  tileIcon: { fontSize: 28 },
+  tileLabel: {
+    color: palette.text,
+    fontSize: 15,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
 });

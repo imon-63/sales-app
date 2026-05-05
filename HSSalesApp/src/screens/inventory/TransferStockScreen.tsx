@@ -1,19 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as inventoryApi from '../../api/inventory';
+import { SelectMenu } from '../../components/ui/SelectMenu';
 import { AppMenuButton } from '../../components/navigation/AppMenuButton';
 import { StackBackButton } from '../../components/navigation/StackBackButton';
 import { GlassCard } from '../../components/ui/GlassCard';
@@ -22,15 +24,21 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchInventoryStock } from '../../store/slices/inventorySlice';
 import { useAppSideMenu } from '../../navigation/useAppSideMenu';
 import { palette, radii } from '../../theme/designSystem';
+import { showToast } from '../../store/slices/uiSlice';
 
-type LineDraft = { id: string; productId: string; quantity: string };
+type LineDraft = { id: string; productId: string; quantity: string; unitId: string };
 
-function newLine(pid: string): LineDraft {
+function newLine(pid: string = '', unitId: string = ''): LineDraft {
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     productId: pid,
     quantity: '1',
+    unitId,
   };
+}
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export function TransferStockScreen() {
@@ -39,28 +47,74 @@ export function TransferStockScreen() {
   const { menuModal, openMenu } = useAppSideMenu();
   const token = useAppSelector((s) => s.auth.token);
   const role = useAppSelector((s) => s.auth.user?.role);
-  const { products, warehouses, status: dataStatus } = useAppSelector((s) => s.salesData);
+  const { products, warehouses, units, lots, status: dataStatus } = useAppSelector((s) => s.salesData);
+  const stockRows = useAppSelector((s) => s.inventory.stockRows);
+  
+  const [search, setSearch] = useState(''); // Not used but for UI consistency if needed
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
 
-  const [fromId, setFromId] = useState(warehouses[0]?.id ?? '');
-  const [toId, setToId] = useState(warehouses[1]?.id ?? warehouses[0]?.id ?? '');
+  const [fromId, setFromId] = useState('');
+  const [toId, setToId] = useState('');
   const [transferDate, setTransferDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [lines, setLines] = useState<LineDraft[]>(() =>
-    products[0] ? [newLine(products[0].id)] : [],
-  );
+  const [lines, setLines] = useState<LineDraft[]>(() => [newLine()]);
   const [busy, setBusy] = useState(false);
 
-  React.useEffect(() => {
-    if (warehouses.length >= 2) {
-      if (!fromId) setFromId(warehouses[0].id);
-      if (!toId || toId === fromId) setToId(warehouses[1].id);
-    }
-  }, [warehouses, fromId, toId]);
+  const fromOptions = useMemo(
+    () => warehouses.map((w) => ({ value: w.id, label: w.name })),
+    [warehouses],
+  );
+
+  const toOptions = useMemo(
+    () => warehouses.filter(w => w.id !== fromId).map((w) => ({ value: w.id, label: w.name })),
+    [warehouses, fromId],
+  );
+
+  const productOptions = useMemo(() => {
+    if (!fromId) return [];
+    
+    const availableProductIds = new Set(
+      stockRows
+        .filter((r) => r.warehouseId === fromId && r.quantityOnHand > 0)
+        .map((r) => r.productId)
+    );
+
+    return products
+      .filter((p) => availableProductIds.has(p.id))
+      .map((p) => ({ value: p.id, label: p.name }));
+  }, [products, stockRows, fromId]);
 
   React.useEffect(() => {
-    if (lines.length === 0 && products[0]) setLines([newLine(products[0].id)]);
-  }, [lines.length, products]);
+    // When the source warehouse changes, always force the user to re-select the destination.
+    if (fromId) {
+      setToId('');
+    }
+  }, [fromId]);
+
+  React.useEffect(() => {
+    if (token) {
+      dispatch(fetchInventoryStock());
+    }
+  }, [dispatch, token]);
+
+  React.useEffect(() => {
+    if (lines.length === 0) {
+      const first = newLine();
+      setLines([first]);
+      setExpandedLines(new Set([first.id]));
+    }
+  }, [lines.length]);
+
+  function toggleExpand(id: string) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const canSubmit = useMemo(() => {
     if (!token || role !== 'admin' || busy || !fromId || !toId || fromId === toId) {
@@ -69,9 +123,21 @@ export function TransferStockScreen() {
     for (const ln of lines) {
       const q = Number(ln.quantity);
       if (!ln.productId || !Number.isFinite(q) || q <= 0) return false;
+
+      // Validate against physical stock
+      const p = products.find((x) => x.id === ln.productId);
+      const u = units.find((x) => x.id === ln.unitId);
+      const factory = u?.globalFactor ?? p?.conversions?.[u?.id || ''] ?? 1;
+      const requestedBase = q * factory;
+
+      const avail = stockRows
+        .filter((r) => r.warehouseId === fromId && r.productId === ln.productId)
+        .reduce((sum, r) => sum + r.quantityOnHand, 0);
+
+      if (requestedBase > avail) return false;
     }
     return true;
-  }, [token, role, busy, fromId, toId, lines]);
+  }, [token, role, busy, fromId, toId, lines, stockRows, products, units]);
 
   async function onSubmit() {
     if (!token || !canSubmit) return;
@@ -82,19 +148,32 @@ export function TransferStockScreen() {
           fromWarehouseId: fromId,
           toWarehouseId: toId,
           transferDate: /^\d{4}-\d{2}-\d{2}$/.test(transferDate) ? transferDate : undefined,
-          lines: lines.map((ln) => ({
-            productId: ln.productId,
-            quantity: Number(ln.quantity),
-          })),
+          lines: lines.map((ln) => {
+            const p = products.find((x) => x.id === ln.productId);
+            const u = units.find((x) => x.id === ln.unitId);
+            const factory = u?.globalFactor ?? p?.conversions?.[u?.id || ''] ?? 1;
+            return {
+              productId: ln.productId,
+              quantity: Number(ln.quantity) * factory,
+            };
+          }),
         },
         token,
       );
       await dispatch(fetchInventoryStock()).unwrap();
-      Alert.alert('Transferred', 'FIFO move applied. Check Stock room.');
-      setLines(products[0] ? [newLine(products[0].id)] : []);
+      dispatch(showToast({
+        title: 'Transferred',
+        message: 'FIFO move applied. Check Stock room.',
+        type: 'success'
+      }));
+      setLines([newLine()]);
       setTransferDate(new Date().toISOString().slice(0, 10));
     } catch (e: any) {
-      Alert.alert('Could not transfer', e?.message ?? 'Unknown error');
+      dispatch(showToast({
+        title: 'Could not transfer',
+        message: e?.message ?? 'Unknown error',
+        type: 'error'
+      }));
     } finally {
       setBusy(false);
     }
@@ -153,10 +232,15 @@ export function TransferStockScreen() {
       <AppMenuButton onPress={openMenu} />
       {menuModal}
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={[styles.head, { paddingTop: insets.top + 52 }]}>
-          <Text style={styles.title}>Move stock</Text>
+        <View style={[styles.head, { paddingTop: insets.top + 32 }]}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Move stock</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{lines.length}</Text>
+            </View>
+          </View>
           <Text style={styles.sub}>
-            Pulls FIFO from the source warehouse batches and lands a new lot on the destination.
+            Pulls FIFO from source batches and lands a new lot on the destination.
           </Text>
         </View>
 
@@ -168,34 +252,23 @@ export function TransferStockScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <GlassCard>
-              <Text style={styles.cardTitle}>From warehouse</Text>
-              <View style={styles.chips}>
-                {warehouses.map((w) => (
-                  <Pressable
-                    key={w.id}
-                    onPress={() => setFromId(w.id)}
-                    style={[styles.chip, fromId === w.id ? styles.chipOn : null]}>
-                    <Text
-                      style={[styles.chipText, fromId === w.id ? styles.chipTextOn : null]}>
-                      {w.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <SelectMenu
+                label="From warehouse"
+                value={fromId}
+                options={fromOptions}
+                onChange={setFromId}
+                placeholder="Select source"
+              />
 
-              <Text style={[styles.cardTitle, styles.gap]}>To warehouse</Text>
-              <View style={styles.chips}>
-                {warehouses.map((w) => (
-                  <Pressable
-                    key={w.id}
-                    onPress={() => setToId(w.id)}
-                    style={[styles.chip, toId === w.id ? styles.chipOnAlt : null]}>
-                    <Text style={[styles.chipText, toId === w.id ? styles.chipTextAlt : null]}>
-                      {w.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <View style={styles.gap} />
+              
+              <SelectMenu
+                label="To warehouse"
+                value={toId}
+                options={toOptions}
+                onChange={setToId}
+                placeholder="Select destination"
+              />
 
               <Text style={[styles.label, styles.labelSpaced]}>Transfer date</Text>
               <TextInput
@@ -207,57 +280,107 @@ export function TransferStockScreen() {
               />
             </GlassCard>
 
-            {lines.map((ln, idx) => (
-              <GlassCard key={ln.id} style={styles.lineCard}>
-                <View style={styles.lineHead}>
-                  <Text style={styles.cardTitle}>Line {idx + 1}</Text>
-                  {lines.length > 1 ? (
-                    <Pressable
-                      hitSlop={8}
-                      onPress={() => setLines((prev) => prev.filter((x) => x.id !== ln.id))}>
-                      <Text style={styles.remove}>Remove</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <Text style={styles.label}>Product</Text>
-                <View style={styles.chips}>
-                  {products.map((p) => (
-                    <Pressable
-                      key={p.id}
-                      onPress={() =>
-                        setLines((prev) =>
-                          prev.map((x) => (x.id === ln.id ? { ...x, productId: p.id } : x)),
-                        )
-                      }
-                      style={[styles.chip, ln.productId === p.id ? styles.chipOn : null]}>
-                      <Text
-                        style={[
-                          styles.chipText,
-                          ln.productId === p.id ? styles.chipTextOn : null,
-                        ]}>
-                        {p.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
-                <TextInput
-                  value={ln.quantity}
-                  onChangeText={(t) =>
-                    setLines((prev) =>
-                      prev.map((x) => (x.id === ln.id ? { ...x, quantity: t } : x)),
-                    )
-                  }
-                  keyboardType="decimal-pad"
-                  style={styles.input}
-                />
-              </GlassCard>
-            ))}
+            {lines.map((ln, idx) => {
+              const isExpanded = expandedLines.has(ln.id);
+              return (
+                <GlassCard key={ln.id} style={styles.lineCard}>
+                  <Pressable 
+                    onPress={() => toggleExpand(ln.id)}
+                    style={({ pressed }) => [styles.lineHead, pressed && { opacity: 0.7 }]}>
+                    <View style={styles.lineHeadLeft}>
+                      <Text style={styles.arrow}>{isExpanded ? '▼' : '▶'}</Text>
+                      <Text style={styles.cardTitle}>Line {idx + 1}</Text>
+                    </View>
+                    {lines.length > 1 ? (
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => {
+                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                          setLines((prev) => prev.filter((x) => x.id !== ln.id));
+                        }}>
+                        <Text style={styles.remove}>✕</Text>
+                      </Pressable>
+                    ) : null}
+                  </Pressable>
+
+                  {isExpanded && (
+                    <View style={styles.lineContent}>
+                      <SelectMenu
+                        label="Product"
+                        value={ln.productId}
+                        options={productOptions}
+                        onChange={(pid) => {
+                          const p = products.find(x => x.id === pid);
+                          setLines((prev) =>
+                            prev.map((x) => (x.id === ln.id ? { ...x, productId: pid, unitId: p?.unitId || '' } : x)),
+                          )
+                        }}
+                        placeholder="Select product"
+                      />
+
+                      {ln.productId ? (
+                        <View style={styles.stockHintWrap}>
+                          {stockRows
+                            .filter(r => r.warehouseId === fromId && r.productId === ln.productId && r.quantityOnHand > 0)
+                            .map((r, i) => {
+                              const lot = lots?.find(l => l.id === r.batchLotId);
+                              const mt = (r.quantityOnHand / 1000).toFixed(3).replace(/\.?0+$/, '');
+                              return (
+                                <Text key={r.id || i} style={styles.stockHintText}>
+                                  ✓ Available: {r.quantityOnHand} KG ({mt} MT) {lot ? `(Lot ${lot.lotNumber})` : ''}
+                                </Text>
+                              );
+                            })}
+                        </View>
+                      ) : null}
+
+                      <View style={styles.qtyUnitRow}>
+                        <View style={styles.qtyCol}>
+                          <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
+                          <TextInput
+                            value={ln.quantity}
+                            onChangeText={(t) =>
+                              setLines((prev) =>
+                                prev.map((x) => (x.id === ln.id ? { ...x, quantity: t } : x)),
+                              )
+                            }
+                            keyboardType="decimal-pad"
+                            style={styles.input}
+                          />
+                        </View>
+                        <View style={styles.unitCol}>
+                          <SelectMenu
+                            label="Unit"
+                            value={ln.unitId}
+                            options={units
+                              .filter(u => {
+                                const p = products.find(prod => prod.id === ln.productId);
+                                if (!p) return u.globalFactor !== undefined || u.label === 'BOSTA';
+                                return u.globalFactor !== undefined || (p.conversions && p.conversions[u.id] !== undefined) || u.id === p.unitId;
+                              })
+                              .map(u => ({ value: u.id, label: u.label }))
+                            }
+                            onChange={(uid) =>
+                              setLines((prev) =>
+                                prev.map((x) => (x.id === ln.id ? { ...x, unitId: uid } : x)),
+                              )
+                            }
+                            placeholder="Unit"
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </GlassCard>
+              );
+            })}
 
             <Pressable
               onPress={() => {
-                const pid = products[0]?.id ?? '';
-                if (pid) setLines((prev) => [...prev, newLine(pid)]);
+                const newLn = newLine();
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setLines((prev) => [...prev, newLn]);
+                setExpandedLines((prev) => new Set([...prev, newLn.id]));
               }}
               style={styles.secondary}>
               <Text style={styles.secondaryText}>+ Add line</Text>
@@ -290,9 +413,36 @@ const styles = StyleSheet.create({
   head: { paddingHorizontal: 20, paddingBottom: 8 },
   title: {
     color: palette.text,
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
     letterSpacing: -0.6,
+  },
+  titleRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    paddingRight: 4,
+  },
+  badge: {
+    backgroundColor: palette.emerald,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,230,118,0.5)',
+    shadowColor: '#00E676',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  badgeText: {
+    color: palette.onAccent,
+    fontSize: 14,
+    fontWeight: '900',
+    textShadowColor: 'rgba(0, 230, 118, 0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   sub: {
     marginTop: 8,
@@ -347,10 +497,36 @@ const styles = StyleSheet.create({
   chipTextOn: { color: palette.text },
   chipTextAlt: { color: palette.text },
   lineCard: {},
-  lineHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  remove: { color: palette.rose, fontWeight: '800', fontSize: 13 },
-  secondary: { alignSelf: 'flex-start', paddingVertical: 8 },
+  lineHead: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingVertical: 4, 
+  },
+  lineHeadLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  arrow: { color: palette.textMuted, fontSize: 13, fontWeight: '900', width: 14 },
+  lineContent: { marginTop: 4 },
+  remove: { 
+    color: palette.rose, 
+    fontWeight: '900', 
+    fontSize: 18,
+    paddingHorizontal: 4,
+  },
+  secondary: { alignSelf: 'flex-start', paddingVertical: 12 },
   secondaryText: { color: palette.emerald, fontWeight: '900', fontSize: 14 },
+  qtyUnitRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  qtyCol: { flex: 1 },
+  unitCol: { flex: 1 },
+  stockHintWrap: {
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    gap: 2,
+  },
+  stockHintText: {
+    color: palette.emeraldDeep,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   primary: {
     marginTop: 6,
     borderRadius: radii.lg,

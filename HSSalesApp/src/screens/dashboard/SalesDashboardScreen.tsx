@@ -12,21 +12,28 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { KpiTile } from '../../components/ui/KpiTile';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useT } from '../../i18n/useT';
 import { useAppSelector } from '../../store/hooks';
 import { palette, radii } from '../../theme/designSystem';
 import { filterSalesByRole, sumRevenueForSales } from '../../utils/sales';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
 
-const money = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
 export function SalesDashboardScreen() {
+  const t = useT();
+  const locale = useAppSelector((s) => s.ui.locale);
   const user = useAppSelector((s) => s.auth.user);
   const { sales, salesItems, products, warehouses, status, error } =
     useAppSelector((s) => s.salesData);
+
+  const money = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', {
+        style: 'currency',
+        currency: 'BDT',
+        maximumFractionDigits: 0,
+      }),
+    [locale],
+  );
 
   const mySales = useMemo(() => {
     if (!user) return [];
@@ -52,53 +59,49 @@ export function SalesDashboardScreen() {
       if (!best || qty > best.qty) best = { id, qty };
     }
     const name = best
-      ? products.find((p) => p.id === best.id)?.name ?? 'Top SKU'
+      ? products.find((p) => p.id === best.id)?.name ?? t('dashboard.sales.topSkuFallback')
       : '—';
     return name;
-  }, [mySales, products, salesItems]);
+  }, [mySales, products, salesItems, t]);
 
   const tabBottomPad = useTabScreenBottomPadding();
 
   return (
     <MeshBackground>
       <SafeAreaView
-        style={[styles.safe, { paddingBottom: tabBottomPad }]}
+        style={styles.safe}
         edges={['top']}>
-        <ScreenHeader
-          title="Your runway"
-          subtitle="A tight, personal cockpit: only your deals, your rhythm, and the next best move."
-          tag="Sales"
-        />
+        <ScreenHeader title={t('dashboard.sales.title')} tag={t('dashboard.sales.tag')} />
 
         {status === 'loading' ? (
           <View style={styles.loading}>
             <ActivityIndicator color={palette.emerald} />
-            <Text style={styles.loadingText}>Syncing your pipeline…</Text>
+            <Text style={styles.loadingText}>{t('common.loading')}</Text>
           </View>
         ) : status === 'failed' ? (
           <View style={styles.loading}>
             <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.loadingText}>
-              Start JSON Server: `cd backend-json-server && npm run dev`
-            </Text>
+            <Text style={styles.loadingText}>{t('common.apiHint')}</Text>
           </View>
         ) : (
           <ScrollView
-            contentContainerStyle={styles.scroll}
+            contentContainerStyle={[styles.scroll, { paddingBottom: tabBottomPad }]}
             showsVerticalScrollIndicator={false}>
-            <GlassCard style={styles.hero}>
-              <Text style={styles.heroEyebrow}>Momentum</Text>
+            <GlassCard style={styles.hero} accentColor={palette.emerald}>
+              <Text style={styles.heroEyebrow}>{t('dashboard.sales.revenue')}</Text>
               <Text style={styles.heroBig}>{money.format(revenue)}</Text>
               <Text style={styles.heroSub}>
-                Revenue from {mySales.length} recorded orders you own.
+                {t('dashboard.sales.ordersCount', { n: mySales.length })}
               </Text>
               <View style={styles.heroRow}>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>Top SKU: {topSku}</Text>
+                  <Text style={styles.pillText}>
+                    {t('dashboard.sales.topSku', { name: topSku })}
+                  </Text>
                 </View>
                 <View style={[styles.pill, styles.pillAlt]}>
                   <Text style={styles.pillText}>
-                    Warehouses in network: {warehouses.length}
+                    {t('dashboard.sales.warehouses', { n: warehouses.length })}
                   </Text>
                 </View>
               </View>
@@ -106,25 +109,22 @@ export function SalesDashboardScreen() {
 
             <View style={styles.kpiRow}>
               <KpiTile
-                label="Your orders"
+                label={t('dashboard.sales.ordersLabel')}
                 value={String(mySales.length)}
-                hint="Created by you"
+                hint={t('dashboard.sales.ordersHint')}
                 accent={palette.emerald}
               />
               <KpiTile
-                label="Catalog"
+                label={t('dashboard.sales.productsLabel')}
                 value={String(products.length)}
-                hint="Shared product rails"
+                hint={t('dashboard.sales.productsHint')}
                 accent={palette.violet}
               />
             </View>
 
             <GlassCard style={styles.next}>
-              <Text style={styles.nextTitle}>Pulse tab</Text>
-              <Text style={styles.nextBody}>
-                Open Pulse to explore the expandable calendar: multi-dot days,
-                scroll-to-update dates, and tap-to-jump — all synced automatically.
-              </Text>
+              <Text style={styles.nextTitle}>{t('dashboard.sales.calendarTitle')}</Text>
+              <Text style={styles.nextBody}>{t('dashboard.sales.calendarBody')}</Text>
             </GlassCard>
           </ScrollView>
         )}

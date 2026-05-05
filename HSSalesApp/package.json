@@ -5,12 +5,14 @@
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "ios:pods": "bundle install && cd ios && bundle exec pod install",
     "lint": "eslint .",
     "postinstall": "patch-package",
     "start": "react-native start",
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.2",
     "@react-native/new-app-screen": "0.82.0",
     "@react-navigation/bottom-tabs": "^7.15.9",
     "@react-navigation/native": "^7.2.2",
@@ -20,6 +22,7 @@
     "react-native": "0.82.0",
     "react-native-calendars": "^1.1314.0",
     "react-native-gesture-handler": "^2.31.1",
+    "react-native-print": "^0.11.0",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.24.0",
     "react-redux": "^9.2.0"

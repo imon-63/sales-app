@@ -6,10 +6,18 @@ import { palette, radii, shadows } from '../../theme/designSystem';
 type Props = {
   children: React.ReactNode;
   style?: ViewStyle;
+  accentColor?: string;
 };
 
-export function GlassCard({ children, style }: Props) {
-  return <View style={[styles.card, style]}>{children}</View>;
+export function GlassCard({ children, style, accentColor }: Props) {
+  return (
+    <View style={[styles.card, style]}>
+      {!!accentColor && (
+        <View style={[styles.accent, { backgroundColor: accentColor }]} />
+      )}
+      <View style={styles.inner}>{children}</View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -18,7 +26,17 @@ const styles = StyleSheet.create({
     borderColor: palette.stroke,
     borderWidth: 1,
     borderRadius: radii.lg,
-    padding: 16,
     ...shadows.card,
+    overflow: 'hidden',
+  },
+  accent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+  },
+  inner: {
+    padding: 16,
   },
 });

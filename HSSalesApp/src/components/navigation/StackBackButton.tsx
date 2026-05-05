@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   },
   fabPressed: { opacity: 0.88 },
   icon: {
-    color: palette.text,
+    color: palette.emerald,
     fontSize: 20,
     fontWeight: '900',
     marginTop: -1,

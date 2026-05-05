@@ -9,6 +9,7 @@ import { SalesDashboardScreen } from '../../screens/dashboard/SalesDashboardScre
 import { SalesCalendarScreen } from '../../screens/calendar/SalesCalendarScreen';
 import { AccountScreen } from '../../screens/account/AccountScreen';
 import { LogSaleScreen } from '../../screens/sales/LogSaleScreen';
+import { useT } from '../../i18n/useT';
 import { palette } from '../../theme/designSystem';
 import { FloatingTabBar } from '../components/FloatingTabBar';
 
@@ -26,6 +27,8 @@ function SalesFloatingTabBar(props: BottomTabBarProps) {
 }
 
 export function SalesTabs() {
+  const t = useT();
+
   return (
     <Tab.Navigator
       tabBar={SalesFloatingTabBar}
@@ -51,7 +54,7 @@ export function SalesTabs() {
         name="SalesHome"
         component={SalesDashboardScreen}
         options={{
-          title: 'Home',
+          title: t('tabs.sales.home'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ⌂
@@ -63,7 +66,7 @@ export function SalesTabs() {
         name="SalesLog"
         component={LogSaleScreen}
         options={{
-          title: 'Log',
+          title: t('tabs.sales.log'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ✎
@@ -75,7 +78,7 @@ export function SalesTabs() {
         name="SalesPulse"
         component={SalesCalendarScreen}
         options={{
-          title: 'Pulse',
+          title: t('tabs.sales.pulse'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ◎
@@ -87,7 +90,7 @@ export function SalesTabs() {
         name="SalesAccount"
         component={AccountScreen}
         options={{
-          title: 'You',
+          title: t('tabs.sales.you'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ✦

@@ -43,13 +43,13 @@ export function useAppSideMenu() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(13, 27, 17, 0.35)',
+    backgroundColor: 'rgba(13, 27, 17, 0.5)',
     justifyContent: 'flex-end',
   },
   dismissHit: { flex: 1 },
   sheet: {
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     overflow: 'hidden',
     maxHeight: '92%',
     backgroundColor: palette.paper,

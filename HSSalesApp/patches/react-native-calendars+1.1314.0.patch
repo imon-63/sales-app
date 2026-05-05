@@ -1,3 +1,25 @@
+diff --git a/node_modules/react-native-calendars/src/calendar-list/index.js b/node_modules/react-native-calendars/src/calendar-list/index.js
+index 6cf1b71..22fb05c 100644
+--- a/node_modules/react-native-calendars/src/calendar-list/index.js
++++ b/node_modules/react-native-calendars/src/calendar-list/index.js
+@@ -203,8 +203,8 @@ const CalendarList = (props, ref) => {
+         }
+     ]);
+     return (<View style={style.current.flatListContainer} testID={testID}>
+-      <FlatList ref={list} windowSize={shouldFixRTL ? pastScrollRange + futureScrollRange + 1 : undefined} style={listStyle} showsVerticalScrollIndicator={showScrollIndicator} showsHorizontalScrollIndicator={showScrollIndicator} data={items} renderItem={renderItem} getItemLayout={getItemLayout} initialNumToRender={range.current} initialScrollIndex={initialDateIndex} viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current} testID={`${testID}.list`} onLayout={onLayout} removeClippedSubviews={removeClippedSubviews} pagingEnabled={pagingEnabled} scrollEnabled={scrollEnabled} scrollsToTop={scrollsToTop} horizontal={horizontal} keyboardShouldPersistTaps={keyboardShouldPersistTaps} keyExtractor={keyExtractor} onEndReachedThreshold={onEndReachedThreshold} onEndReached={onEndReached} nestedScrollEnabled={nestedScrollEnabled} onMomentumScrollBegin={onMomentumScrollBegin} onMomentumScrollEnd={onMomentumScrollEnd} onScrollBeginDrag={onScrollBeginDrag} onScrollEndDrag={onScrollEndDrag} contentContainerStyle={contentContainerStyle}/>
+       {renderStaticHeader()}
++      <FlatList ref={list} windowSize={shouldFixRTL ? pastScrollRange + futureScrollRange + 1 : undefined} style={listStyle} showsVerticalScrollIndicator={showScrollIndicator} showsHorizontalScrollIndicator={showScrollIndicator} data={items} renderItem={renderItem} getItemLayout={getItemLayout} initialNumToRender={range.current} initialScrollIndex={initialDateIndex} viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs.current} testID={`${testID}.list`} onLayout={onLayout} removeClippedSubviews={removeClippedSubviews} pagingEnabled={pagingEnabled} scrollEnabled={scrollEnabled} scrollsToTop={scrollsToTop} horizontal={horizontal} keyboardShouldPersistTaps={keyboardShouldPersistTaps} keyExtractor={keyExtractor} onEndReachedThreshold={onEndReachedThreshold} onEndReached={onEndReached} nestedScrollEnabled={nestedScrollEnabled} onMomentumScrollBegin={onMomentumScrollBegin} onMomentumScrollEnd={onMomentumScrollEnd} onScrollBeginDrag={onScrollBeginDrag} onScrollEndDrag={onScrollEndDrag} contentContainerStyle={contentContainerStyle}/>
+     </View>);
+ };
+ export default forwardRef(CalendarList);
+diff --git a/node_modules/react-native-calendars/src/calendar/img/next@2x.png b/node_modules/react-native-calendars/src/calendar/img/next@2x.png
+new file mode 100644
+index 0000000..b589a4a
+Binary files /dev/null and b/node_modules/react-native-calendars/src/calendar/img/next@2x.png differ
+diff --git a/node_modules/react-native-calendars/src/calendar/img/previous@2x.png b/node_modules/react-native-calendars/src/calendar/img/previous@2x.png
+new file mode 100644
+index 0000000..368b33d
+Binary files /dev/null and b/node_modules/react-native-calendars/src/calendar/img/previous@2x.png differ
 diff --git a/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js b/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js
 index c97e1c1..1b75c67 100644
 --- a/node_modules/react-native-calendars/src/expandableCalendar/AgendaList/agendaList.js

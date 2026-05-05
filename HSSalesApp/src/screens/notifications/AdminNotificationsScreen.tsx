@@ -1,5 +1,5 @@
-import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useT } from '../../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   fetchNotifications,
@@ -22,6 +23,8 @@ import {
 import type { AdminNotification } from '../../types/models';
 import { palette } from '../../theme/designSystem';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../../navigation/mainStackTypes';
 
 function formatWhen(iso: string) {
   try {
@@ -38,8 +41,11 @@ function formatWhen(iso: string) {
 }
 
 export function AdminNotificationsScreen() {
+  const t = useT();
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const dispatch = useAppDispatch();
   const { items, status, error } = useAppSelector((s) => s.notifications);
+  const { users } = useAppSelector((s) => s.salesData);
   const tabBottomPad = useTabScreenBottomPadding();
 
   useFocusEffect(
@@ -53,47 +59,58 @@ export function AdminNotificationsScreen() {
       if (n.unread) {
         dispatch(markNotificationReadThunk(n.id));
       }
+      if (n.type === 'lot_depleted' && n.lotId) {
+        navigation.navigate('LotReport', { lotId: n.lotId });
+      } else if (n.saleId) {
+        navigation.navigate('SaleDetails', { saleId: n.saleId });
+      }
     },
-    [dispatch],
+    [dispatch, navigation],
   );
 
   const renderItem = useCallback(
     ({ item }: { item: AdminNotification }) => {
+      const seller = users.find((u) => u.id === item.actorUserId);
       const cardStyle: ViewStyle = item.unread
         ? { ...styles.card, ...styles.cardUnread }
         : styles.card;
+
       return (
       <Pressable onPress={() => onOpen(item)} style={({ pressed }) => [pressed && styles.rowPressed]}>
-        <GlassCard style={cardStyle}>
+        <GlassCard style={cardStyle} accentColor={palette.emeraldDeep}>
           <View style={styles.cardTop}>
             <Text style={styles.title}>{item.title}</Text>
             {item.unread ? <View style={styles.dot} /> : null}
           </View>
           <Text style={styles.meta}>{formatWhen(item.createdAt)}</Text>
+          {seller && (
+            <View style={styles.sellerRow}>
+              <Text style={styles.sellerName}>{seller.name}</Text>
+              {!!seller.phone && <Text style={styles.sellerPhone}> • {seller.phone}</Text>}
+            </View>
+          )}
           <Text style={styles.body}>{item.body}</Text>
-          <Text style={styles.footer}>Sale ID · {item.saleId.slice(0, 8)}…</Text>
+          <Text style={styles.footer}>
+            {item.type === 'lot_depleted' ? `Lot ID · ${item.lotId}` : `Sale ID · ${item.saleId?.slice(0, 8)}…`}
+          </Text>
         </GlassCard>
       </Pressable>
       );
     },
-    [onOpen],
+    [onOpen, users],
   );
 
   return (
     <MeshBackground>
       <SafeAreaView
-        style={[styles.safe, { paddingBottom: tabBottomPad }]}
+        style={styles.safe}
         edges={['top']}>
-        <ScreenHeader
-          title="Signals"
-          subtitle="When a sales rep logs a sale, you see it here. Tap a row to mark it read."
-          tag="Admin"
-        />
+        <ScreenHeader title={t('notifications.title')} tag={t('notifications.tag')} />
 
         {status === 'loading' && items.length === 0 ? (
           <View style={styles.center}>
             <ActivityIndicator color={palette.emerald} />
-            <Text style={styles.hint}>Loading alerts…</Text>
+            <Text style={styles.hint}>{t('common.loading')}</Text>
           </View>
         ) : status === 'failed' ? (
           <View style={styles.center}>
@@ -104,14 +121,11 @@ export function AdminNotificationsScreen() {
             data={items}
             keyExtractor={(it) => it.id}
             renderItem={renderItem}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, { paddingBottom: tabBottomPad }]}
             ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
             ListEmptyComponent={
               <GlassCard>
-                <Text style={styles.emptyTitle}>All quiet</Text>
-                <Text style={styles.emptyBody}>
-                  No notifications yet. When sales logs an order, the details land here.
-                </Text>
+                <Text style={styles.emptyTitle}>{t('notifications.noAlerts')}</Text>
               </GlassCard>
             }
             refreshing={status === 'loading' && items.length > 0}
@@ -146,6 +160,9 @@ const styles = StyleSheet.create({
     backgroundColor: palette.emerald,
   },
   meta: { marginTop: 6, color: palette.textMuted, fontSize: 12, fontWeight: '700' },
+  sellerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  sellerName: { color: palette.text, fontSize: 13, fontWeight: '900' },
+  sellerPhone: { color: palette.emeraldDeep, fontSize: 12, fontWeight: '800' },
   body: {
     marginTop: 10,
     color: palette.text,

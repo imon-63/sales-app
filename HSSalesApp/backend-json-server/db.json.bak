@@ -1,0 +1,368 @@
+{
+  "users": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "email": "admin@hs.com",
+      "name": "System Admin",
+      "phone": "+880 1234 567890",
+      "password": "admin123",
+      "role": "admin"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "email": "sales@hs.com",
+      "name": "Ariful Islam",
+      "phone": "+880 1987 654321",
+      "password": "sales123",
+      "role": "sales"
+    },
+    {
+      "id": "46916c51-d817-4e57-8778-0a6671967b64",
+      "email": "imran@hs.com",
+      "password": "123456",
+      "role": "sales"
+    }
+  ],
+  "units": [
+    {
+      "id": "90000000-0000-0000-0000-000000000001",
+      "label": "KG",
+      "globalFactor": 1,
+      "isWholeNumber": false
+    },
+    {
+      "id": "90000000-0000-0000-0000-000000000002",
+      "label": "BOSTA",
+      "isWholeNumber": true
+    },
+    {
+      "id": "90000000-0000-0000-0000-000000000003",
+      "label": "METRIC TON",
+      "globalFactor": 1000,
+      "isWholeNumber": false
+    },
+    {
+      "id": "90000000-0000-0000-0000-000000000005",
+      "label": "LITER",
+      "group": "liquid",
+      "globalFactor": 1,
+      "isWholeNumber": false
+    }
+  ],
+  "currencies": [
+    {
+      "id": "a0000000-0000-0000-0000-000000000002",
+      "code": "BDT"
+    }
+  ],
+  "products": [
+    {
+      "id": "10000000-0000-0000-0000-000000000001",
+      "name": "Wheat",
+      "unitId": "90000000-0000-0000-0000-000000000001",
+      "conversions": {
+        "90000000-0000-0000-0000-000000000002": 50
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000002",
+      "name": "Rice",
+      "unitId": "90000000-0000-0000-0000-000000000001",
+      "conversions": {
+        "90000000-0000-0000-0000-000000000002": 50
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000003",
+      "name": "Rice Bag",
+      "unitId": "90000000-0000-0000-0000-000000000002",
+      "conversions": {
+        "90000000-0000-0000-0000-000000000001": 0.02
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000004",
+      "name": "Corn",
+      "unitId": "90000000-0000-0000-0000-000000000001",
+      "conversions": {
+        "90000000-0000-0000-0000-000000000002": 40
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000005",
+      "name": "Mastard",
+      "unitId": "90000000-0000-0000-0000-000000000001",
+      "conversions": {
+        "90000000-0000-0000-0000-000000000002": 30
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000006",
+      "name": "Potato",
+      "unitId": "90000000-0000-0000-0000-000000000001",
+      "conversions": {
+        "90000000-0000-0000-0000-000000000002": 50
+      }
+    }
+  ],
+  "warehouses": [
+    {
+      "id": "20000000-0000-0000-0000-000000000001",
+      "name": "Main Warehouse"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000002",
+      "name": "Secondary Warehouse"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000003",
+      "name": "Regional DC — North"
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000004",
+      "name": "Cold Storage East"
+    }
+  ],
+  "lots": [
+    {
+      "id": "b93172fd-5785-44c8-8d88-a15e3b01940e",
+      "productId": "10000000-0000-0000-0000-000000000004",
+      "lotNumber": "CORN-APR-19"
+    },
+    {
+      "id": "ebe1b1bb-3e7e-4647-94e8-979c42642906",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "lotNumber": "BOSTA-APR-19"
+    },
+    {
+      "id": "3313df03-bfc0-4e36-be2b-ce27f34915f1",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotNumber": "Potato-Apr-19"
+    },
+    {
+      "id": "1a6c0081-188f-4eca-8e51-c52e369b33a1",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "lotNumber": "RCV-2026-04-19-000005-01e7"
+    },
+    {
+      "id": "5e880ed4-a05e-4eca-b987-1086d82025a6",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "lotNumber": "RCV-2026-04-19-000001-3fa0"
+    },
+    {
+      "id": "93798bbb-2baf-464c-840f-d62d6901342e",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "lotNumber": "TRF-2026-04-19-bdf0f47b"
+    },
+    {
+      "id": "d4437e22-e0de-42e9-ba5f-f07d9cd73311",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "lotNumber": "TRF-2026-04-19-90c6461b"
+    }
+  ],
+  "lotBatches": [
+    {
+      "id": "c2d43aeb-078a-4162-9f36-2dbee064b7d6",
+      "lotId": "b93172fd-5785-44c8-8d88-a15e3b01940e",
+      "warehouseId": "20000000-0000-0000-0000-000000000003",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 28.4,
+      "originalQuantity": 10000,
+      "remainingQuantity": 10000
+    },
+    {
+      "id": "3865b637-ccdc-4b53-94db-054c956e611e",
+      "lotId": "ebe1b1bb-3e7e-4647-94e8-979c42642906",
+      "warehouseId": "20000000-0000-0000-0000-000000000003",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 60,
+      "originalQuantity": 5000,
+      "remainingQuantity": 5000
+    },
+    {
+      "id": "173b2694-855d-4122-abf8-af2a226622f3",
+      "lotId": "3313df03-bfc0-4e36-be2b-ce27f34915f1",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 12,
+      "originalQuantity": 4000,
+      "remainingQuantity": 4000
+    },
+    {
+      "id": "01e72baa-a50e-4b6d-b36e-e39d7156c154",
+      "lotId": "1a6c0081-188f-4eca-8e51-c52e369b33a1",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 500000,
+      "originalQuantity": 20000,
+      "remainingQuantity": 20000
+    },
+    {
+      "id": "3fa08d74-0a9e-44e8-ba62-d56ade447713",
+      "lotId": "5e880ed4-a05e-4eca-b987-1086d82025a6",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 310000,
+      "originalQuantity": 10000,
+      "remainingQuantity": 8998
+    },
+    {
+      "id": "9c52cbc3-4a3d-41f9-827f-f7d532bc5207",
+      "lotId": "93798bbb-2baf-464c-840f-d62d6901342e",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 310000,
+      "originalQuantity": 1,
+      "remainingQuantity": 1
+    },
+    {
+      "id": "4b8607ac-7d84-4cd9-894f-668822bacfbf",
+      "lotId": "d4437e22-e0de-42e9-ba5f-f07d9cd73311",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "acquiredAt": "2026-04-19",
+      "unitCost": 310000,
+      "originalQuantity": 1,
+      "remainingQuantity": 1
+    }
+  ],
+  "purchases": [
+    {
+      "id": "47a22647-7e65-4f6b-a7e2-40c808888bc9",
+      "purchaseDate": "2026-04-19",
+      "warehouseId": "20000000-0000-0000-0000-000000000003",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "Vutta"
+    },
+    {
+      "id": "d2243fd2-6a65-4013-9bb8-bd0cebd99a72",
+      "purchaseDate": "2026-04-19",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "Potato"
+    },
+    {
+      "id": "59f95a91-a9f5-4f1f-9ee0-1b9e4f96ae0d",
+      "purchaseDate": "2026-04-19",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    }
+  ],
+  "purchaseItems": [
+    {
+      "id": "ff51fbf7-a2a3-4aef-a2e7-53820e48465d",
+      "purchaseId": "47a22647-7e65-4f6b-a7e2-40c808888bc9",
+      "productId": "10000000-0000-0000-0000-000000000004",
+      "lotId": "b93172fd-5785-44c8-8d88-a15e3b01940e",
+      "quantity": 10,
+      "unitCost": 28.4
+    },
+    {
+      "id": "f1b1f72a-489a-42fe-84b8-1139666c01f4",
+      "purchaseId": "47a22647-7e65-4f6b-a7e2-40c808888bc9",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "lotId": "ebe1b1bb-3e7e-4647-94e8-979c42642906",
+      "quantity": 5000,
+      "unitCost": 60
+    },
+    {
+      "id": "851a5fe2-c438-47a6-afa2-4f8f3effbd6a",
+      "purchaseId": "d2243fd2-6a65-4013-9bb8-bd0cebd99a72",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotId": "3313df03-bfc0-4e36-be2b-ce27f34915f1",
+      "quantity": 4,
+      "unitCost": 12
+    },
+    {
+      "id": "00b06b61-85b8-47cf-a777-6a1539db1290",
+      "purchaseId": "59f95a91-a9f5-4f1f-9ee0-1b9e4f96ae0d",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "lotId": "1a6c0081-188f-4eca-8e51-c52e369b33a1",
+      "quantity": 20,
+      "unitCost": 500000
+    },
+    {
+      "id": "ab17ebcf-8b05-456f-90d3-1f6bd9d4accd",
+      "purchaseId": "59f95a91-a9f5-4f1f-9ee0-1b9e4f96ae0d",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "lotId": "5e880ed4-a05e-4eca-b987-1086d82025a6",
+      "quantity": 10,
+      "unitCost": 310000
+    }
+  ],
+  "sales": [
+    {
+      "id": "a8618b28-dc2a-483a-8515-dda78a8fe438",
+      "saleDate": "2026-04-19",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000002",
+      "notes": ""
+    }
+  ],
+  "salesItems": [
+    {
+      "id": "bfdb8baf-5478-49e2-9384-5559ec7e4a1c",
+      "saleId": "a8618b28-dc2a-483a-8515-dda78a8fe438",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "quantity": 1,
+      "unitPrice": 33,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "unitId": "90000000-0000-0000-0000-000000000003"
+    }
+  ],
+  "salesItemAllocations": [
+    {
+      "id": "aa422da6-bfb4-4e81-a70b-19c425ff5443",
+      "salesItemId": "bfdb8baf-5478-49e2-9384-5559ec7e4a1c",
+      "lotBatchId": "3fa08d74-0a9e-44e8-ba62-d56ade447713",
+      "quantityAllocated": 1000,
+      "unitCostAtTime": 310000
+    }
+  ],
+  "inventoryTransfers": [
+    {
+      "id": "bdf0f47b-fc14-407a-b285-07536e07d325",
+      "transferDate": "2026-04-19",
+      "fromWarehouseId": "20000000-0000-0000-0000-000000000001",
+      "toWarehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "90c6461b-5b43-47c1-8eb4-5718a8e602f0",
+      "transferDate": "2026-04-19",
+      "fromWarehouseId": "20000000-0000-0000-0000-000000000001",
+      "toWarehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    }
+  ],
+  "inventoryTransferLines": [
+    {
+      "id": "2721513f-db01-4ede-9a7d-2da11be6e538",
+      "transferId": "bdf0f47b-fc14-407a-b285-07536e07d325",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "quantity": 1
+    },
+    {
+      "id": "4fb62db9-ac63-4a62-862f-0b36daf75c71",
+      "transferId": "90c6461b-5b43-47c1-8eb4-5718a8e602f0",
+      "productId": "10000000-0000-0000-0000-000000000001",
+      "quantity": 1
+    }
+  ],
+  "notifications": [
+    {
+      "id": "3f85dd2f-e1e3-4bdd-b428-129061bf855d",
+      "type": "sale_created",
+      "saleId": "a8618b28-dc2a-483a-8515-dda78a8fe438",
+      "title": "New sale logged",
+      "body": "sales@hs.com · Main Warehouse · 2026-04-19 · Wheat ×1 KG @ BDT 33.00",
+      "createdAt": "2026-04-19T13:42:59.509Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000002",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    }
+  ]
+}

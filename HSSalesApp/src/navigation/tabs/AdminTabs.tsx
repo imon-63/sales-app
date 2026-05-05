@@ -9,6 +9,7 @@ import { AdminDashboardScreen } from '../../screens/dashboard/AdminDashboardScre
 import { SalesCalendarScreen } from '../../screens/calendar/SalesCalendarScreen';
 import { AdminNotificationsScreen } from '../../screens/notifications/AdminNotificationsScreen';
 import { OperationsScreen } from '../../screens/operations/OperationsScreen';
+import { useT } from '../../i18n/useT';
 import { useAppSelector } from '../../store/hooks';
 import { selectUnreadNotificationCount } from '../../store/slices/notificationsSlice';
 import { palette } from '../../theme/designSystem';
@@ -44,6 +45,8 @@ function AdminAlertsTabIcon({ color }: { color: string }) {
 }
 
 export function AdminTabs() {
+  const t = useT();
+
   return (
     <Tab.Navigator
       tabBar={AdminFloatingTabBar}
@@ -68,7 +71,7 @@ export function AdminTabs() {
         name="AdminHome"
         component={AdminDashboardScreen}
         options={{
-          title: 'Command',
+          title: t('tabs.admin.command'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ⌁
@@ -80,7 +83,7 @@ export function AdminTabs() {
         name="AdminAlerts"
         component={AdminNotificationsScreen}
         options={{
-          title: 'Signals',
+          title: t('tabs.admin.signals'),
           tabBarIcon: ({ color }) => <AdminAlertsTabIcon color={color} />,
         }}
       />
@@ -88,7 +91,7 @@ export function AdminTabs() {
         name="AdminSales"
         component={SalesCalendarScreen}
         options={{
-          title: 'Pulse',
+          title: t('tabs.admin.pulse'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ◎
@@ -100,7 +103,7 @@ export function AdminTabs() {
         name="AdminOps"
         component={OperationsScreen}
         options={{
-          title: 'Ops',
+          title: t('tabs.admin.ops'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>
               ⎈
