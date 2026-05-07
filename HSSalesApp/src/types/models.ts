@@ -59,6 +59,8 @@ export type StockRow = {
   batchLotId?: string;
   lotId?: string;
   lotNumber?: string;
+  purchaseDate?: string;
+  purchaseNotes?: string;
   productId: string;
   productName: string;
   unit: string;

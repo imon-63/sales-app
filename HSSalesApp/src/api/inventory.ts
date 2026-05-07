@@ -42,6 +42,8 @@ export async function fetchStockRows(token: string, baseUrl = getJsonServerBaseU
             quantityOnHand
             unitCost
             acquiredAt
+            purchaseDate
+            purchaseNotes
           }
         }
       `,
@@ -52,28 +54,57 @@ export async function fetchStockRows(token: string, baseUrl = getJsonServerBaseU
     const schemaMismatch =
       msg.includes('Cannot query field "id" on type "StockRow"') ||
       msg.includes('Cannot query field "batchLotId" on type "StockRow"') ||
-      msg.includes('Cannot query field "lotNumber" on type "StockRow"');
+      msg.includes('Cannot query field "lotNumber" on type "StockRow"') ||
+      msg.includes('Cannot query field "purchaseDate" on type "StockRow"') ||
+      msg.includes('Cannot query field "purchaseNotes" on type "StockRow"');
     if (!schemaMismatch) throw e;
 
-    // Backward-compatible fallback while backend process is still on old schema.
-    const fallback = await requestGraphql<{ inventoryStock: StockRow[] }>({
-      baseUrl,
-      token,
-      query: `
-        query InventoryStockLegacy {
-          inventoryStock {
-            productId
-            productName
-            unit
-            warehouseId
-            warehouseName
-            quantityOnHand
-            unitCost
+    try {
+      // Fallback v2: keep lot-aware fields if purchase metadata fields are unavailable.
+      const lotAwareFallback = await requestGraphql<{ inventoryStock: StockRow[] }>({
+        baseUrl,
+        token,
+        query: `
+          query InventoryStockLotAwareFallback {
+            inventoryStock {
+              id
+              batchLotId
+              lotId
+              lotNumber
+              productId
+              productName
+              unit
+              warehouseId
+              warehouseName
+              quantityOnHand
+              unitCost
+              acquiredAt
+            }
           }
-        }
-      `,
-    });
-    return fallback.inventoryStock;
+        `,
+      });
+      return lotAwareFallback.inventoryStock;
+    } catch {
+      // Backward-compatible fallback while backend process is still on old schema.
+      const fallback = await requestGraphql<{ inventoryStock: StockRow[] }>({
+        baseUrl,
+        token,
+        query: `
+          query InventoryStockLegacy {
+            inventoryStock {
+              productId
+              productName
+              unit
+              warehouseId
+              warehouseName
+              quantityOnHand
+              unitCost
+            }
+          }
+        `,
+      });
+      return fallback.inventoryStock;
+    }
   }
 }
 

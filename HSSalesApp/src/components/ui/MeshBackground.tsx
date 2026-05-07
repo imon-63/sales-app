@@ -23,6 +23,6 @@ const styles = StyleSheet.create({
   },
   wash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(6, 28, 18, 0.42)',
+    backgroundColor: 'rgba(1, 24, 9, 0.34)',
   },
 });

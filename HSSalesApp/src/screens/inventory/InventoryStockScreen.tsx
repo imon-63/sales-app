@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   LayoutAnimation,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -48,6 +49,25 @@ export function InventoryStockScreen() {
 
   const [search, setSearch] = useState('');
   const [activeWhId, setActiveWhId] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+
+  const stockCardKey = useCallback(
+    (item: StockRow) =>
+      item.id || `${item.productId}-${item.warehouseId}-${item.lotId || item.lotNumber || 'row'}`,
+    [],
+  );
+
+  const toBanglaDate = useCallback((raw?: string) => {
+    if (!raw) return '—';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return new Intl.DateTimeFormat('bn-BD', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    }).format(d);
+  }, []);
 
   const scrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(0);
@@ -171,9 +191,6 @@ export function InventoryStockScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={[styles.head, { paddingTop: insets.top + 10 }]}>
           <Text style={styles.title}>Stock room</Text>
-          <Text style={styles.sub}>
-            Live on-hand levels across all facilities.
-          </Text>
         </View>
 
         <View style={styles.filterHub}>
@@ -257,9 +274,7 @@ export function InventoryStockScreen() {
         ) : (
           <SectionList
             sections={sections}
-            keyExtractor={(item) =>
-              item.id || `${item.productId}-${item.warehouseId}-${item.lotId || item.lotNumber || 'row'}`
-            }
+            keyExtractor={stockCardKey}
             contentContainerStyle={styles.list}
             stickySectionHeadersEnabled={false}
             renderSectionHeader={({ section }) => (
@@ -270,55 +285,86 @@ export function InventoryStockScreen() {
                 <Text style={styles.sectionTitle}>{section.title}</Text>
               </View>
             )}
-            renderItem={({ item }) => {
-              const qty = item.quantityOnHand;
-              const isLow = qty <= 20;
-              const isMedium = qty > 20 && qty <= 100;
+            renderItem={() => null}
+            renderSectionFooter={({ section }) => (
+              <FlatList
+                horizontal
+                data={section.data}
+                keyExtractor={stockCardKey}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardRail}
+                renderItem={({ item }) => {
+                  const qty = item.quantityOnHand;
+                  const isLow = qty <= 20;
+                  const isMedium = qty > 20 && qty <= 100;
+                  const cardId = stockCardKey(item);
+                  const expanded = !!expandedCards[cardId];
 
-              return (
-                <GlassCard style={[styles.card, { backgroundColor: palette.night }]}>
-                  <View style={styles.cardLayout}>
-                    <View style={styles.gaugeContainer}>
-                      <View style={[styles.gaugeSegment, styles.gaugeGreen, qty > 100 && styles.activeSegment]} />
-                      <View style={[styles.gaugeSegment, styles.gaugeYellow, isMedium && styles.activeSegment]} />
-                      <View style={[styles.gaugeSegment, styles.gaugeRed, isLow && styles.activeSegment]} />
-                    </View>
+                  return (
+                    <View style={styles.cardRailItem}>
+                      <Pressable
+                        onPress={() =>
+                          setExpandedCards((prev) => ({ ...prev, [cardId]: !prev[cardId] }))
+                        }>
+                        <GlassCard
+                          style={[
+                            styles.card,
+                            { backgroundColor: palette.night },
+                            !expanded ? styles.cardCollapsedGlow : null,
+                          ]}>
+                        <View style={styles.cardLayout}>
+                          <View style={styles.gaugeContainer}>
+                            <View style={[styles.gaugeSegment, styles.gaugeGreen, qty > 100 && styles.activeSegment]} />
+                            <View style={[styles.gaugeSegment, styles.gaugeYellow, isMedium && styles.activeSegment]} />
+                            <View style={[styles.gaugeSegment, styles.gaugeRed, isLow && styles.activeSegment]} />
+                          </View>
 
-                    <View style={styles.cardContent}>
-                      <View style={styles.cardGrid}>
-                        <View style={styles.cardMain}>
-                          <Text style={styles.pname}>{item.productName}</Text>
-                          <Text style={styles.lotLine}>
-                            Lot: {item.lotNumber || 'N/A'}
-                            {item.acquiredAt ? `  •  ${item.acquiredAt}` : ''}
-                          </Text>
-                          <View style={styles.healthBarContainer}>
-                            <View
-                              style={[
-                                styles.healthBar,
-                                { width: Math.min((qty / 500) * 100, 100) + '%' },
-                                isLow ? styles.healthLow : isMedium ? styles.healthMed : styles.healthOk
-                              ]}
-                            />
+                          <View style={[styles.cardContent, !expanded && styles.cardContentCompact]}>
+                            <View style={styles.cardGrid}>
+                              <Text style={styles.pname}>{item.productName}</Text>
+                              <Text style={styles.oneLineMetaQty}>
+                                {qty.toLocaleString()} {item.unit || 'KG'}
+                              </Text>
+                            </View>
+                            {expanded ? (
+                              <View style={styles.cardMain}>
+                                <Text style={styles.lotLine}>
+                                  Purchase Lot: {item.lotNumber || 'N/A'}
+                                </Text>
+                                <Text style={styles.detailLine}>
+                                  Unit Cost: ৳ {(item.unitCost || 0).toLocaleString()}
+                                </Text>
+                                <Text style={styles.detailLine}>
+                                  নোট: {item.purchaseNotes?.trim() ? item.purchaseNotes : 'নোট নেই'}
+                                </Text>
+                                <Text style={styles.detailLine}>
+                                  সময়: {toBanglaDate(item.purchaseDate || item.acquiredAt)}
+                                </Text>
+                                <View style={styles.healthBarContainer}>
+                                  <View
+                                    style={[
+                                      styles.healthBar,
+                                      { width: Math.min((qty / 500) * 100, 100) + '%' },
+                                      isLow ? styles.healthLow : isMedium ? styles.healthMed : styles.healthOk
+                                    ]}
+                                  />
+                                </View>
+                              </View>
+                            ) : null}
                           </View>
                         </View>
-                        <View style={styles.cardSide}>
-                          <Text style={styles.qty}>
-                            {qty.toLocaleString()}
-                          </Text>
-                          <Text style={styles.unit}>{item.unit || 'KG'}</Text>
-                          
-                          <View style={styles.costBox}>
-                            <Text style={styles.costLabel}>Cost / Unit</Text>
-                            <Text style={styles.costVal}>BDT {(item.unitCost || 0).toLocaleString()}</Text>
-                          </View>
-                        </View>
-                      </View>
+                          {expanded ? (
+                            <Text style={styles.toggleHint}>সংক্ষিপ্ত দেখতে ট্যাপ করুন</Text>
+                          ) : (
+                            <Text style={styles.toggleHint}>বিস্তারিত দেখতে ট্যাপ করুন</Text>
+                          )}
+                        </GlassCard>
+                      </Pressable>
                     </View>
-                  </View>
-                </GlassCard>
-              );
-            }}
+                  );
+                }}
+              />
+            )}
             ListEmptyComponent={
               <GlassCard style={styles.emptyCard}>
                 <Text style={styles.emptyTitle}>No stock found</Text>
@@ -420,28 +466,61 @@ const styles = StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     marginTop: 18,
     marginBottom: 8,
     marginLeft: 4,
   },
   sectionIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0,230,118,0.1)',
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: 'rgba(157,255,117,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(191,255,159,0.28)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#9DFF75',
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
-  sectionIconText: { fontSize: 12 },
+  sectionIconText: { fontSize: 13 },
   sectionTitle: {
-    color: palette.textMuted,
-    fontSize: 13,
+    color: '#E9FFE3',
+    fontSize: 15,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(157,255,117,0.30)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 5,
   },
-  card: { marginBottom: 10, paddingVertical: 0, paddingHorizontal: 0, overflow: 'hidden' },
+  card: {
+    marginBottom: 10,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    overflow: 'hidden',
+    borderRadius: radii.lg,
+  },
+  cardCollapsedGlow: {
+    borderWidth: 1,
+    borderColor: 'rgba(157,255,117,0.45)',
+    shadowColor: '#9DFF75',
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 5,
+  },
+  cardRail: {
+    paddingRight: 12,
+    paddingBottom: 4,
+  },
+  cardRailItem: {
+    width: 284,
+    marginRight: 12,
+  },
   cardLayout: { flexDirection: 'row' },
   gaugeContainer: { width: 6, backgroundColor: 'rgba(0,0,0,0.05)' },
   gaugeSegment: { flex: 1, opacity: 0.15 },
@@ -450,15 +529,30 @@ const styles = StyleSheet.create({
   gaugeYellow: { backgroundColor: palette.amber },
   gaugeRed: { backgroundColor: palette.rose },
   cardContent: { flex: 1, paddingVertical: 14, paddingHorizontal: 14 },
-  cardGrid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardContentCompact: { paddingVertical: 9 },
+  cardGrid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   cardMain: { flex: 1, gap: 8 },
   cardSide: { alignItems: 'flex-end', minWidth: 80 },
   pname: { color: palette.text, fontSize: 17, fontWeight: '900', letterSpacing: -0.3 },
+  oneLineMetaQty: {
+    color: '#9DFF75',
+    fontSize: 14,
+    fontWeight: '900',
+    textShadowColor: 'rgba(157,255,117,0.35)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
+  },
   lotLine: {
     color: palette.textMuted,
     fontSize: 11,
     fontWeight: '700',
-    marginTop: -3,
+    marginTop: 2,
+  },
+  detailLine: {
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: -2,
   },
   healthBarContainer: {
     height: 4,
@@ -476,6 +570,14 @@ const styles = StyleSheet.create({
   costBox: { marginTop: 6, alignItems: 'flex-end', backgroundColor: 'rgba(0,230,118,0.06)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4 },
   costLabel: { fontSize: 8, fontWeight: '800', color: palette.textMuted, textTransform: 'uppercase', marginBottom: 1 },
   costVal: { fontSize: 11, fontWeight: '800', color: palette.emeraldDeep },
+  toggleHint: {
+    color: palette.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingBottom: 2,
+    marginTop: 0,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   hint: { marginTop: 10, color: palette.textMuted, fontWeight: '600' },
   err: { color: palette.danger, fontWeight: '700', textAlign: 'center' },

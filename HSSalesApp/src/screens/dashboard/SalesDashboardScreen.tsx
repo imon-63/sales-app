@@ -98,6 +98,8 @@ export function SalesDashboardScreen() {
             </View>
 
             <GlassCard style={styles.hero} accentColor={palette.emerald}>
+              <View pointerEvents="none" style={styles.heroAccentRail} />
+              <View pointerEvents="none" style={styles.heroOrb} />
               <Text style={styles.heroEyebrow}>{t('dashboard.sales.revenue')}</Text>
               <Text style={styles.heroBig}>{money.format(revenue)}</Text>
               <Text style={styles.heroSub}>
@@ -118,21 +120,26 @@ export function SalesDashboardScreen() {
             </GlassCard>
 
             <View style={styles.kpiRow}>
-              <KpiTile
-                label={t('dashboard.sales.ordersLabel')}
-                value={String(mySales.length)}
-                hint={t('dashboard.sales.ordersHint')}
-                accent={palette.emerald}
-              />
-              <KpiTile
-                label={t('dashboard.sales.productsLabel')}
-                value={String(products.length)}
-                hint={t('dashboard.sales.productsHint')}
-                accent={palette.violet}
-              />
+              <View style={styles.kpiShell}>
+                <KpiTile
+                  label={t('dashboard.sales.ordersLabel')}
+                  value={String(mySales.length)}
+                  hint={t('dashboard.sales.ordersHint')}
+                  accent={palette.emerald}
+                />
+              </View>
+              <View style={[styles.kpiShell, styles.kpiShellAlt]}>
+                <KpiTile
+                  label={t('dashboard.sales.productsLabel')}
+                  value={String(products.length)}
+                  hint={t('dashboard.sales.productsHint')}
+                  accent={palette.violet}
+                />
+              </View>
             </View>
 
             <GlassCard style={styles.next}>
+              <View pointerEvents="none" style={styles.nextAccentRail} />
               <Text style={styles.nextTitle}>{t('dashboard.sales.calendarTitle')}</Text>
               <Text style={styles.nextBody}>{t('dashboard.sales.calendarBody')}</Text>
             </GlassCard>
@@ -212,7 +219,30 @@ const styles = StyleSheet.create({
   },
   loadingText: { color: palette.textMuted, fontWeight: '600' },
   errorText: { color: palette.danger, fontWeight: '800' },
-  hero: { marginTop: 6 },
+  hero: {
+    marginTop: 6,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(191,255,159,0.18)',
+    backgroundColor: 'rgba(9, 73, 32, 0.84)',
+  },
+  heroAccentRail: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    backgroundColor: palette.emerald,
+  },
+  heroOrb: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 999,
+    right: -46,
+    top: -32,
+    backgroundColor: 'rgba(191,255,159,0.10)',
+  },
   heroEyebrow: {
     color: palette.textMuted,
     fontSize: 12,
@@ -222,10 +252,10 @@ const styles = StyleSheet.create({
   },
   heroBig: {
     marginTop: 10,
-    color: palette.text,
-    fontSize: 40,
+    color: '#ECFFE5',
+    fontSize: 42,
     fontWeight: '900',
-    letterSpacing: -1.2,
+    letterSpacing: -1.3,
   },
   heroSub: {
     marginTop: 8,
@@ -249,7 +279,36 @@ const styles = StyleSheet.create({
   },
   pillText: { color: palette.text, fontWeight: '900', fontSize: 12 },
   kpiRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  next: { marginTop: 4 },
+  kpiShell: {
+    flex: 1,
+    minWidth: '46%',
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(191,255,159,0.2)',
+    backgroundColor: 'rgba(10, 70, 31, 0.78)',
+  },
+  kpiShellAlt: {
+    backgroundColor: 'rgba(8, 62, 29, 0.82)',
+    borderColor: 'rgba(191,255,159,0.15)',
+  },
+  next: {
+    marginTop: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(191,255,159,0.14)',
+    backgroundColor: 'rgba(8, 62, 29, 0.82)',
+  },
+  nextAccentRail: {
+    position: 'absolute',
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 4,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    backgroundColor: 'rgba(191,255,159,0.55)',
+  },
   nextTitle: {
     color: palette.text,
     fontSize: 16,

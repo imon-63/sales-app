@@ -157,6 +157,16 @@ function getInventoryStockRows() {
   const products = router.db.get('products').value() ?? [];
   const warehouses = router.db.get('warehouses').value() ?? [];
   const units = router.db.get('units').value() ?? [];
+  const purchases = router.db.get('purchases').value() ?? [];
+  const purchaseItems = router.db.get('purchaseItems').value() ?? [];
+
+  const purchaseByLotId = new Map();
+  for (const pi of purchaseItems) {
+    if (!pi?.lotId || purchaseByLotId.has(pi.lotId)) continue;
+    const p = purchases.find((x) => x.id === pi.purchaseId);
+    if (!p) continue;
+    purchaseByLotId.set(pi.lotId, p);
+  }
 
   const rows = [];
   for (const b of lotBatches) {
@@ -183,6 +193,8 @@ function getInventoryStockRows() {
       quantityOnHand: rem,
       unitCost: Number(b.unitCost) || 0,
       acquiredAt: b.acquiredAt,
+      purchaseDate: purchaseByLotId.get(b.lotId)?.purchaseDate || b.acquiredAt,
+      purchaseNotes: purchaseByLotId.get(b.lotId)?.notes || '',
     });
   }
   rows.sort((a, b) => {
@@ -813,6 +825,8 @@ const typeDefs = `
     quantityOnHand: Float!
     unitCost: Float
     acquiredAt: String
+    purchaseDate: String
+    purchaseNotes: String
   }
 
   input SaleItemInput {

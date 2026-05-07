@@ -5,12 +5,15 @@ import {
   Animated,
   Easing,
   InteractionManager,
+  LayoutAnimation,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
 import RNPrint from 'react-native-print';
@@ -38,6 +41,10 @@ type DetailsRouteProp = RouteProp<MainStackParamList, 'SaleDetails'>;
 /** Off-screen translateY so the print drawer starts fully above the viewport. */
 const PRINT_DRAWER_HIDDEN_Y = -340;
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export function SaleDetails() {
   const t = useT();
   const insets = useSafeAreaInsets();
@@ -47,6 +54,7 @@ export function SaleDetails() {
 
   const tabBottomPad = useTabScreenBottomPadding();
   const [printDrawerVisible, setPrintDrawerVisible] = useState(false);
+  const [adminInfoExpanded, setAdminInfoExpanded] = useState(false);
   const printDrawerY = useRef(new Animated.Value(PRINT_DRAWER_HIDDEN_Y)).current;
   const currentUser = useAppSelector((s) => s.auth.user);
   const { sales, salesItems, products, warehouses, users, salesItemAllocations, lots, lotBatches } = useAppSelector(
@@ -345,35 +353,67 @@ export function SaleDetails() {
           contentContainerStyle={[styles.scroll, { paddingBottom: tabBottomPad + 40 }]}
           showsVerticalScrollIndicator={false}>
           
-          <GlassCard accentColor={isAdmin ? palette.emeraldDeep : palette.emerald}>
-            <Text style={styles.sectionLabel}>Overview</Text>
-            <View style={styles.row}>
-              <Text style={styles.field}>Date</Text>
-              <Text style={styles.value}>{sale.saleDate}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.field}>Warehouse</Text>
-              <Text style={styles.value}>{warehouse?.name || 'Unknown'}</Text>
-            </View>
-            {!!sale.notes && (
-              <View style={styles.notesBox}>
-                <Text style={styles.field}>Notes</Text>
-                <Text style={styles.notesText}>{sale.notes}</Text>
-              </View>
-            )}
-          </GlassCard>
+          {isAdmin ? (
+            <GlassCard style={styles.leftEdgeRoundCard} accentColor={palette.emeraldDeep}>
+              <Pressable
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setAdminInfoExpanded((v) => !v);
+                }}
+                style={styles.collapsibleHead}>
+                <Text style={styles.collapsibleTitle}>Overview & Sales Person</Text>
+                <Text style={styles.collapsibleChevron}>{adminInfoExpanded ? '▾' : '▸'}</Text>
+              </Pressable>
 
-          {isAdmin && seller && (
-            <GlassCard style={styles.spacedCard} accentColor={palette.emeraldDeep}>
-              <Text style={styles.sectionLabel}>Sales Person</Text>
-              <Text style={styles.sellerName}>{seller.name}</Text>
-              {!!seller.phone && <Text style={styles.sellerPhone}>{seller.phone}</Text>}
-              <Text style={styles.sellerEmail}>{seller.email}</Text>
+              {adminInfoExpanded ? (
+                <>
+                  <View style={styles.row}>
+                    <Text style={styles.field}>Date</Text>
+                    <Text style={styles.value}>{sale.saleDate}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.field}>Warehouse</Text>
+                    <Text style={styles.value}>{warehouse?.name || 'Unknown'}</Text>
+                  </View>
+                  {!!sale.notes && (
+                    <View style={styles.notesBox}>
+                      <Text style={styles.field}>Notes</Text>
+                      <Text style={styles.notesText}>{sale.notes}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.sectionDivider} />
+                  <Text style={styles.subSectionLabel}>Sales Person</Text>
+                  <Text style={styles.sellerName}>{seller?.name || 'Unknown'}</Text>
+                  {!!seller?.phone && <Text style={styles.sellerPhone}>{seller.phone}</Text>}
+                  <Text style={styles.sellerEmail}>{seller?.email || '—'}</Text>
+                </>
+              ) : null}
+            </GlassCard>
+          ) : (
+            <GlassCard style={styles.leftEdgeRoundCard} accentColor={palette.emerald}>
+              <Text style={styles.sectionLabel}>Overview</Text>
+              <View style={styles.row}>
+                <Text style={styles.field}>Date</Text>
+                <Text style={styles.value}>{sale.saleDate}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.field}>Warehouse</Text>
+                <Text style={styles.value}>{warehouse?.name || 'Unknown'}</Text>
+              </View>
+              {!!sale.notes && (
+                <View style={styles.notesBox}>
+                  <Text style={styles.field}>Notes</Text>
+                  <Text style={styles.notesText}>{sale.notes}</Text>
+                </View>
+              )}
             </GlassCard>
           )}
 
           {isAdmin && (
-            <GlassCard style={styles.performanceCard} accentColor={totalProfit >= 0 ? palette.success : palette.rose}>
+            <GlassCard
+              style={[styles.leftEdgeRoundCard, styles.performanceCard]}
+              accentColor={totalProfit >= 0 ? palette.success : palette.rose}>
                <Text style={styles.sectionLabel}>Transaction P&L Scorecard</Text>
                <View style={styles.summaryGrid}>
                  <View style={styles.summaryCol}>
@@ -423,7 +463,7 @@ export function SaleDetails() {
             const itemMargin = subtotal > 0 ? (itemProfit / subtotal) * 100 : 0;
 
             return (
-              <GlassCard key={it.id} style={styles.itemCard}>
+              <GlassCard key={it.id} style={[styles.leftEdgeRoundCard, styles.itemCard]}>
                 <View style={styles.itemHead}>
                   <Text style={styles.itemProd}>{prod?.name || 'Unknown Product'}</Text>
                   <Text style={styles.itemTotal}>BDT {subtotal.toLocaleString()}</Text>
@@ -499,6 +539,10 @@ export function SaleDetails() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 6, gap: 14 },
+  leftEdgeRoundCard: {
+    borderTopLeftRadius: 30,
+    borderBottomLeftRadius: 30,
+  },
   sectionLabel: {
     color: palette.textMuted,
     fontSize: 11,
@@ -506,6 +550,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 12,
+  },
+  collapsibleHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  collapsibleTitle: {
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  collapsibleChevron: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  sectionDivider: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: palette.stroke,
+  },
+  subSectionLabel: {
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'row',

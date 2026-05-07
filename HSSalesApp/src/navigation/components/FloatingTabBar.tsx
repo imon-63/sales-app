@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     paddingHorizontal: TAB_BAR_PILL_EDGE_INSET,
     borderRadius: TAB_BAR_PILL_BORDER_RADIUS,
-    backgroundColor: palette.tabBar,
+    backgroundColor: palette.paper,
     borderWidth: 1,
     borderColor: palette.stroke,
     ...Platform.select({
@@ -139,6 +139,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconSlotActive: {
-    backgroundColor: 'rgba(0, 230, 118, 0.2)',
+    backgroundColor: 'rgba(6, 74, 30, 0.95)',
+    transform: [{ translateY: 1 }],
+    shadowColor: '#000000',
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
 });

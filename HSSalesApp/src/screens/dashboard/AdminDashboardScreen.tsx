@@ -176,9 +176,11 @@ export function AdminDashboardScreen() {
                   pressed && styles.dateInputWrapPressed,
                 ]}>
                 <Text style={styles.dateInputText}>{selectedDate}</Text>
-                <Text style={styles.dateInputIcon} accessibilityElementsHidden>
-                  📅
-                </Text>
+                <View style={styles.dateIconBadge}>
+                  <Text style={styles.dateInputIcon} accessibilityElementsHidden>
+                    🗓
+                  </Text>
+                </View>
               </Pressable>
             </View>
           </View>
@@ -207,8 +209,9 @@ export function AdminDashboardScreen() {
               accessibilityLabel={t('common.close')}
             />
             <View style={styles.modalCenter} pointerEvents="box-none">
-              <GlassCard style={styles.modalCard}>
+              <View style={styles.modalCard}>
                 <Calendar
+                  style={styles.modalCalendar}
                   current={selectedDate}
                   markedDates={markedDates}
                   onDayPress={(day) => {
@@ -236,7 +239,7 @@ export function AdminDashboardScreen() {
                     <Text style={styles.modalDoneText}>{t('common.done')}</Text>
                   </Pressable>
                 </View>
-              </GlassCard>
+              </View>
             </View>
           </View>
         </Modal>
@@ -464,7 +467,18 @@ const styles = StyleSheet.create({
   },
   dateInputWrapPressed: { opacity: 0.88 },
   dateInputText: { color: palette.text, fontSize: 13, fontWeight: '800', textAlign: 'center' },
-  dateInputIcon: { fontSize: 14, opacity: 0.85 },
+  dateIconBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(157,255,117,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(191,255,159,0.28)',
+    marginLeft: 2,
+  },
+  dateInputIcon: { fontSize: 12, opacity: 0.95 },
   salesPersonRow: {
     marginTop: 14,
     paddingHorizontal: 24,
@@ -478,39 +492,47 @@ const styles = StyleSheet.create({
   modalCenter: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 32,
+    paddingHorizontal: 28,
+    paddingVertical: 54,
   },
   modalCard: {
     overflow: 'hidden',
-    paddingBottom: 12,
     alignSelf: 'center',
-    width: '92%',
-    maxWidth: 360,
+    width: '86%',
+    maxWidth: 330,
+    borderRadius: radii.lg,
+    backgroundColor: palette.paper,
+    borderWidth: 1,
+    borderColor: palette.stroke,
+  },
+  modalCalendar: {
+    transform: [{ scaleY: 0.9 }],
+    marginVertical: -10,
   },
   modalActions: {
-    marginTop: 4,
-    marginHorizontal: 12,
-    marginBottom: 4,
-    flexDirection: 'row',
+    marginTop: 10,
+    marginBottom: 8,
+    alignSelf: 'stretch',
     justifyContent: 'flex-end',
+    paddingHorizontal: 10,
+    flexDirection: 'row',
     gap: 10,
   },
   modalCancel: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: radii.md,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: palette.stroke,
-    backgroundColor: palette.inputInset,
+    borderColor: 'rgba(191,255,159,0.28)',
+    backgroundColor: 'rgba(8,62,29,0.92)',
     alignItems: 'center',
   },
   modalCancelPressed: { opacity: 0.85 },
   modalCancelText: { color: palette.textMuted, fontWeight: '900', fontSize: 14 },
   modalDone: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: radii.md,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 999,
     backgroundColor: palette.emerald,
     alignItems: 'center',
   },
@@ -518,32 +540,100 @@ const styles = StyleSheet.create({
   modalDoneText: { color: palette.onAccent, fontWeight: '900', fontSize: 15 },
   scroll: { paddingHorizontal: 20, paddingTop: 10, gap: 20 },
   mainKpi: { gap: 14 },
-  profitCard: { padding: 20 },
+  profitCard: {
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(157, 255, 117, 0.28)',
+    backgroundColor: 'rgba(14, 79, 39, 0.92)',
+    shadowColor: '#A6FF8A',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 7,
+  },
   kpiHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  kpiIcon: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(0, 230, 118, 0.1)', alignItems: 'center', justifyContent: 'center' },
+  kpiIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(157, 255, 117, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(209, 255, 194, 0.24)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   kpiIconText: { fontSize: 16 },
   kpiLabel: { color: palette.textMuted, fontSize: 14, fontWeight: '800', flex: 1 },
   marginBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   marginPositive: { backgroundColor: 'rgba(0, 230, 118, 0.15)' },
   marginNegative: { backgroundColor: 'rgba(255, 82, 82, 0.12)' },
   marginText: { color: palette.text, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
-  profitVal: { color: palette.emerald, fontSize: 36, fontWeight: '900', letterSpacing: -1 },
-  pnlVisual: { height: 8, flexDirection: 'row', gap: 2, marginTop: 20, borderRadius: 4, overflow: 'hidden' },
+  profitVal: {
+    color: '#D8FFD0',
+    fontSize: 38,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+    textShadowColor: 'rgba(141, 255, 122, 0.45)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 9,
+  },
+  pnlVisual: {
+    height: 10,
+    flexDirection: 'row',
+    gap: 3,
+    marginTop: 20,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(209,255,194,0.16)',
+  },
   pnlBar: { height: '100%' },
   pnlLegend: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
   legendText: { color: palette.textMuted, fontSize: 11, fontWeight: '700' },
   dailyLog: { gap: 12 },
   sectionTitle: { color: palette.text, fontSize: 17, fontWeight: '900', marginLeft: 4, marginBottom: 4 },
-  saleCard: { padding: 16, gap: 12 },
+  saleCard: {
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(191, 255, 159, 0.14)',
+    backgroundColor: 'rgba(8, 63, 30, 0.90)',
+  },
   saleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  whBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0, 230, 118, 0.08)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  whBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(157, 255, 117, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(157, 255, 117, 0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   whIcon: { fontSize: 12 },
   whName: { color: palette.text, fontSize: 12, fontWeight: '800' },
-  saleProfit: { color: palette.emerald, fontSize: 16, fontWeight: '900' },
+  saleProfit: {
+    color: palette.emerald,
+    fontSize: 17,
+    fontWeight: '900',
+    textShadowColor: 'rgba(157,255,117,0.4)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
   saleDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   saleNote: { color: palette.textMuted, fontSize: 13, fontWeight: '600', flex: 1, paddingRight: 10 },
   saleRevenue: { color: palette.text, fontSize: 12, fontWeight: '800' },
-  miniPnl: { height: 4, backgroundColor: 'rgba(0, 230, 118, 0.06)', borderRadius: 2, flexDirection: 'row', overflow: 'hidden' },
+  miniPnl: {
+    height: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(191,255,159,0.14)',
+    flexDirection: 'row',
+    overflow: 'hidden',
+  },
   miniBar: { height: '100%' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   hint: { marginTop: 12, color: palette.textMuted, fontWeight: '600' },

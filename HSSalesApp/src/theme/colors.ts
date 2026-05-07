@@ -1,9 +1,9 @@
 export const colors = {
-  green: '#00E676',
-  greenDark: '#00C853',
-  background: '#0A1814',
-  text: '#F4FBF6',
-  mutedText: 'rgba(215, 240, 225, 0.82)',
-  inputBorder: 'rgba(140, 255, 190, 0.22)',
+  green: '#9DFF75',
+  greenDark: '#61D65A',
+  background: '#052B16',
+  text: '#F3FFF0',
+  mutedText: 'rgba(216, 244, 208, 0.82)',
+  inputBorder: 'rgba(188, 255, 162, 0.2)',
   error: '#FF5252',
 } as const;

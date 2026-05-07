@@ -2,12 +2,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { HSLogo } from '../components/HSLogo';
 import type { TxKey } from '../i18n/en';
 import { useT } from '../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { clearSession } from '../store/slices/authSlice';
-import { palette, radii } from '../theme/designSystem';
+import { palette } from '../theme/designSystem';
 
 import type { MainStackParamList } from './mainStackTypes';
 
@@ -22,19 +21,19 @@ type NavItem = {
 };
 
 const items: NavItem[] = [
-  { key: 'work', labelKey: 'menu.home', icon: '🏠', screen: 'Work' },
-  { key: 'stock', labelKey: 'menu.stock', icon: '📦', screen: 'StockRoom' },
+  { key: 'work', labelKey: 'menu.home', icon: '⌂', screen: 'Work' },
+  { key: 'stock', labelKey: 'menu.stock', icon: '▦', screen: 'StockRoom' },
   {
     key: 'receive',
     labelKey: 'menu.purchase',
-    icon: '📥',
+    icon: '↓',
     screen: 'ReceiveStock',
     adminOnly: true,
   },
   {
     key: 'transfer',
     labelKey: 'menu.move',
-    icon: '🔄',
+    icon: '↔',
     screen: 'TransferStock',
     adminOnly: true,
   },
@@ -91,32 +90,25 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
       style={styles.drawer}
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}>
-      
       <View style={styles.header}>
-        <HSLogo variant="brand" size={86} style={styles.menuLogo} />
-        <View style={styles.brandColumn}>
-          <View style={styles.brandTopRow}>
-            <View style={styles.brandTextWrap}>
-              <Text style={styles.brandTitle} numberOfLines={2}>
-                {'HS\nSales'}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onSignOut}
-              accessibilityRole="button"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-              style={({ pressed }) => [
-                styles.signOutHeader,
-                pressed && styles.signOutHeaderPressed,
-              ]}>
-              <View style={styles.signOutInner}>
-                <View style={styles.signOutIconChip}>
-                  <Text style={styles.signOutIcon}>⎋</Text>
-                </View>
-                <Text style={styles.signOutHeaderText}>{t('menu.signOut')}</Text>
-              </View>
-            </Pressable>
+        <View style={styles.topUtilityRow}>
+          <View style={styles.profileDot}>
+            <Text style={styles.profileDotText}>
+              {(user?.name?.trim()?.[0] ?? 'H').toUpperCase()}
+            </Text>
           </View>
+          <Pressable
+            onPress={onSignOut}
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+            style={({ pressed }) => [styles.signOutHeader, pressed && styles.signOutHeaderPressed]}>
+            <View style={styles.signOutInner}>
+              <View style={styles.signOutIconChip}>
+                <Text style={styles.signOutIcon}>⎋</Text>
+              </View>
+              <Text style={styles.signOutHeaderText}>{t('menu.signOut')}</Text>
+            </View>
+          </Pressable>
         </View>
       </View>
 
@@ -146,48 +138,70 @@ export function MainMenuPanel({ navigation, onClose }: Props) {
           })}
         </View>
       </View>
+
+      <View style={styles.userFooter}>
+        <View style={styles.userBadge}>
+          <View style={styles.userBadgeDot}>
+            <Text style={styles.userBadgeDotText}>
+              {(user?.name?.trim()?.[0] ?? 'H').toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.userBadgeName} numberOfLines={1}>
+            {user?.name?.trim() || 'HS User'}
+          </Text>
+          <View style={[styles.roleBadge, role === 'admin' ? styles.roleBadgeAdmin : styles.roleBadgeSales]}>
+            <Text style={styles.roleBadgeText}>{role === 'admin' ? 'Admin' : 'Sales'}</Text>
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   drawer: { backgroundColor: palette.paper },
-  scroll: { paddingBottom: 28 },
+  scroll: { paddingBottom: 0, flexGrow: 1 },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  menuLogo: { flexShrink: 0 },
-  brandColumn: { flex: 1, minWidth: 0, justifyContent: 'center' },
-  brandTextWrap: { flex: 1, minWidth: 0 },
-  brandTopRow: {
+  topUtilityRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    alignItems: 'center',
+    marginBottom: 2,
   },
-  brandTitle: {
-    flex: 1,
-    minWidth: 0,
-    color: palette.text,
+  profileDot: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8C643B',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  profileDotText: {
+    color: '#fff',
     fontSize: 20,
     fontWeight: '900',
-    letterSpacing: -0.5,
   },
   signOutHeader: {
     flexShrink: 0,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: radii.lg,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.5)',
-    backgroundColor: 'rgba(255, 82, 82, 0.14)',
+    borderColor: 'rgba(255, 122, 122, 0.52)',
+    backgroundColor: 'rgba(120, 20, 20, 0.28)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
-  signOutHeaderPressed: { backgroundColor: 'rgba(255, 82, 82, 0.22)' },
+  signOutHeaderPressed: { backgroundColor: 'rgba(148, 24, 24, 0.36)' },
   signOutInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -199,25 +213,25 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 82, 82, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 82, 82, 0.4)',
+    borderColor: 'rgba(255, 182, 182, 0.34)',
   },
   signOutIcon: {
-    color: palette.rose,
+    color: '#FFD0D0',
     fontSize: 10,
     fontWeight: '900',
   },
   signOutHeaderText: {
-    color: palette.rose,
+    color: '#FF8D8D',
     fontWeight: '900',
     fontSize: 12,
-    letterSpacing: 0.3,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   menuSection: {
-    marginTop: 28,
-    paddingHorizontal: 20,
+    marginTop: 4,
+    paddingHorizontal: 14,
   },
   sectionHeader: {
     color: palette.textMuted,
@@ -225,37 +239,31 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginBottom: 16,
+    marginBottom: 12,
     marginLeft: 4,
   },
   menuList: {
-    gap: 10,
-    padding: 10,
-    borderTopRightRadius: radii.xl,
-    borderBottomRightRadius: 0,
-    borderBottomLeftRadius: radii.sm,
-    borderTopLeftRadius: 0,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 230, 118, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    gap: 6,
+    padding: 0,
   },
   menuRow: {
-    borderTopRightRadius: radii.lg,
-    borderBottomRightRadius: 0,
-    borderBottomLeftRadius: radii.sm,
-    borderTopLeftRadius: 0,
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 230, 118, 0.16)',
-    backgroundColor: palette.glass,
+    paddingVertical: 10,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   menuRowPrimary: {
-    borderColor: 'rgba(0, 230, 118, 0.28)',
-    backgroundColor: 'rgba(0, 230, 118, 0.08)',
+    backgroundColor: 'rgba(6, 74, 30, 0.95)',
+    transform: [{ translateY: 1 }],
+    shadowColor: '#000000',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   menuRowPressed: { opacity: 0.8 },
   menuRowLeft: {
@@ -264,16 +272,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   menuIconChip: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 230, 118, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 230, 118, 0.2)',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
-  menuIcon: { fontSize: 15 },
+  menuIcon: {
+    fontSize: 16,
+    color: 'rgba(241,255,236,0.94)',
+    fontWeight: '700',
+  },
   menuLabel: {
     color: palette.text,
     fontSize: 15,
@@ -283,5 +294,61 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 20,
     fontWeight: '700',
+  },
+  userFooter: {
+    marginTop: 'auto',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  userBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(191, 255, 159, 0.2)',
+  },
+  userBadgeDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(191,255,159,0.25)',
+  },
+  userBadgeDotText: {
+    color: palette.text,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  userBadgeName: {
+    flex: 1,
+    color: palette.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  roleBadgeAdmin: {
+    backgroundColor: 'rgba(255, 214, 10, 0.16)',
+    borderColor: 'rgba(255, 214, 10, 0.38)',
+  },
+  roleBadgeSales: {
+    backgroundColor: 'rgba(157, 255, 117, 0.16)',
+    borderColor: 'rgba(191, 255, 159, 0.32)',
+  },
+  roleBadgeText: {
+    color: palette.text,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
 });
