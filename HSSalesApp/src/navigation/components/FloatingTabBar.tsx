@@ -139,12 +139,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconSlotActive: {
-    backgroundColor: 'rgba(6, 74, 30, 0.95)',
+    backgroundColor: 'rgba(0, 168, 255, 0.16)',
     transform: [{ translateY: 1 }],
-    shadowColor: '#000000',
-    shadowOpacity: 0.22,
-    shadowRadius: 4,
+    shadowColor: '#00A8FF',
+    shadowOpacity: 0.40,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    elevation: 5,
   },
 });

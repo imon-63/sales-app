@@ -70,7 +70,15 @@ export function ReceiveStockScreen() {
     return 1;
   }
 
+  // Default to "Direct" warehouse; fall back to first available
+  const directWarehouseId = useMemo(
+    () => warehouses.find((w) => w.name.toLowerCase() === 'direct')?.id ?? warehouses[0]?.id ?? '',
+    [warehouses],
+  );
+
   const [warehouseId, setWarehouseId] = useState('');
+  const resolvedWarehouseId = warehouseId || directWarehouseId;
+
   const [purchaseDate, setPurchaseDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -80,7 +88,12 @@ export function ReceiveStockScreen() {
   const [busy, setBusy] = useState(false);
 
   const warehouseOptions = useMemo(
-    () => warehouses.map((w) => ({ value: w.id, label: w.name })),
+    () => [
+      { value: '', label: 'Direct (default)' },
+      ...warehouses
+        .filter((w) => w.name.toLowerCase() !== 'direct')
+        .map((w) => ({ value: w.id, label: w.name })),
+    ],
     [warehouses],
   );
 
@@ -113,7 +126,7 @@ export function ReceiveStockScreen() {
   }
 
   const canSubmit = useMemo(() => {
-    if (!token || role !== 'admin' || busy || !warehouseId || lines.length === 0) {
+    if (!token || role !== 'admin' || busy || !resolvedWarehouseId || lines.length === 0) {
       return false;
     }
     for (const ln of lines) {
@@ -128,7 +141,7 @@ export function ReceiveStockScreen() {
       if (u?.isWholeNumber && !Number.isInteger(q)) return false;
     }
     return true;
-  }, [token, role, busy, warehouseId, lines]);
+  }, [token, role, busy, resolvedWarehouseId, lines]);
 
   async function onSubmit() {
     if (!token || !canSubmit) return;
@@ -136,7 +149,7 @@ export function ReceiveStockScreen() {
       setBusy(true);
       await inventoryApi.createPurchase(
         {
-          warehouseId,
+          warehouseId: resolvedWarehouseId,
           purchaseDate: /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate) ? purchaseDate : undefined,
           notes: notes.trim() || undefined,
           items: lines.map((ln) => ({

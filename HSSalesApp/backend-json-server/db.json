@@ -107,6 +107,10 @@
   ],
   "warehouses": [
     {
+      "id": "20000000-0000-0000-0000-000000000000",
+      "name": "Direct"
+    },
+    {
       "id": "20000000-0000-0000-0000-000000000001",
       "name": "Main Warehouse"
     },
@@ -148,6 +152,11 @@
       "id": "17d584ae-01b2-4621-b4db-527338c8c556",
       "productId": "10000000-0000-0000-0000-000000000006",
       "lotNumber": "RCV-2026-05-05-000006-61ff"
+    },
+    {
+      "id": "18a41d01-47d2-4316-8732-80d76ad1e9e7",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "lotNumber": "RCV-2026-06-02-000003-f61b"
     }
   ],
   "lotBatches": [
@@ -195,6 +204,15 @@
       "unitCost": 32,
       "originalQuantity": 25000,
       "remainingQuantity": 21999
+    },
+    {
+      "id": "f61b607c-ddfe-4603-88d2-270ecda514f7",
+      "lotId": "18a41d01-47d2-4316-8732-80d76ad1e9e7",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "acquiredAt": "2026-06-02",
+      "unitCost": 45.625,
+      "originalQuantity": 8000,
+      "remainingQuantity": 0
     }
   ],
   "purchases": [
@@ -230,6 +248,13 @@
       "id": "6fa28ac2-0c73-41f6-9c5e-6d6ae39496e0",
       "purchaseDate": "2026-05-05",
       "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "8527262d-917c-4d0f-8eda-eb66257e3d1b",
+      "purchaseDate": "2026-06-02",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
       "createdBy": "00000000-0000-0000-0000-000000000001",
       "notes": ""
     }
@@ -274,6 +299,14 @@
       "lotId": "17d584ae-01b2-4621-b4db-527338c8c556",
       "quantity": 25,
       "unitCost": 32
+    },
+    {
+      "id": "a11de888-18d6-4149-9b21-5e02a8a9a06e",
+      "purchaseId": "8527262d-917c-4d0f-8eda-eb66257e3d1b",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "lotId": "18a41d01-47d2-4316-8732-80d76ad1e9e7",
+      "quantity": 8000,
+      "unitCost": 45.625
     }
   ],
   "sales": [
@@ -310,6 +343,27 @@
       "saleDate": "2026-05-05",
       "warehouseId": "20000000-0000-0000-0000-000000000001",
       "createdBy": "00000000-0000-0000-0000-000000000002",
+      "notes": ""
+    },
+    {
+      "id": "77980284-b612-43a5-9b71-8ec5094fa1d9",
+      "saleDate": "2026-06-02",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "873328bb-0969-49e0-bb73-cad8ac1a923c",
+      "saleDate": "2026-06-02",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000002",
+      "notes": ""
+    },
+    {
+      "id": "be5afbaf-3206-414e-9dde-8a59bd0b081b",
+      "saleDate": "2026-06-02",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
       "notes": ""
     }
   ],
@@ -383,6 +437,39 @@
       "lotIds": [
         "17d584ae-01b2-4621-b4db-527338c8c556"
       ]
+    },
+    {
+      "id": "334a795f-9439-4e0d-9ec6-79f468f34422",
+      "saleId": "77980284-b612-43a5-9b71-8ec5094fa1d9",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "quantity": 5000,
+      "unitPrice": 51,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "18a41d01-47d2-4316-8732-80d76ad1e9e7"
+      ]
+    },
+    {
+      "id": "4a85b8ec-b2d6-4bba-8de9-f88419067324",
+      "saleId": "873328bb-0969-49e0-bb73-cad8ac1a923c",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "quantity": 2000,
+      "unitPrice": 52.4,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "18a41d01-47d2-4316-8732-80d76ad1e9e7"
+      ]
+    },
+    {
+      "id": "df16cfe7-3c0d-4fa2-bf06-bba603145e3b",
+      "saleId": "be5afbaf-3206-414e-9dde-8a59bd0b081b",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "quantity": 1000,
+      "unitPrice": 51.7,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "18a41d01-47d2-4316-8732-80d76ad1e9e7"
+      ]
     }
   ],
   "salesItemAllocations": [
@@ -441,6 +528,27 @@
       "lotBatchId": "61ff3d80-4097-4c69-8f21-be58e9f28ca0",
       "quantityAllocated": 2500,
       "unitCostAtTime": 32
+    },
+    {
+      "id": "d1470640-0c47-4d4a-aa05-90acea48cf91",
+      "salesItemId": "334a795f-9439-4e0d-9ec6-79f468f34422",
+      "lotBatchId": "f61b607c-ddfe-4603-88d2-270ecda514f7",
+      "quantityAllocated": 5000,
+      "unitCostAtTime": 45.625
+    },
+    {
+      "id": "30de976e-a28a-4ca8-bd08-d5d57a317db0",
+      "salesItemId": "4a85b8ec-b2d6-4bba-8de9-f88419067324",
+      "lotBatchId": "f61b607c-ddfe-4603-88d2-270ecda514f7",
+      "quantityAllocated": 2000,
+      "unitCostAtTime": 45.625
+    },
+    {
+      "id": "9051da3b-4ad7-4c3c-a30d-f3fcafce6d09",
+      "salesItemId": "df16cfe7-3c0d-4fa2-bf06-bba603145e3b",
+      "lotBatchId": "f61b607c-ddfe-4603-88d2-270ecda514f7",
+      "quantityAllocated": 1000,
+      "unitCostAtTime": 45.625
     }
   ],
   "inventoryTransfers": [],
@@ -514,6 +622,30 @@
       "body": "Inventory Alert: Lot WH-Apr-19 (Potato) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
       "createdAt": "2026-05-05T11:48:29.155Z",
       "actorUserId": "00000000-0000-0000-0000-000000000002",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "1ddb91db-5458-42d4-bb5c-1541526756fa",
+      "type": "sale_created",
+      "saleId": "873328bb-0969-49e0-bb73-cad8ac1a923c",
+      "title": "New sale logged",
+      "body": "sales@hs.com · Cold Storage East · 2026-06-02 · Rice Bag ×2000 BOSTA @ BDT 52.40",
+      "createdAt": "2026-06-02T09:13:54.591Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000002",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "695af01d-3fd3-4f87-b8fa-a42840a94b93",
+      "type": "lot_depleted",
+      "lotId": "18a41d01-47d2-4316-8732-80d76ad1e9e7",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot RCV-2026-06-02-000003-f61b (Rice Bag) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-02T09:16:24.725Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
       "readByUserIds": [
         "00000000-0000-0000-0000-000000000001"
       ]

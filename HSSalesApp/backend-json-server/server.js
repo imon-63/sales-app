@@ -623,7 +623,7 @@ function createSale({ actor, userId, input }) {
       throw new Error(`Insufficient stock in selected lot order for ${p?.name || 'product'}`);
     }
   }
-  if (actor.role === 'sales') {
+  if (actor.role === 'sales' || actor.role === 'admin') {
     const linesSummary = createdItems
       .map((li) => {
         const p = products.find((x) => x.id === li.productId);

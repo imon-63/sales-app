@@ -6,6 +6,8 @@ import { ReceiveStockScreen } from '../screens/inventory/ReceiveStockScreen';
 import { SaleDetails } from '../screens/sales/SaleDetails';
 import { TransferStockScreen } from '../screens/inventory/TransferStockScreen';
 import { LotReportScreen } from '../screens/inventory/LotReportScreen';
+import { ProductDetailScreen } from '../screens/products/ProductDetailScreen';
+import { PurchaseDetailScreen } from '../screens/purchases/PurchaseDetailScreen';
 
 import type { MainStackParamList } from './mainStackTypes';
 import { WorkShell } from './WorkShell';
@@ -17,7 +19,7 @@ export function MainAppStack() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animation: 'fade',
+        animation: 'slide_from_right',
         contentStyle: { backgroundColor: 'transparent' },
       }}>
       <Stack.Screen name="Work" component={WorkShell} />
@@ -26,6 +28,8 @@ export function MainAppStack() {
       <Stack.Screen name="TransferStock" component={TransferStockScreen} />
       <Stack.Screen name="SaleDetails" component={SaleDetails} />
       <Stack.Screen name="LotReport" component={LotReportScreen} />
+      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      <Stack.Screen name="PurchaseDetail" component={PurchaseDetailScreen} />
     </Stack.Navigator>
   );
 }

@@ -303,9 +303,12 @@ export function InventoryStockScreen() {
                   return (
                     <View style={styles.cardRailItem}>
                       <Pressable
-                        onPress={() =>
-                          setExpandedCards((prev) => ({ ...prev, [cardId]: !prev[cardId] }))
-                        }>
+                        onPress={() => {
+                          LayoutAnimation.configureNext(
+                            LayoutAnimation.create(260, 'easeInEaseOut', 'opacity'),
+                          );
+                          setExpandedCards((prev) => ({ ...prev, [cardId]: !prev[cardId] }));
+                        }}>
                         <GlassCard
                           style={[
                             styles.card,
@@ -344,7 +347,7 @@ export function InventoryStockScreen() {
                                   <View
                                     style={[
                                       styles.healthBar,
-                                      { width: Math.min((qty / 500) * 100, 100) + '%' },
+                                      { width: `${Math.min((qty / 500) * 100, 100)}%` as `${number}%` },
                                       isLow ? styles.healthLow : isMedium ? styles.healthMed : styles.healthOk
                                     ]}
                                   />

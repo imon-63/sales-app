@@ -5,4 +5,6 @@ export type MainStackParamList = {
   TransferStock: undefined;
   SaleDetails: { saleId: string };
   LotReport: { lotId: string };
+  ProductDetail: { productId: string };
+  PurchaseDetail: { lotBatchId: string };
 };

@@ -1,11 +1,11 @@
 import React from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { palette, radii, shadows } from '../../theme/designSystem';
 
 type Props = {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   accentColor?: string;
 };
 
@@ -22,8 +22,8 @@ export function GlassCard({ children, style, accentColor }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: palette.glass,
-    borderColor: palette.stroke,
+    backgroundColor: palette.cardBg,
+    borderColor: palette.cardBorder,
     borderWidth: 1,
     borderRadius: radii.lg,
     ...shadows.card,

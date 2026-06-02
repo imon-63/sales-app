@@ -9,6 +9,7 @@ import { AdminDashboardScreen } from '../../screens/dashboard/AdminDashboardScre
 import { SalesCalendarScreen } from '../../screens/calendar/SalesCalendarScreen';
 import { AdminNotificationsScreen } from '../../screens/notifications/AdminNotificationsScreen';
 import { OperationsScreen } from '../../screens/operations/OperationsScreen';
+import { LogSaleScreen } from '../../screens/sales/LogSaleScreen';
 import { useT } from '../../i18n/useT';
 import { useAppSelector } from '../../store/hooks';
 import { selectUnreadNotificationCount } from '../../store/slices/notificationsSlice';
@@ -18,6 +19,7 @@ import { FloatingTabBar } from '../components/FloatingTabBar';
 export type AdminTabParamList = {
   AdminHome: undefined;
   AdminAlerts: undefined;
+  AdminLog: undefined;
   AdminSales: undefined;
   AdminOps: undefined;
 };
@@ -153,6 +155,18 @@ export function AdminTabs() {
         options={{
           title: t('tabs.admin.signals'),
           tabBarIcon: ({ color }) => <AdminAlertsTabIcon color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="AdminLog"
+        component={LogSaleScreen}
+        options={{
+          title: t('tabs.admin.log'),
+          tabBarIcon: ({ color }) => (
+            <Text style={[styles.icon, { color }]} allowFontScaling={false}>
+              ✎
+            </Text>
+          ),
         }}
       />
       <Tab.Screen

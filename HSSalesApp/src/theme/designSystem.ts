@@ -1,63 +1,57 @@
 /**
- * Dark-mode green-priority palette: deep forest canvas (green-tinted, not neutral black),
- * vibrant neon-green accents, dark glassmorphism, premium feel.
+ * Electric Sky-Blue + Hot Amber on near-black.
+ * Maximum contrast, premium trading-dashboard feel.
  */
 export const palette = {
-  /** Main screen canvas — dark green that pairs with emerald accents */
-  void: '#052B16',
-  /** Slightly deeper band / depth */
-  deep: '#07341B',
-  /** Dark green panels & cards */
-  night: '#0B4A24',
-  /** Lifted sheet / modals */
-  paper: '#0F5D2C',
-  /** Subtle green highlight tiles */
-  highlight: '#126A34',
+  /** Near-black canvas */
+  void: '#01070F',
+  deep: '#020C1C',
+  night: '#03152A',
+  paper: '#051E3C',
+  highlight: '#072850',
 
-  mist: 'rgba(154, 255, 120, 0.10)',
-  /** Surfaces behind type — higher opacity for legibility */
-  glass: 'rgba(10, 64, 32, 0.92)',
-  stroke: 'rgba(188, 255, 162, 0.20)',
+  mist: 'rgba(0, 168, 255, 0.08)',
+  glass: 'rgba(1, 7, 15, 0.96)',
+  stroke: 'rgba(0, 168, 255, 0.20)',
 
-  /** Primary body / titles — high contrast on dark green */
-  text: '#F3FFF0',
-  /** Secondary copy — still WCAG-friendly on void/glass */
-  textMuted: 'rgba(216, 244, 208, 0.82)',
-  /** Form labels, table headers — between text and muted */
-  textLabel: 'rgba(205, 236, 194, 0.92)',
+  /** Primary text — icy blue-white */
+  text: '#E8F5FF',
+  textMuted: 'rgba(130, 185, 225, 0.76)',
+  textLabel: 'rgba(110, 168, 215, 0.90)',
 
-  /** Neon green CTA (primary accent) */
-  emerald: '#9DFF75',
-  emeraldLight: 'rgba(157, 255, 117, 0.16)',
-  emeraldDeep: '#61D65A',
+  /** Primary accent — electric sky blue */
+  emerald: '#00A8FF',
+  emeraldLight: 'rgba(0, 168, 255, 0.15)',
+  emeraldDeep: '#007ACC',
 
-  /** Mint secondary accent (charts / alternate chips) */
-  violet: '#BFFF9F',
-  amber: 'rgba(157, 255, 117, 0.08)',
-  cyan: 'rgba(97, 214, 90, 0.12)',
-  rose: '#FF5252',
-  success: '#9DFF75',
-  /** Calendar: marking dots on days with sales */
-  calendarEventDot: '#9DFF75',
-  /** Multi-dot — brighter for contrast on dark */
-  calendarDotDeep: '#BFFF9F',
-  danger: '#FF5252',
+  /** Secondary accent — hot amber/gold */
+  violet: '#FFB300',
+  amber: 'rgba(0, 168, 255, 0.08)',
+  cyan: 'rgba(255, 179, 0, 0.12)',
+  rose: '#FF3B5C',
+  success: '#00D68F',
+  calendarEventDot: '#00A8FF',
+  calendarDotDeep: '#007ACC',
+  danger: '#FF3B5C',
 
-  /** Text on neon green buttons */
-  onAccent: '#06290F',
+  /** Text on blue CTA buttons */
+  onAccent: '#000C1A',
 
-  /** Floating tab bar */
-  tabBar: 'rgba(8, 56, 27, 0.96)',
-  tabBarInactive: 'rgba(219, 244, 210, 0.55)',
+  tabBar: 'rgba(1, 8, 18, 0.97)',
+  tabBarInactive: 'rgba(130, 185, 225, 0.44)',
 
-  /** Selected pills (product / warehouse chips) */
-  chipSelectedBorder: 'rgba(157, 255, 117, 0.32)',
-  chipSelectedFill: 'rgba(157, 255, 117, 0.12)',
-  chipAltBorder: 'rgba(191, 255, 159, 0.26)',
-  chipAltFill: 'rgba(191, 255, 159, 0.09)',
+  chipSelectedBorder: 'rgba(0, 168, 255, 0.32)',
+  chipSelectedFill: 'rgba(0, 168, 255, 0.12)',
+  chipAltBorder: 'rgba(255, 179, 0, 0.28)',
+  chipAltFill: 'rgba(255, 179, 0, 0.10)',
 
-  /** Inputs on dark panels */
-  inputInset: 'rgba(5, 45, 21, 0.90)',
+  inputInset: 'rgba(0, 5, 14, 0.93)',
+
+  cardBg: 'rgba(2, 14, 34, 0.93)',
+  cardBgElevated: 'rgba(3, 20, 46, 0.96)',
+  cardBgPrimary: 'rgba(4, 28, 60, 0.97)',
+  cardBorder: 'rgba(0, 168, 255, 0.14)',
+  cardBorderAccent: 'rgba(255, 179, 0, 0.32)',
 } as const;
 
 export const radii = {
@@ -70,28 +64,28 @@ export const radii = {
 export const shadows = {
   card: {
     shadowColor: '#000000',
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.45,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 14 },
     elevation: 12,
   },
 } as const;
 
-/** Login sheet — dark green family */
+/** Login sheet */
 export const loginLight = {
-  canvas: '#052B16',
-  glow: 'rgba(157, 255, 117, 0.20)',
-  glowSoft: 'rgba(157, 255, 117, 0.1)',
-  sheet: '#0F5D2C',
-  text: '#F3FFF0',
-  textMuted: 'rgba(216, 244, 208, 0.82)',
-  hairline: 'rgba(188, 255, 162, 0.2)',
-  inputFill: '#0B4A24',
-  segmentTrack: '#072E17',
-  segmentActive: '#0B4A24',
-  primary: '#9DFF75',
-  primaryDeep: '#61D65A',
-  primaryTint: 'rgba(157, 255, 117, 0.16)',
-  link: '#BFFF9F',
-  danger: '#FF5252',
+  canvas: '#01070F',
+  glow: 'rgba(0, 168, 255, 0.24)',
+  glowSoft: 'rgba(0, 168, 255, 0.10)',
+  sheet: '#051E3C',
+  text: '#E8F5FF',
+  textMuted: 'rgba(130, 185, 225, 0.76)',
+  hairline: 'rgba(0, 168, 255, 0.20)',
+  inputFill: '#03152A',
+  segmentTrack: '#020C1C',
+  segmentActive: '#03152A',
+  primary: '#00A8FF',
+  primaryDeep: '#007ACC',
+  primaryTint: 'rgba(0, 168, 255, 0.15)',
+  link: '#FFB300',
+  danger: '#FF3B5C',
 } as const;
