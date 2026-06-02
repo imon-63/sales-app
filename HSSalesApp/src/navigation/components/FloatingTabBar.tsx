@@ -36,9 +36,13 @@ export function FloatingTabBar({
     return () => onTabBarHeight?.(0);
   }, [onTabBarHeight]);
 
+  const height = TAB_BAR_PILL_HEIGHT + insets.bottom + 16;
+
   return (
-    <View pointerEvents="box-none" style={styles.safe}>
-      <View style={[styles.pillWrap, { marginBottom: insets.bottom }]}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.safe, { height, justifyContent: 'flex-end' }]}>
+      <View style={[styles.pillWrap, { marginBottom: insets.bottom + 8 }]}>
         <View style={styles.pill}>
           {state.routes.map((route) => {
             const { options } = descriptors[route.key];

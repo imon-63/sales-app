@@ -33,7 +33,6 @@ export function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: 'transparent' },
         }}>
         {!authed ? (
           <Stack.Screen name="Login" component={LoginScreen} />

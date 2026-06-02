@@ -459,21 +459,12 @@ export function PurchaseDetailScreen() {
             <View style={s.tabContent}>
               {/* Filter card — compact */}
               <View style={s.filterCard}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={s.personChipsScroll}>
-                  {salesPersonOptions.map((opt) => (
-                    <Pressable
-                      key={opt.value}
-                      onPress={() => setSalesPersonFilter(opt.value)}
-                      style={[s.personChip, salesPersonFilter === opt.value && s.personChipActive]}>
-                      <Text style={[s.personChipText, salesPersonFilter === opt.value && s.personChipTextActive]}>
-                        {opt.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                <SelectMenu
+                  label={t('dashboard.admin.salesPerson')}
+                  value={salesPersonFilter}
+                  options={salesPersonOptions}
+                  onChange={setSalesPersonFilter}
+                />
 
                 <View style={s.filterDivider} />
 
@@ -534,18 +525,23 @@ export function PurchaseDetailScreen() {
                 </GlassCard>
               ) : (
                 filteredSales.map((item) => (
-                  <GlassCard key={item.sale.id} style={s.saleCard}>
-                    <View style={s.saleCardTop}>
-                      <View>
-                        <Text style={s.saleDate}>{item.sale.saleDate}</Text>
-                        <Text style={s.saleSeller}>{item.seller}</Text>
+                  <Pressable
+                    key={item.sale.id}
+                    onPress={() => navigation.navigate('SaleDetails', { saleId: item.sale.id })}
+                    style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+                    <GlassCard style={s.saleCard}>
+                      <View style={s.saleCardTop}>
+                        <View>
+                          <Text style={s.saleDate}>{item.sale.saleDate}</Text>
+                          <Text style={s.saleSeller}>{item.seller}</Text>
+                        </View>
+                        <View style={s.saleRight}>
+                          <Text style={s.saleRev}>{money.format(item.rev)}</Text>
+                          <Text style={s.saleQty}>{item.qty.toLocaleString()} {unitLabel}</Text>
+                        </View>
                       </View>
-                      <View style={s.saleRight}>
-                        <Text style={s.saleRev}>{money.format(item.rev)}</Text>
-                        <Text style={s.saleQty}>{item.qty.toLocaleString()} {unitLabel}</Text>
-                      </View>
-                    </View>
-                  </GlassCard>
+                    </GlassCard>
+                  </Pressable>
                 ))
               )}
             </View>
