@@ -294,7 +294,7 @@ export function LogSaleScreen() {
       
       if (!ln.productId || !ln.currencyId) return false;
       if (!Number.isFinite(q) || q <= 0) return false;
-      if (!Number.isFinite(p) || p < 0) return false;
+      if (!Number.isFinite(p) || p <= 0) return false;
 
       // --- Hard Stock Block ---
       const availability = lineAvailability.get(ln.id);

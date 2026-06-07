@@ -148,7 +148,7 @@ function updateProductionStatus({ actor, userId, id, status, actualOutputQty, ca
     // Create output lot + batch
     const outLotId = crypto.randomUUID();
     const outBatchId = crypto.randomUUID();
-    const outLotNum = `উৎ-${prod.productionNumber}`;
+    const outLotNum = prod.productionNumber;
     db.get('lots').push({ id: outLotId, productId: prod.outputProductId, lotNumber: outLotNum }).write();
     db.get('lotBatches').push({
       id: outBatchId, lotId: outLotId,

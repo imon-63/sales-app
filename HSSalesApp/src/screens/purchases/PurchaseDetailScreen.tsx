@@ -222,6 +222,13 @@ export function PurchaseDetailScreen() {
   const isBottleMode = Object.keys(productionBottlePrices).length > 0;
 
   const [bottleCounts, setBottleCounts] = useState<Record<string, string>>({});
+  const [bottleCosts, setBottleCosts] = useState<Record<string, string>>({});
+  // Sync bottle costs from production prices when production loads
+  React.useEffect(() => {
+    setBottleCosts(Object.fromEntries(
+      Object.entries(productionBottlePrices).map(([k, v]) => [k, String(v)])
+    ));
+  }, [sourceProduction?.id]);
   // Oil sell price per liter — used in bottle mode instead of per-unit sellPrice
   const [oilPricePerLiter, setOilPricePerLiter] = useState('');
 
@@ -234,10 +241,10 @@ export function PurchaseDetailScreen() {
     const oilP = Number(oilPricePerLiter) || 0;
     return BOTTLE_SIZES.reduce((sum, s) => {
       const count = Number(bottleCounts[String(s)]) || 0;
-      const bc = productionBottlePrices[String(s)] ?? 0;
+      const bc = Number(bottleCosts[String(s)]) || 0;
       return sum + count * (s * oilP + bc);
     }, 0);
-  }, [bottleCounts, oilPricePerLiter, productionBottlePrices]);
+  }, [bottleCounts, oilPricePerLiter, bottleCosts]);
   // Effective price per liter (derived) — used as unitPrice in the sale record
   const bottleEffectiveUnitPrice = totalBottleLiters > 0 ? bottleGrandTotal / totalBottleLiters : 0;
   const bottleOverflow = isBottleMode && totalBottleLiters > remainingQty + 0.001;
@@ -342,7 +349,7 @@ export function PurchaseDetailScreen() {
       if (bottleOverflow) { Alert.alert(locale === 'bn' ? 'মজুদ কম' : 'Insufficient stock', locale === 'bn' ? `মজুদ ${remainingQty}L কিন্তু বোতলে ${totalBottleLiters}L` : `Only ${remainingQty}L in stock, bottles need ${totalBottleLiters}L`); return; }
       setBusy(true);
       const bottleBreakdownItems = BOTTLE_SIZES
-        .map(s => ({ sizeLiter: s, count: Number(bottleCounts[String(s)]) || 0, bottleCost: productionBottlePrices[String(s)] ?? 0 }))
+        .map(s => ({ sizeLiter: s, count: Number(bottleCounts[String(s)]) || 0, bottleCost: Number(bottleCosts[String(s)]) || 0 }))
         .filter(b => b.count > 0);
       try {
         await salesApi.createSale({
@@ -355,6 +362,10 @@ export function PurchaseDetailScreen() {
         setBottleCounts({});
         setOilPricePerLiter('');
         setSellNotes('');
+        // Re-sync bottle costs from production defaults after clearing
+        setBottleCosts(Object.fromEntries(
+          Object.entries(productionBottlePrices).map(([k, v]) => [k, String(v)])
+        ));
         await Promise.all([dispatch(fetchSalesDataset()).unwrap(), dispatch(fetchInventoryStock()).unwrap()]);
         setActiveTab('sales');
       } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record sale.'); }
@@ -722,7 +733,7 @@ export function PurchaseDetailScreen() {
                 filteredSales.map((item) => (
                   <Pressable
                     key={item.sale.id}
-                    onPress={() => navigation.navigate('SaleDetails', { saleId: item.sale.id })}
+                    onPress={() => navigation.navigate('SaleDetails', { saleId: item.sale.id, productId: lot?.productId, lotBatchId })}
                     style={({ pressed }) => [s.saleCard, pressed && { opacity: 0.82 }]}>
                     <View style={s.saleCardTop}>
                       <View>
@@ -810,7 +821,7 @@ export function PurchaseDetailScreen() {
                       {BOTTLE_SIZES.filter(s2 => productionBottlePrices[String(s2)] != null).map(size => {
                         const key = String(size);
                         const count = Number(bottleCounts[key]) || 0;
-                        const bc = productionBottlePrices[key] ?? 0;
+                        const bc = Number(bottleCosts[key]) || 0;
                         const oilP = Number(oilPricePerLiter) || 0;
                         const perBottle = size * oilP + bc;
                         return (
@@ -826,12 +837,15 @@ export function PurchaseDetailScreen() {
                                   placeholderTextColor={palette.textMuted} selectTextOnFocus
                                 />
                               </View>
-                              {/* Bottle cost — read-only from production */}
                               <View style={s.formHalf}>
                                 <Text style={s.fieldLabel}>{locale === 'bn' ? 'বোতল খরচ' : 'Bottle cost'}</Text>
-                                <View style={[s.input, { justifyContent: 'center', backgroundColor: `${palette.violet}08`, borderColor: `${palette.violet}30` }]}>
-                                  <Text style={{ color: palette.violet, fontSize: 14, fontWeight: '800' }}>{costMoney.format(bc)}</Text>
-                                </View>
+                                <TextInput
+                                  style={s.input}
+                                  value={bottleCosts[key] ?? ''}
+                                  onChangeText={v => setBottleCosts(p => ({ ...p, [key]: v }))}
+                                  keyboardType="numeric" placeholder="0"
+                                  placeholderTextColor={palette.textMuted} selectTextOnFocus
+                                />
                               </View>
                             </View>
                             {count > 0 && oilP > 0 && (
@@ -927,12 +941,7 @@ export function PurchaseDetailScreen() {
           {activeTab === 'buy' && (
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
               <View style={s.tabContent}>
-                <GlassCard style={s.card}>
-                  {/* Warehouse — optional, defaults to Direct */}
-                  <View style={s.warehouseOptRow}>
-                    <Text style={s.fieldLabel}>{t('product.buy.destWarehouse')}</Text>
-                    <Text style={s.warehouseOptHint}>{locale === 'bn' ? 'ঐচ্ছিক · ডিফল্ট: Direct' : 'optional · default: Direct'}</Text>
-                  </View>
+                <GlassCard style={[s.card, { paddingTop: 10 }]}>
                   <SelectMenu
                     label={locale === 'bn' ? 'গুদাম' : 'Warehouse'}
                     value={buyWarehouseId}

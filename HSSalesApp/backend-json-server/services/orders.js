@@ -84,8 +84,12 @@ function updateOrder({ actor, userId, id, input }) {
   if (!actor) throw new Error('Unauthorized');
   const order = db.get('orders').find({ id }).value();
   if (!order) throw new Error('Order not found');
-  // Only creator or admin can edit
-  if (actor.role !== 'admin' && order.createdBy !== userId) throw new Error('Forbidden');
+  // Lot allocation updates (items only, for processing step) can be done by any authenticated user.
+  // Full edits (customer info, pricing) require ownership or admin.
+  const isLotAllocationOnly = Array.isArray(input.items) && Object.keys(input).length === 1;
+  if (!isLotAllocationOnly && actor.role !== 'admin' && order.createdBy !== userId) {
+    throw new Error('Forbidden');
+  }
   if (['delivered', 'cancelled'].includes(order.status)) throw new Error('Cannot edit a completed or cancelled order');
 
   const allowed = ['customerName', 'customerPhone', 'customerAddress', 'expectedDelivery', 'warehouseId', 'advancePaid', 'notes'];

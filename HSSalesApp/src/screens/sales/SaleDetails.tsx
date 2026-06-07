@@ -1,4 +1,5 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { unitLabelForProduct } from '../../utils/sales';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -50,21 +51,21 @@ export function SaleDetails() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<DetailsRouteProp>();
-  const { saleId } = route.params;
+  const { saleId, productId, lotBatchId } = route.params;
 
   const tabBottomPad = useTabScreenBottomPadding();
   const [printDrawerVisible, setPrintDrawerVisible] = useState(false);
   const [adminInfoExpanded, setAdminInfoExpanded] = useState(false);
   const printDrawerY = useRef(new Animated.Value(PRINT_DRAWER_HIDDEN_Y)).current;
   const currentUser = useAppSelector((s) => s.auth.user);
-  const { sales, salesItems, products, warehouses, users, salesItemAllocations, lots, lotBatches } = useAppSelector(
+  const { sales, salesItems, products, warehouses, users, salesItemAllocations, lots, lotBatches, units } = useAppSelector(
     (s) => s.salesData,
   );
 
   const sale = useMemo(() => sales.find((s) => s.id === saleId), [sales, saleId]);
   const items = useMemo(
-    () => salesItems.filter((it) => it.saleId === saleId),
-    [salesItems, saleId],
+    () => salesItems.filter((it) => it.saleId === saleId && (!productId || it.productId === productId)),
+    [salesItems, saleId, productId],
   );
 
   const warehouse = useMemo(
@@ -288,7 +289,7 @@ export function SaleDetails() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScreenHeader
           title={t('saleDetails.title')}
-          subtitle={saleId.slice(0, 8)}
+          subtitle={productId ? (products.find(p => p.id === productId)?.name ?? saleId.slice(0, 8)) : saleId.slice(0, 8)}
           tag={t('saleDetails.tag')}
           right={
             isAdmin ? (
@@ -444,9 +445,9 @@ export function SaleDetails() {
             const prod = products.find((p) => p.id === it.productId);
             const subtotal = Number(it.quantity) * Number(it.unitPrice);
 
-            // Resolve allocations for deep fulfillment details
+            // Resolve allocations — filter to specific lot batch when navigated from a lot's sales tab
             const allocations = salesItemAllocations
-              .filter((a) => a.salesItemId === it.id)
+              .filter((a) => a.salesItemId === it.id && (!lotBatchId || a.lotBatchId === lotBatchId))
               .map((a) => {
                 const batch = lotBatches.find((b) => b.id === a.lotBatchId);
                 const lot = lots.find((l) => l.id === batch?.lotId);
@@ -461,16 +462,18 @@ export function SaleDetails() {
             const itemCost = allocations.reduce((acc, a) => acc + (a.quantityAllocated * a.unitCostAtTime), 0);
             const itemProfit = subtotal - itemCost;
             const itemMargin = subtotal > 0 ? (itemProfit / subtotal) * 100 : 0;
+            const itemProd = products.find((p) => p.id === it.productId);
+            const itemUnit = itemProd ? unitLabelForProduct(itemProd, units) : 'kg';
 
             return (
               <GlassCard key={it.id} style={[styles.leftEdgeRoundCard, styles.itemCard]}>
                 <View style={styles.itemHead}>
                   <Text style={styles.itemProd}>{prod?.name || 'Unknown Product'}</Text>
-                  <Text style={styles.itemTotal}>BDT {subtotal.toLocaleString()}</Text>
+                  <Text style={styles.itemTotal}>BDT {(lotBatchId ? itemCost + itemProfit : subtotal).toLocaleString()}</Text>
                 </View>
                 <View style={[styles.row, { marginBottom: 0, marginTop: 4 }]}>
                    <Text style={styles.itemDetail}>
-                    {Number(it.quantity).toLocaleString()} × BDT {Number(it.unitPrice).toLocaleString()}
+                    {(lotBatchId ? allocations.reduce((s, a) => s + a.quantityAllocated, 0) : Number(it.quantity)).toLocaleString()} × BDT {Number(it.unitPrice).toLocaleString()}
                   </Text>
                   {isAdmin && (
                     <Text style={[styles.itemMargin, itemMargin < 0 && { color: palette.rose }]}>
@@ -525,10 +528,10 @@ export function SaleDetails() {
                           </View>
                           <View style={styles.fulRight}>
                             <Text style={styles.formulaLine}>
-                              Sell Value: {a.quantityAllocated.toLocaleString()} kg × {Number(it.unitPrice).toLocaleString()} BDT = {sellValue.toLocaleString()} BDT
+                              Sell Value: {a.quantityAllocated.toLocaleString()} {itemUnit} × {Number(it.unitPrice).toLocaleString()} BDT = {sellValue.toLocaleString()} BDT
                             </Text>
                             <Text style={styles.formulaLine}>
-                              Cost Price: {a.quantityAllocated.toLocaleString()} kg × {Number(a.unitCostAtTime).toLocaleString()} BDT = {costPrice.toLocaleString()} BDT
+                              Cost Price: {a.quantityAllocated.toLocaleString()} {itemUnit} × {Number(a.unitCostAtTime).toLocaleString()} BDT = {costPrice.toLocaleString()} BDT
                             </Text>
                             <View style={styles.profitResult}>
                               <Text style={styles.profitResultLabel}>Profit on this single sale:</Text>
