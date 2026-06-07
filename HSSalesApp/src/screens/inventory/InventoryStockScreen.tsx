@@ -146,12 +146,17 @@ export function InventoryStockScreen() {
     });
   }, [stockRows, warehouses]);
 
+  const useMarquee = warehouseChips.length >= 3;
   const marqueeData = useMemo(() => {
     if (warehouseChips.length === 0) return [];
-    return [...warehouseChips, ...warehouseChips, ...warehouseChips];
-  }, [warehouseChips]);
+    // Only triple for infinite-scroll marquee when there are enough chips
+    return useMarquee
+      ? [...warehouseChips, ...warehouseChips, ...warehouseChips]
+      : warehouseChips;
+  }, [warehouseChips, useMarquee]);
 
   useEffect(() => {
+    if (!useMarquee) return;
     let frameId: number;
     const drift = () => {
       if (isAutoScrolling.current && scrollRef.current && contentWidth.current > 0) {
@@ -168,7 +173,7 @@ export function InventoryStockScreen() {
     };
     frameId = requestAnimationFrame(drift);
     return () => cancelAnimationFrame(frameId);
-  }, []);
+  }, [useMarquee]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -387,7 +392,7 @@ export function InventoryStockScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  head: { paddingHorizontal: 24, paddingBottom: 10 },
+  head: { paddingLeft: 66, paddingRight: 24, paddingBottom: 10 },
   title: {
     color: palette.text,
     fontSize: 28,

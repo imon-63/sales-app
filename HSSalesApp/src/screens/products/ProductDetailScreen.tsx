@@ -29,6 +29,7 @@ import * as inventoryApi from '../../api/inventory';
 import { unitLabelForProduct } from '../../utils/sales';
 import { useT } from '../../i18n/useT';
 import type { TxKey } from '../../i18n/en';
+import { liveClient } from '../../utils/liveClient';
 
 type Tab = 'overview' | 'sales' | 'stock' | 'sell' | 'buy';
 
@@ -181,6 +182,17 @@ export function ProductDetailScreen() {
     [currencies],
   );
 
+  React.useEffect(() => {
+    if (activeTab === 'sell') {
+      liveClient.enterSellTab(productId);
+    } else {
+      liveClient.leaveSellTab(productId);
+    }
+    return () => {
+      liveClient.leaveSellTab(productId);
+    };
+  }, [activeTab, productId]);
+
   async function handleSell() {
     if (!token) return;
     const qty = Number(sellQty);
@@ -255,7 +267,7 @@ export function ProductDetailScreen() {
           warehouseId: buyWarehouseId,
           purchaseDate: new Date().toISOString().slice(0, 10),
           notes: buyLotNumber ? `Lot: ${buyLotNumber}` : undefined,
-          items: [{ productId, quantity: qty, unitCost: cost }],
+          items: [{ productId, quantity: qty, unitCost: cost, baseUnitCost: cost }],
         },
         token,
       );
@@ -394,8 +406,8 @@ export function ProductDetailScreen() {
                       totalOnHand > 50
                         ? styles.healthGood
                         : totalOnHand > 10
-                        ? styles.healthWarn
-                        : styles.healthLow,
+                          ? styles.healthWarn
+                          : styles.healthLow,
                     ]}>
                     <Text style={styles.healthBadgeText}>
                       {totalOnHand > 50 ? t('product.overview.healthy') : totalOnHand > 10 ? t('product.overview.low') : t('product.overview.critical')}
@@ -416,8 +428,8 @@ export function ProductDetailScreen() {
                           totalOnHand > 50
                             ? palette.emerald
                             : totalOnHand > 10
-                            ? '#FFD60A'
-                            : palette.rose,
+                              ? '#FFD60A'
+                              : palette.rose,
                       },
                     ]}
                   />
@@ -548,8 +560,8 @@ export function ProductDetailScreen() {
                       totalOnHand > 50
                         ? styles.healthGood
                         : totalOnHand > 10
-                        ? styles.healthWarn
-                        : styles.healthLow,
+                          ? styles.healthWarn
+                          : styles.healthLow,
                     ]}>
                     <Text style={styles.healthBadgeText}>
                       {totalOnHand > 50 ? t('product.overview.healthy') : totalOnHand > 10 ? t('product.overview.low') : t('product.overview.critical')}

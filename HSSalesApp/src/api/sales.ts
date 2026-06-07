@@ -9,6 +9,7 @@ export type CreateSaleLine = {
   unitPrice: number;
   currencyId: string;
   lotIds?: string[];
+  bottleBreakdown?: string; // JSON string of BottleBreakdownItem[]
 };
 
 export type CreateSaleRequest = {
@@ -49,6 +50,7 @@ export async function createSale(
             unitPrice
             currencyId
             unitId
+            bottleBreakdown
           }
         }
       }

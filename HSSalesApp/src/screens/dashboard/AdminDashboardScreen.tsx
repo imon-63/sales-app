@@ -1,32 +1,31 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  LayoutAnimation,
+  Animated,
+  Easing,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  UIManager,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { useT } from '../../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchInventoryStock } from '../../store/slices/inventorySlice';
+import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
 import { palette, radii } from '../../theme/designSystem';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
+import { PulseDot } from '../../components/ui/PulseDot';
 import type { MainStackParamList } from '../../navigation/mainStackTypes';
 import { useAppSideMenu } from '../../navigation/useAppSideMenu';
 import type { LotBatch, Lot, Product, Warehouse } from '../../types/models';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type PurchaseItem = {
   batch: LotBatch;
@@ -63,21 +62,29 @@ function PurchaseCard({
   onNavigate,
   locale,
   money,
+  costMoney,
   t,
   canViewDetails,
+  activeUsers = [],
 }: {
   item: PurchaseItem;
   onNavigate: (id: string) => void;
   locale: string;
   money: Intl.NumberFormat;
+  costMoney: Intl.NumberFormat;
   t: (key: any, p?: any) => string;
   canViewDetails: boolean;
+  activeUsers?: Array<{ id: string; name: string }>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const expandAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
   const { batch, lot, product, warehouse, isSold, soldQty, soldRevenue, unitLabel, baseCost, extraCost } = item;
   const originalQty = Number(batch.originalQuantity);
   const remainingQty = Number(batch.remainingQuantity);
   const pctSold = originalQty > 0 ? Math.round((soldQty / originalQty) * 100) : 0;
+
+  const isActiveViewing = activeUsers.length > 0;
 
   const purchaseDate = batch.acquiredAt
     ? new Date(batch.acquiredAt).toLocaleDateString(
@@ -93,16 +100,42 @@ function PurchaseCard({
     : palette.emerald;
 
   const toggle = useCallback(() => {
-    LayoutAnimation.configureNext(
-      LayoutAnimation.create(240, 'easeInEaseOut', 'opacity'),
-    );
-    setExpanded((v) => !v);
-  }, []);
+    setExpanded((v) => {
+      const opening = !v;
+      Animated.parallel([
+        // Height: decelerate on open (feels natural expanding down), accelerate on close
+        Animated.timing(expandAnim, {
+          toValue: opening ? 1 : 0,
+          duration: opening ? 280 : 200,
+          easing: opening
+            ? Easing.bezier(0.0, 0.0, 0.2, 1)   // decelerate
+            : Easing.bezier(0.4, 0.0, 1.0, 1.0), // accelerate
+          useNativeDriver: false,
+        }),
+        // Opacity: fade in a touch faster than height so content appears to emerge
+        Animated.timing(opacityAnim, {
+          toValue: opening ? 1 : 0,
+          duration: opening ? 200 : 150,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: false,
+        }),
+      ]).start();
+      return opening;
+    });
+  }, [expandAnim, opacityAnim]);
 
   return (
-    <Pressable onPress={toggle} style={({ pressed }) => [cs.card, expanded && cs.cardExpanded, isSold && cs.cardSold, pressed && cs.pressed]}>
-        {/* Coloured left strip */}
-        <View style={[cs.strip, { backgroundColor: healthColor }]} />
+    <Pressable
+      onPress={toggle}
+      style={({ pressed }) => [
+        cs.card,
+        expanded && cs.cardExpanded,
+        isSold && cs.cardSold,
+        isActiveViewing && cs.cardLive,  // deep-orange glow when selling live
+        pressed && cs.pressed,
+      ]}>
+        {/* Left strip — deep orange when someone is actively selling */}
+        <View style={[cs.strip, { backgroundColor: isActiveViewing ? palette.rose : healthColor }]} />
 
         <View style={cs.body}>
           {/* ── Collapsed headline ── */}
@@ -115,9 +148,31 @@ function PurchaseCard({
                     <Text style={cs.lotPillText}>{lot.lotNumber}</Text>
                   </View>
                 ) : null}
+                {isActiveViewing && (
+                  <View style={cs.livePill}>
+                    <PulseDot color={palette.rose} />
+                    <View style={cs.liveAvatarRow}>
+                      {activeUsers.slice(0, 3).map((u, i) => (
+                        <View key={u.id} style={[cs.liveAvatar, { marginLeft: i === 0 ? 0 : -6, zIndex: 3 - i }]}>
+                          <Text style={cs.liveAvatarText}>{(u.name || '?').charAt(0).toUpperCase()}</Text>
+                        </View>
+                      ))}
+                      {activeUsers.length > 3 && (
+                        <View style={[cs.liveAvatar, cs.liveAvatarMore, { marginLeft: -6 }]}>
+                          <Text style={cs.liveAvatarMoreText}>+{activeUsers.length - 3}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={cs.livePillText} numberOfLines={1}>
+                      {activeUsers.length === 1
+                        ? (locale === 'bn' ? `লাইভ: ${activeUsers[0].name.split(' ')[0]}` : `Live: ${activeUsers[0].name.split(' ')[0]}`)
+                        : (locale === 'bn' ? `লাইভ: ${activeUsers.length} জন` : `Live: ${activeUsers.length} selling`)}
+                    </Text>
+                  </View>
+                )}
                 {warehouse?.name ? (
                   <Text style={cs.warehouseText} numberOfLines={1}>
-                    {lot.lotNumber ? '· ' : ''}{warehouse.name}
+                    {lot.lotNumber || isActiveViewing ? '· ' : ''}{warehouse.name}
                   </Text>
                 ) : (
                   <Text style={cs.warehouseText}>{purchaseDate}</Text>
@@ -143,9 +198,12 @@ function PurchaseCard({
           </View>
 
           {/* ── Expanded details ── */}
-          {expanded && (
-            <View style={cs.expanded}>
-              <View style={cs.divider} />
+          <Animated.View style={[cs.expanded, {
+            maxHeight: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 600] }),
+            opacity: opacityAnim,
+            overflow: 'hidden',
+          }]}>
+            <View style={cs.divider} />
 
               {/* Progress bar */}
               <View style={cs.barTrack}>
@@ -166,21 +224,31 @@ function PurchaseCard({
                   accent={!isSold}
                   soldOut={isSold}
                 />
-                {/* Base unit cost — always visible; falls back to batch.unitCost for old data */}
-                <DetailPair
-                  label={locale === 'bn' ? 'মূল একক মূল্য' : 'Base Unit Cost'}
-                  value={money.format(baseCost ?? Number(batch.unitCost))}
-                />
-                {/* Extra cost and effective unit cost — only when extra costs were applied */}
-                {extraCost != null && extraCost > 0 && (
-                  <DetailPair label={locale === 'bn' ? 'অতিরিক্ত খরচ' : 'Extra Cost'} value={`+ ${money.format(extraCost)}`} />
+                {/* Cost price display:
+                    - No extra cost: one row "Unit Cost" = base = effective (identical)
+                    - Extra cost applied: three rows — Base | +Extra | Unit Cost (effective) */}
+                {extraCost != null && extraCost > 0 ? (
+                  <>
+                    <DetailPair
+                      label={locale === 'bn' ? 'মূল একক মূল্য' : 'Base Unit Cost'}
+                      value={costMoney.format(baseCost ?? Number(batch.unitCost))}
+                    />
+                    <DetailPair
+                      label={locale === 'bn' ? 'অতিরিক্ত খরচ' : 'Extra Cost'}
+                      value={`+ ${costMoney.format(extraCost)}`}
+                    />
+                    <DetailPair
+                      label={t('feed.unitCost')}
+                      value={costMoney.format(Number(batch.unitCost))}
+                      accent
+                    />
+                  </>
+                ) : (
+                  <DetailPair
+                    label={t('feed.unitCost')}
+                    value={costMoney.format(baseCost ?? Number(batch.unitCost))}
+                  />
                 )}
-                {/* Effective/landed unit cost — only differs from base when extra cost exists */}
-                <DetailPair
-                  label={t('feed.unitCost')}
-                  value={money.format(Number(batch.unitCost))}
-                  accent={extraCost != null && extraCost > 0}
-                />
                 <DetailPair label={t('feed.totalValue')} value={money.format(originalQty * Number(batch.unitCost))} />
                 <DetailPair label={t('feed.warehouse')} value={warehouse?.name ?? '—'} />
               </View>
@@ -193,8 +261,7 @@ function PurchaseCard({
                   <Text style={cs.detailBtnText}>{t('feed.viewDetails')}</Text>
                 </Pressable>
               )}
-            </View>
-          )}
+          </Animated.View>
         </View>
     </Pressable>
   );
@@ -239,8 +306,8 @@ const cs = StyleSheet.create({
     elevation: 5,
   },
   cardSold: {
-    borderColor: `${palette.rose}60`,
-    backgroundColor: 'rgba(255,59,92,0.06)',
+    borderColor: `${palette.rose}50`,
+    backgroundColor: 'rgba(18, 4, 8, 0.96)',
   },
   pressed: { opacity: 0.86 },
   strip: { width: 5, borderTopLeftRadius: radii.lg, borderBottomLeftRadius: radii.lg },
@@ -260,6 +327,47 @@ const cs = StyleSheet.create({
     flexShrink: 0,
   },
   lotPillText: { color: palette.violet, fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
+  cardLive: {
+    borderColor: palette.rose,
+    borderWidth: 1.5,
+    shadowColor: palette.rose,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 7,
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    gap: 5,
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: palette.rose,
+    backgroundColor: 'rgba(255,59,92,0.08)',
+    shadowColor: palette.rose,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  liveAvatarRow: { flexDirection: 'row', alignItems: 'center' },
+  liveAvatar: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: palette.rose,
+    borderWidth: 1.5,
+    borderColor: palette.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveAvatarText: { color: '#fff', fontSize: 9, fontWeight: '900' },
+  liveAvatarMore: { backgroundColor: 'rgba(255,59,92,0.25)' },
+  liveAvatarMoreText: { color: palette.rose, fontSize: 8, fontWeight: '900' },
+  livePillText: { color: palette.rose, fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
   warehouseText: { color: palette.textMuted, fontSize: 11, fontWeight: '700', flexShrink: 1 },
 
   headlineRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -322,9 +430,14 @@ export function AdminDashboardScreen() {
   const token = useAppSelector((s) => s.auth.token);
 
   // Load inventory so purchaseNotes (with encoded base/extra cost) are available
-  useEffect(() => {
-    if (token) dispatch(fetchInventoryStock());
-  }, [dispatch, token]);
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        dispatch(fetchInventoryStock());
+        dispatch(fetchSalesDataset());
+      }
+    }, [dispatch, token])
+  );
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const { menuModal, openMenu } = useAppSideMenu();
   const tabBottomPad = useTabScreenBottomPadding();
@@ -333,6 +446,8 @@ export function AdminDashboardScreen() {
   const { products, warehouses, units, lots, lotBatches, salesItems, salesItemAllocations, status, error } =
     useAppSelector((s) => s.salesData);
   const stockRows = useAppSelector((s) => s.inventory.stockRows);
+  const activeViews = useAppSelector((s) => s.notifications.activeViews);
+  const unreadCount = useAppSelector((s) => s.notifications.items.filter(n => n.unread).length);
 
   const money = useMemo(
     () =>
@@ -340,6 +455,17 @@ export function AdminDashboardScreen() {
         style: 'currency',
         currency: 'BDT',
         maximumFractionDigits: 0,
+      }),
+    [locale],
+  );
+
+  const costMoney = useMemo(
+    () =>
+      new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', {
+        style: 'currency',
+        currency: 'BDT',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
       }),
     [locale],
   );
@@ -367,9 +493,12 @@ export function AdminDashboardScreen() {
           if (si) soldRevenue += Number(alloc.quantityAllocated) * Number(si.unitPrice);
         }
 
-        // Parse base cost / extra cost from StockRow purchaseNotes
+        // Parse base cost / extra cost from StockRow purchaseNotes or LotBatch fields
         const matchingRow = stockRows.find((r) => r.batchLotId === batch.id || r.lotId === batch.lotId);
-        const { baseCost, extraCost } = parsePurchaseNotes(matchingRow?.purchaseNotes);
+        const parsed = parsePurchaseNotes(matchingRow?.purchaseNotes || batch.notes);
+        const baseCost = batch.baseUnitCost ?? matchingRow?.baseUnitCost ?? parsed.baseCost ?? batch.unitCost;
+        const derivedExtraCost = Math.max(0, (Number(batch.unitCost) - Number(baseCost)) * originalQty);
+        const extraCost = parsed.extraCost ?? (derivedExtraCost > 0.01 ? derivedExtraCost : undefined);
 
         return { batch, lot, product, warehouse, isSold, soldQty, soldRevenue, unitLabel, baseCost, extraCost };
       })
@@ -433,37 +562,44 @@ export function AdminDashboardScreen() {
               {locale === 'bn' ? 'স্বাগতম! 👋' : 'Welcome back! 👋'}
             </Text>
           </View>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{purchaseList.length}</Text>
-          </View>
+          <Pressable
+            onPress={() => navigation.navigate('Notifications')}
+            style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.75 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications">
+            <Text style={styles.bellIcon}>🔔</Text>
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
 
         {/* Remaining / Sold tab switcher */}
         <View style={styles.feedTabBar}>
-          <Pressable
-            onPress={() => setFeedTab('remaining')}
-            style={[styles.feedTab, feedTab === 'remaining' && styles.feedTabActive]}>
-            <Text style={[styles.feedTabText, feedTab === 'remaining' && styles.feedTabTextActive]}>
-              {locale === 'bn' ? 'বাকি আছে' : 'Remaining'}
-            </Text>
-            {remainingCount > 0 && (
-              <View style={[styles.feedTabBadge, feedTab === 'remaining' && styles.feedTabBadgeActive]}>
-                <Text style={styles.feedTabBadgeText}>{remainingCount}</Text>
-              </View>
-            )}
-          </Pressable>
-          <Pressable
-            onPress={() => setFeedTab('sold')}
-            style={[styles.feedTab, feedTab === 'sold' && styles.feedTabActive]}>
-            <Text style={[styles.feedTabText, feedTab === 'sold' && styles.feedTabTextActive]}>
-              {locale === 'bn' ? 'বিক্রিত' : 'Sold'}
-            </Text>
-            {soldCount > 0 && (
-              <View style={[styles.feedTabBadge, feedTab === 'sold' && styles.feedTabBadgeActive]}>
-                <Text style={styles.feedTabBadgeText}>{soldCount}</Text>
-              </View>
-            )}
-          </Pressable>
+          {([
+            { key: 'remaining' as const, icon: '📦', label: locale === 'bn' ? 'বাকি আছে' : 'Remaining', count: remainingCount, activeColor: '#00A8FF' },
+            { key: 'sold'      as const, icon: '🔴', label: locale === 'bn' ? 'বিক্রিত'  : 'Sold',      count: soldCount,      activeColor: '#FF3B5C' },
+          ]).map(tab => {
+            const active = feedTab === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setFeedTab(tab.key)}
+                style={({ pressed }) => [
+                  styles.feedTab,
+                  active && { borderColor: `${tab.activeColor}60`, shadowColor: tab.activeColor },
+                  pressed && { opacity: 0.82 },
+                ]}>
+                <Text style={[styles.feedTabIcon, { opacity: active ? 1 : 0.4 }]}>{tab.icon}</Text>
+                <Text style={[styles.feedTabLbl, { color: active ? '#fff' : 'rgba(255,255,255,0.35)' }]}>{tab.label}</Text>
+                <View style={[styles.feedTabBadge, { backgroundColor: active ? tab.activeColor : 'rgba(255,255,255,0.08)' }]}>
+                  <Text style={[styles.feedTabBadgeText, { color: active ? '#fff' : 'rgba(255,255,255,0.35)' }]}>{tab.count}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Feed */}
@@ -484,6 +620,13 @@ export function AdminDashboardScreen() {
                 <Text style={styles.emptyIcon}>📦</Text>
                 <Text style={styles.emptyTitle}>{t('feed.empty')}</Text>
                 <Text style={styles.emptyBody}>{t('feed.emptyBody')}</Text>
+                {feedTab === 'remaining' && (
+                  <Pressable
+                    onPress={() => navigation.navigate('ReceiveStock')}
+                    style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: 0.82 }]}>
+                    <Text style={styles.emptyBtnText}>+ Receive Stock</Text>
+                  </Pressable>
+                )}
               </View>
             ) : (
               sections.map((section) => (
@@ -493,17 +636,23 @@ export function AdminDashboardScreen() {
                     <Text style={styles.dateHeaderText}>{section.displayDate}</Text>
                     <View style={styles.dateLine} />
                   </View>
-                  {section.items.map((item) => (
-                    <PurchaseCard
-                      key={item.batch.id}
-                      item={item}
-                      onNavigate={navigate}
-                      locale={locale}
-                      money={money}
-                      t={t}
-                      canViewDetails={!(role === 'sales' && item.isSold)}
-                    />
-                  ))}
+                  {section.items.map((item) => {
+                    const prodActiveUsers =
+                      activeViews.find((v) => v.lotBatchId === item.batch.id)?.users ?? [];
+                    return (
+                      <PurchaseCard
+                        key={item.batch.id}
+                        item={item}
+                        onNavigate={navigate}
+                        locale={locale}
+                        money={money}
+                        costMoney={costMoney}
+                        t={t}
+                        canViewDetails={!(role === 'sales' && item.isSold)}
+                        activeUsers={prodActiveUsers}
+                      />
+                    );
+                  })}
                 </View>
               ))
             )}
@@ -548,23 +697,49 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({ ios: 'System', android: 'sans-serif-medium', default: undefined }),
   },
   welcomeText: { color: '#FFD60A', fontSize: 12, fontWeight: '800', marginTop: 2 },
-  countBadge: {
-    backgroundColor: palette.cardBgElevated,
-    borderWidth: 1,
-    borderColor: palette.cardBorderAccent,
-    borderRadius: radii.md,
-    minWidth: 44,
+  bellBtn: {
+    width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
     flexShrink: 0,
   },
-  countText: { color: palette.emerald, fontSize: 22, fontWeight: '900' },
+  bellIcon: { fontSize: 22 },
+  bellBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: palette.rose,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    shadowColor: palette.rose,
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
   scroll: { paddingHorizontal: 20, paddingTop: 4, gap: 12 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errText: { color: palette.danger, fontWeight: '800', textAlign: 'center' },
   emptyCard: { marginTop: 32, padding: 40, alignItems: 'center', gap: 10 },
+  emptyBtn: {
+    marginTop: 10,
+    backgroundColor: palette.emerald,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: radii.md,
+    shadowColor: palette.emerald,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  emptyBtnText: { color: palette.onAccent, fontSize: 14, fontWeight: '900', letterSpacing: 0.2 },
   emptyIcon: { fontSize: 48 },
   emptyTitle: { color: palette.text, fontSize: 18, fontWeight: '900' },
   emptyBody: { color: palette.textMuted, fontSize: 14, fontWeight: '600', textAlign: 'center' },
@@ -589,54 +764,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 20,
     marginBottom: 10,
-    backgroundColor: palette.cardBgElevated,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 4,
-    gap: 4,
+    gap: 10,
   },
   feedTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: radii.md,
     gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: radii.lg,
+    backgroundColor: palette.cardBgElevated,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
-  feedTabActive: {
-    backgroundColor: palette.night,
-    shadowColor: palette.emerald,
-    shadowOpacity: 0.20,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-  feedTabText: {
-    color: palette.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  feedTabTextActive: {
-    color: palette.emerald,
-    fontWeight: '900',
-  },
+  feedTabIcon: { fontSize: 18 },
+  feedTabLbl: { flex: 1, fontSize: 13, fontWeight: '800' },
   feedTabBadge: {
-    backgroundColor: palette.cardBgPrimary,
     borderRadius: 999,
-    minWidth: 22,
-    height: 22,
+    minWidth: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
   },
+  feedTabBadgeText: { fontSize: 12, fontWeight: '900' },
+  // Legacy stubs
+  feedTabActive: {},
+  feedTabText: { fontSize: 12, fontWeight: '700', color: palette.textMuted },
+  feedTabTextActive: {},
   feedTabBadgeActive: {
     backgroundColor: palette.emeraldLight,
-  },
-  feedTabBadgeText: {
-    color: palette.text,
-    fontSize: 11,
-    fontWeight: '900',
   },
 });

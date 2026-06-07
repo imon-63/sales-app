@@ -7,4 +7,5 @@ export type MainStackParamList = {
   LotReport: { lotId: string };
   ProductDetail: { productId: string };
   PurchaseDetail: { lotBatchId: string };
+  Notifications: undefined;
 };

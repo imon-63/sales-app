@@ -3,7 +3,15 @@ import type { StockRow } from '../types/models';
 
 import { requestGraphql } from './http';
 
-export type PurchaseLine = { productId: string; quantity: number; unitCost: number };
+export type PurchaseLine = {
+  productId: string;
+  quantity: number;
+  unitCost: number;
+  baseUnitCost: number;
+  notes?: string;
+  lotNumber?: string;
+  unitId?: string;
+};
 
 export type CreatePurchaseRequest = {
   warehouseId: string;
@@ -41,6 +49,7 @@ export async function fetchStockRows(token: string, baseUrl = getJsonServerBaseU
             warehouseName
             quantityOnHand
             unitCost
+            baseUnitCost
             acquiredAt
             purchaseDate
             purchaseNotes

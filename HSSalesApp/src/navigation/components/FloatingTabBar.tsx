@@ -1,7 +1,9 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BottomTabBarHeightCallbackContext } from '@react-navigation/bottom-tabs';
-import React, { useContext, useLayoutEffect } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef } from 'react';
 import {
+  Animated,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -19,15 +21,97 @@ import {
   TAB_BAR_PILL_WIDTH_RATIO,
 } from '../tabBarMetrics';
 
-const TAB_BAR_PILL_WIDTH: DimensionValue = `${Math.round(
-  TAB_BAR_PILL_WIDTH_RATIO * 100,
-)}%`;
+const TAB_BAR_PILL_WIDTH: DimensionValue = Platform.OS === 'android'
+  ? `${Math.round((TAB_BAR_PILL_WIDTH_RATIO + 0.12) * 100)}%`
+  : `${Math.round(TAB_BAR_PILL_WIDTH_RATIO * 100)}%`;
 
-export function FloatingTabBar({
-  state,
-  descriptors,
-  navigation,
-}: BottomTabBarProps) {
+// ── Animated tab item ─────────────────────────────────────────────────────────
+
+function TabItem({
+  isFocused,
+  icon,
+  label,
+  onPress,
+  onLongPress,
+}: {
+  isFocused: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(isFocused ? 1.18 : 1)).current;
+  const glowOpacity = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+  const dotScale = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: isFocused ? 1.22 : 1,
+        tension: 80,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(glowOpacity, {
+        toValue: isFocused ? 1 : 0,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(dotScale, {
+        toValue: isFocused ? 1 : 0,
+        tension: 100,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isFocused, scale, glowOpacity, dotScale]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={isFocused ? { selected: true } : {}}
+      accessibilityLabel={label}
+      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={styles.tab}>
+
+      {/* Glow ring behind icon */}
+      <Animated.View
+        style={[
+          styles.glowRing,
+          {
+            opacity: glowOpacity,
+            transform: [{ scale }],
+          },
+        ]}
+      />
+
+      {/* Icon */}
+      <Animated.View
+        style={[
+          styles.iconSlot,
+          isFocused && styles.iconSlotActive,
+          { transform: [{ scale }] },
+        ]}>
+        {icon}
+      </Animated.View>
+
+      {/* Active dot indicator */}
+      <Animated.View
+        style={[
+          styles.dot,
+          { transform: [{ scale: dotScale }], opacity: dotScale },
+        ]}
+      />
+    </Pressable>
+  );
+}
+
+// ── Pill bar ──────────────────────────────────────────────────────────────────
+
+export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const onTabBarHeight = useContext(BottomTabBarHeightCallbackContext);
 
@@ -38,7 +122,7 @@ export function FloatingTabBar({
 
   return (
     <View pointerEvents="box-none" style={styles.safe}>
-      <View style={[styles.pillWrap, { marginBottom: insets.bottom }]}>
+      <View style={[styles.pillWrap, { marginBottom: insets.bottom + 6 }]}>
         <View style={styles.pill}>
           {state.routes.map((route) => {
             const { options } = descriptors[route.key];
@@ -48,39 +132,21 @@ export function FloatingTabBar({
             const icon = options.tabBarIcon?.({
               focused: isFocused,
               color,
-              size: Math.round(TAB_BAR_ICON_DIAMETER * 0.48),
+              size: Math.round(TAB_BAR_ICON_DIAMETER * 0.50),
             });
 
-            const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            };
-
-            const onLongPress = () => {
-              navigation.emit({ type: 'tabLongPress', target: route.key });
-            };
-
             return (
-              <Pressable
+              <TabItem
                 key={route.key}
-                accessibilityRole="button"
-                accessibilityState={isFocused ? { selected: true } : {}}
-                accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
-                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                onPress={onPress}
-                onLongPress={onLongPress}
-                style={styles.tab}>
-                <View
-                  style={[styles.iconSlot, isFocused && styles.iconSlotActive]}>
-                  {icon}
-                </View>
-              </Pressable>
+                isFocused={isFocused}
+                icon={icon}
+                label={label}
+                onPress={() => {
+                  const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                  if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+                }}
+                onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+              />
             );
           })}
         </View>
@@ -101,35 +167,45 @@ const styles = StyleSheet.create({
   pillWrap: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    height: TAB_BAR_PILL_HEIGHT,
+    justifyContent: 'space-around',
+    height: TAB_BAR_PILL_HEIGHT + 6,
     width: TAB_BAR_PILL_WIDTH,
-    maxWidth: 360,
-    paddingHorizontal: TAB_BAR_PILL_EDGE_INSET,
-    borderRadius: TAB_BAR_PILL_BORDER_RADIUS,
-    backgroundColor: palette.paper,
+    maxWidth: Platform.OS === 'android' ? 440 : 380,
+    paddingHorizontal: TAB_BAR_PILL_EDGE_INSET + 4,
+    borderRadius: TAB_BAR_PILL_BORDER_RADIUS + 4,
+    backgroundColor: palette.night,
     borderWidth: 1,
-    borderColor: palette.stroke,
+    borderColor: 'rgba(0,168,255,0.22)',
     ...Platform.select({
       ios: {
-        shadowColor: '#00E676',
-        shadowOpacity: 0.15,
-        shadowRadius: 24,
-        shadowOffset: { width: 0, height: 12 },
+        shadowColor: '#00A8FF',
+        shadowOpacity: 0.28,
+        shadowRadius: 28,
+        shadowOffset: { width: 0, height: 10 },
       },
-      android: { elevation: 16 },
+      android: { elevation: 18 },
       default: {},
     }),
   },
-  /** Intrinsic width (~icon diameter) so `space-between` gaps are even; no `flex:1` slack on ends. */
   tab: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 4,
+    position: 'relative',
+  },
+  glowRing: {
+    position: 'absolute',
+    width: TAB_BAR_ICON_DIAMETER + 10,
+    height: TAB_BAR_ICON_DIAMETER + 10,
+    borderRadius: (TAB_BAR_ICON_DIAMETER + 10) / 2,
+    backgroundColor: 'rgba(0,168,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,168,255,0.30)',
   },
   iconSlot: {
     width: TAB_BAR_ICON_DIAMETER,
@@ -139,12 +215,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconSlotActive: {
-    backgroundColor: 'rgba(0, 168, 255, 0.16)',
-    transform: [{ translateY: 1 }],
-    shadowColor: '#00A8FF',
-    shadowOpacity: 0.40,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
+    backgroundColor: 'rgba(0,168,255,0.18)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#00A8FF',
+        shadowOpacity: 0.65,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 0 },
+      },
+      android: { elevation: 6 },
+      default: {},
+    }),
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: palette.emerald,
+    marginTop: 3,
+    shadowColor: palette.emerald,
+    shadowOpacity: 0.90,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

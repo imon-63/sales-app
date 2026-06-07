@@ -479,6 +479,36 @@ export function SaleDetails() {
                   )}
                 </View>
 
+                {/* Bottle breakdown */}
+                {(() => {
+                  if (!it.bottleBreakdown) return null;
+                  try {
+                    const bd: { sizeLiter: number; count: number; bottleCost: number }[] = JSON.parse(it.bottleBreakdown);
+                    if (!bd.length) return null;
+                    const grandTotal = bd.reduce((s, b) => s + b.count * (b.sizeLiter * Number(it.unitPrice) + b.bottleCost), 0);
+                    return (
+                      <View style={[styles.fulfillmentBox, { borderColor: `${palette.violet}30` }]}>
+                        <Text style={[styles.fulfillmentTitle, { color: palette.violet }]}>🍶 Bottle Breakdown</Text>
+                        {bd.map((b, bi) => {
+                          const perBottle = b.sizeLiter * Number(it.unitPrice) + b.bottleCost;
+                          return (
+                            <View key={bi} style={styles.fulfillmentRow}>
+                              <Text style={[styles.fulLot, { color: palette.violet }]}>{b.sizeLiter}L × {b.count}</Text>
+                              <Text style={styles.formulaLine}>
+                                {b.count} × ({b.sizeLiter}L × {Number(it.unitPrice).toLocaleString()} + {b.bottleCost.toLocaleString()}) = BDT {(b.count * perBottle).toLocaleString()}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                        <View style={[styles.profitResult, { borderTopColor: `${palette.violet}20` }]}>
+                          <Text style={[styles.profitResultLabel, { color: palette.violet }]}>Total bottle value:</Text>
+                          <Text style={[styles.profitResultVal, { color: palette.violet }]}>BDT {grandTotal.toLocaleString()}</Text>
+                        </View>
+                      </View>
+                    );
+                  } catch { return null; }
+                })()}
+
                 {isAdmin && allocations.length > 0 && (
                   <View style={styles.fulfillmentBox}>
                     <Text style={styles.fulfillmentTitle}>P&L Breakdown for this Sale</Text>

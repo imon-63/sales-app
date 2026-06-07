@@ -168,11 +168,7 @@ export function HSLogo({ size = 96, style, variant = 'monogram', motto }: Props)
           <View
             style={[
               styles.brandCircle,
-              {
-                width: d,
-                height: d,
-                borderRadius: r,
-              },
+              { width: d, height: d, borderRadius: r },
             ]}>
             <Image
               source={BRAND}

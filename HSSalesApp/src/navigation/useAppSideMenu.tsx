@@ -1,7 +1,7 @@
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Easing, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Dimensions, Easing, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette } from '../theme/designSystem';
@@ -61,7 +61,7 @@ export function useAppSideMenu() {
               {
                 width: panelWidth,
                 marginTop: insets.top + 10,
-                marginBottom: insets.bottom + TAB_BAR_PILL_HEIGHT + 212,
+                marginBottom: insets.bottom + TAB_BAR_PILL_HEIGHT + (Platform.OS === 'android' ? 40 : 212),
                 marginRight: 10,
                 transform: [{ translateX: slideX }],
               },

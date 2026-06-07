@@ -215,8 +215,7 @@ export function LoginScreen() {
                 ) : (
                   <Text
                     style={styles.primaryText}
-                    numberOfLines={1}
-                    includeFontPadding={Platform.OS === 'android' ? false : undefined}>
+                    numberOfLines={1}>
                     {t('login.logIn')}
                   </Text>
                 )}

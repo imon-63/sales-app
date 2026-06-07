@@ -46,6 +46,7 @@ export const en = {
   'tabs.sales.home': 'Home',
   'tabs.sales.log': 'Log',
   'tabs.sales.pulse': 'Pulse',
+  'tabs.sales.purchase': 'Purchase',
   'tabs.sales.you': 'You',
 
   'dashboard.sales.title': 'Dashboard',

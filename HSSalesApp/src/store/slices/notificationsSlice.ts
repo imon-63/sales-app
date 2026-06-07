@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import * as notificationsApi from '../../api/notifications';
 import type { AdminNotification } from '../../types/models';
@@ -14,6 +14,7 @@ export type NotificationsState = {
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
   lastFetchedAt: number | null;
+  activeViews: Array<{ lotBatchId: string; users: Array<{ id: string; name: string }> }>;
 };
 
 const initialState: NotificationsState = {
@@ -21,6 +22,7 @@ const initialState: NotificationsState = {
   status: 'idle',
   error: null,
   lastFetchedAt: null,
+  activeViews: [],
 };
 
 export const fetchNotifications = createAsyncThunk<
@@ -59,7 +61,57 @@ export const markNotificationReadThunk = createAsyncThunk<
 const notificationsSlice = createSlice({
   name: 'notifications',
   initialState,
-  reducers: {},
+  reducers: {
+    addNotification: (state, action: PayloadAction<AdminNotification>) => {
+      if (!state.items.some((n) => n.id === action.payload.id)) {
+        state.items.unshift(action.payload);
+      }
+    },
+    markNotificationReadLocal: (
+      state,
+      action: PayloadAction<{ id: string; readerUserId: string; currentUserId: string }>,
+    ) => {
+      const { id, readerUserId, currentUserId } = action.payload;
+      state.items = state.items.map((n) => {
+        if (n.id !== id) return n;
+        const readers = new Set(n.readByUserIds ?? []);
+        readers.add(readerUserId);
+        return {
+          ...n,
+          readByUserIds: Array.from(readers),
+          // Only mark as read for the current device's user
+          unread: !readers.has(currentUserId),
+        };
+      });
+    },
+    setActiveViews: (
+      state,
+      action: PayloadAction<
+        Array<{ lotBatchId: string; users: Array<{ id: string; name: string }> }>
+      >,
+    ) => {
+      state.activeViews = action.payload;
+    },
+    markProductNotificationsReadLocal: (
+      state,
+      action: PayloadAction<{ productId: string; userId: string }>,
+    ) => {
+      const { productId, userId } = action.payload;
+      state.items = state.items.map((n) => {
+        if (n.type === 'sell_viewing' && n.productId === productId) {
+          const readList = n.readByUserIds || [];
+          if (!readList.includes(userId)) {
+            return {
+              ...n,
+              readByUserIds: [...readList, userId],
+              unread: false,
+            };
+          }
+        }
+        return n;
+      });
+    },
+  },
   extraReducers: (builder) => {
     builder.addCase(clearSession, () => ({ ...initialState }));
     builder
@@ -84,6 +136,13 @@ const notificationsSlice = createSlice({
     });
   },
 });
+
+export const {
+  addNotification,
+  markNotificationReadLocal,
+  setActiveViews,
+  markProductNotificationsReadLocal,
+} = notificationsSlice.actions;
 
 export const notificationsReducer = notificationsSlice.reducer;
 

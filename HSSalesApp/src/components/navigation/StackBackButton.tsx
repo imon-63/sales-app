@@ -1,7 +1,7 @@
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MainStackParamList } from '../../navigation/mainStackTypes';
@@ -24,10 +24,10 @@ export function StackBackButton() {
       }}
       style={({ pressed }) => [
         styles.fab,
-        { top: insets.top + 6, left: 64 },
+        { top: insets.top + 6, left: 14 },
         pressed ? styles.fabPressed : null,
       ]}>
-      <Text style={styles.icon}>←</Text>
+      <Text style={styles.icon} allowFontScaling={false}>‹</Text>
     </Pressable>
   );
 }
@@ -48,8 +48,9 @@ const styles = StyleSheet.create({
   fabPressed: { opacity: 0.88 },
   icon: {
     color: palette.emerald,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: -1,
+    fontSize: Platform.OS === 'android' ? 26 : 28,
+    fontWeight: Platform.OS === 'android' ? '700' : '300',
+    lineHeight: 32,
+    includeFontPadding: false,
   },
 });

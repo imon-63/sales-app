@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as inventoryApi from '../../api/inventory';
+import { generateBengaliLotNumber } from '../../utils/lotNumber';
 import { SelectMenu } from '../../components/ui/SelectMenu';
 import { AppMenuButton } from '../../components/navigation/AppMenuButton';
 import { StackBackButton } from '../../components/navigation/StackBackButton';
@@ -22,6 +23,7 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchInventoryStock } from '../../store/slices/inventorySlice';
+import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
 import { useAppSideMenu } from '../../navigation/useAppSideMenu';
 import { palette, radii } from '../../theme/designSystem';
 import { showToast } from '../../store/slices/uiSlice';
@@ -31,8 +33,10 @@ type LineDraft = {
   productId: string;
   quantity: string;
   unitCost: string;
+  extraCost: string;
   unitId: string;
   lotNumber: string;
+  notes: string;
 };
 
 function newLine(pid: string = '', unitId: string = ''): LineDraft {
@@ -41,8 +45,10 @@ function newLine(pid: string = '', unitId: string = ''): LineDraft {
     productId: pid,
     quantity: '1',
     unitCost: '',
+    extraCost: '',
     unitId: unitId,
     lotNumber: '',
+    notes: '',
   };
 }
 
@@ -58,18 +64,6 @@ export function ReceiveStockScreen() {
   const role = useAppSelector((s) => s.auth.user?.role);
   const { products, warehouses, units, status: dataStatus } = useAppSelector((s) => s.salesData);
   
-  function getConversionFactor(pid: string, uid: string) {
-    const unit = units.find((u) => u.id === uid);
-    const product = products.find((p) => p.id === pid);
-
-    if (!unit) return 1;
-    if (typeof unit.globalFactor === 'number') return unit.globalFactor;
-    if (product && product.conversions && typeof product.conversions[uid] === 'number') {
-      return product.conversions[uid];
-    }
-    return 1;
-  }
-
   // Default to "Direct" warehouse; fall back to first available
   const directWarehouseId = useMemo(
     () => warehouses.find((w) => w.name.toLowerCase() === 'direct')?.id ?? warehouses[0]?.id ?? '',
@@ -82,9 +76,15 @@ export function ReceiveStockScreen() {
   const [purchaseDate, setPurchaseDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
-  const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState<LineDraft[]>(() => [newLine()]);
-  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
+  const [lines, setLines] = useState<LineDraft[]>(() => {
+    const first = newLine();
+    return [first];
+  });
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(() => {
+    // First line starts expanded so all fields (including extra cost) are visible
+    const first = lines[0];
+    return new Set(first ? [first.id] : []);
+  });
   const [busy, setBusy] = useState(false);
 
   const warehouseOptions = useMemo(
@@ -126,7 +126,7 @@ export function ReceiveStockScreen() {
   }
 
   const canSubmit = useMemo(() => {
-    if (!token || role !== 'admin' || busy || !resolvedWarehouseId || lines.length === 0) {
+    if (!token || busy || !resolvedWarehouseId || lines.length === 0) {
       return false;
     }
     for (const ln of lines) {
@@ -151,17 +151,32 @@ export function ReceiveStockScreen() {
         {
           warehouseId: resolvedWarehouseId,
           purchaseDate: /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate) ? purchaseDate : undefined,
-          notes: notes.trim() || undefined,
-          items: lines.map((ln) => ({
-            productId: ln.productId,
-            quantity: Number(ln.quantity),
-            unitCost: Number(ln.unitCost),
-            unitId: ln.unitId,
-            lotNumber: ln.lotNumber.trim() || undefined,
-          })),
+          items: lines.map((ln) => {
+            const qty = Number(ln.quantity);
+            const baseCost = Number(ln.unitCost);
+            const extra = Number(ln.extraCost) || 0;
+            // Effective landed cost per unit = (base_total + extra) / qty
+            const effectiveUnitCost = qty > 0 ? (qty * baseCost + extra) / qty : baseCost;
+            // Encode bc:/ec: in notes so the dashboard can parse them as a fallback
+            const noteParts = [
+              `bc:${baseCost}`,
+              extra > 0 ? `ec:${extra}` : null,
+              ln.notes.trim() || null,
+            ].filter(Boolean).join('|');
+            return {
+              productId: ln.productId,
+              quantity: qty,
+              unitCost: effectiveUnitCost,
+              baseUnitCost: baseCost,
+              notes: noteParts || undefined,
+              unitId: ln.unitId,
+              lotNumber: ln.lotNumber.trim() || generateBengaliLotNumber(),
+            };
+          }),
         },
         token,
       );
+      await dispatch(fetchSalesDataset()).unwrap();
       await dispatch(fetchInventoryStock()).unwrap();
       dispatch(showToast({
         title: 'Received',
@@ -169,7 +184,6 @@ export function ReceiveStockScreen() {
         type: 'success'
       }));
       setWarehouseId('');
-      setNotes('');
       const freshLine = newLine();
       setLines([freshLine]);
       setExpandedLines(new Set([freshLine.id]));
@@ -183,22 +197,6 @@ export function ReceiveStockScreen() {
     } finally {
       setBusy(false);
     }
-  }
-
-  if (role !== 'admin') {
-    return (
-      <MeshBackground>
-        <StackBackButton />
-        <AppMenuButton onPress={openMenu} />
-        {menuModal}
-        <SafeAreaView style={styles.safe} edges={['top']}>
-          <View style={[styles.head, { paddingTop: insets.top + 52 }]}>
-            <Text style={styles.title}>Receive stock</Text>
-            <Text style={styles.sub}>Only administrators can post inbound purchases.</Text>
-          </View>
-        </SafeAreaView>
-      </MeshBackground>
-    );
   }
 
   if (dataStatus === 'loading' && products.length === 0) {
@@ -257,16 +255,6 @@ export function ReceiveStockScreen() {
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={palette.textMuted}
                 style={styles.input}
-              />
-
-              <Text style={[styles.label, styles.labelSpaced]}>Notes</Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Vendor, invoice #…"
-                placeholderTextColor={palette.textMuted}
-                style={[styles.input, styles.inputTall]}
-                multiline
               />
             </GlassCard>
 
@@ -367,24 +355,65 @@ export function ReceiveStockScreen() {
                             prev.map((x) => (x.id === ln.id ? { ...x, unitCost: t } : x)),
                           )
                         }
-                        placeholder="Price for 1 KG/LITER"
+                        placeholder="0"
                         placeholderTextColor={palette.textMuted}
                         keyboardType="decimal-pad"
                         style={styles.input}
                       />
 
-                      {Number(ln.quantity) > 0 && Number(ln.unitCost) > 0 && (
-                        <View style={styles.lineSummary}>
-                          <Text style={styles.lineSummaryText}>
-                            Total Investment: {Number(ln.quantity).toLocaleString()} {units.find(u => u.id === ln.unitId)?.label || 'units'} × 
-                            ({getConversionFactor(ln.productId, ln.unitId).toLocaleString()} × BDT {Number(ln.unitCost).toLocaleString()}) = 
-                            <Text style={styles.lineSummaryVal}> BDT {(Number(ln.quantity) * getConversionFactor(ln.productId, ln.unitId) * Number(ln.unitCost)).toLocaleString()}</Text>
-                          </Text>
-                          <Text style={styles.lineSummaryNote}>
-                            * This is recorded as BDT {Number(ln.unitCost).toLocaleString()} per {units.find(u => u.id === (products.find(p => p.id === ln.productId)?.unitId))?.label || 'base unit'}.
-                          </Text>
-                        </View>
-                      )}
+                      <Text style={[styles.label, styles.labelSpaced]}>
+                        Extra Cost (BDT) — transport, loading, etc.
+                      </Text>
+                      <TextInput
+                        value={ln.extraCost}
+                        onChangeText={(t) =>
+                          setLines((prev) =>
+                            prev.map((x) => (x.id === ln.id ? { ...x, extraCost: t } : x)),
+                          )
+                        }
+                        placeholder="0 (optional)"
+                        placeholderTextColor={palette.textMuted}
+                        keyboardType="decimal-pad"
+                        style={styles.input}
+                      />
+
+                      <Text style={[styles.label, styles.labelSpaced]}>
+                        Notes (optional)
+                      </Text>
+                      <TextInput
+                        value={ln.notes}
+                        onChangeText={(t) =>
+                          setLines((prev) =>
+                            prev.map((x) => (x.id === ln.id ? { ...x, notes: t } : x)),
+                          )
+                        }
+                        placeholder="Vendor, invoice #…"
+                        placeholderTextColor={palette.textMuted}
+                        style={[styles.input, { minHeight: 48 }]}
+                      />
+
+                      {Number(ln.quantity) > 0 && Number(ln.unitCost) > 0 && (() => {
+                        const qty = Number(ln.quantity);
+                        const baseCost = Number(ln.unitCost);
+                        const extra = Number(ln.extraCost) || 0;
+                        const baseTot = qty * baseCost;
+                        const total = baseTot + extra;
+                        const effectiveUnit = qty > 0 ? total / qty : baseCost;
+                        const baseUnitLabel = units.find(u => u.id === (products.find(p => p.id === ln.productId)?.unitId))?.label || 'base unit';
+                        return (
+                          <View style={styles.lineSummary}>
+                            <Text style={styles.lineSummaryText}>
+                              Base: BDT {baseTot.toLocaleString()}
+                              {extra > 0 ? `  +  Extra: BDT ${extra.toLocaleString()}` : ''}
+                              {'\n'}
+                              Total: <Text style={styles.lineSummaryVal}>BDT {total.toLocaleString()}</Text>
+                            </Text>
+                            <Text style={styles.lineSummaryNote}>
+                              Effective unit cost: BDT {effectiveUnit.toFixed(2)} per {baseUnitLabel}
+                            </Text>
+                          </View>
+                        );
+                      })()}
                     </View>
                   )}
                 </GlassCard>

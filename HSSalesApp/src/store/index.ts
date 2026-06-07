@@ -5,6 +5,8 @@ import { inventoryReducer } from './slices/inventorySlice';
 import { notificationsReducer } from './slices/notificationsSlice';
 import { salesDataReducer } from './slices/salesDataSlice';
 import { uiReducer } from './slices/uiSlice';
+import { ordersReducer } from './slices/ordersSlice';
+import { productionReducer } from './slices/productionSlice';
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +15,8 @@ export const store = configureStore({
     notifications: notificationsReducer,
     inventory: inventoryReducer,
     ui: uiReducer,
+    orders: ordersReducer,
+    production: productionReducer,
   },
 });
 

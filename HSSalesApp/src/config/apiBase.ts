@@ -7,3 +7,8 @@ export function getJsonServerBaseUrl() {
     default: 'http://localhost:3001',
   })!;
 }
+
+export function getWebSocketUrl() {
+  const baseUrl = getJsonServerBaseUrl();
+  return baseUrl.replace(/^http/, 'ws') + '/live';
+}

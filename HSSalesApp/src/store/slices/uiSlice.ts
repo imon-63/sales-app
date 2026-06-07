@@ -17,7 +17,7 @@ interface UiState {
 }
 
 const initialState: UiState = {
-  locale: 'en',
+  locale: 'bn',
   toast: {
     visible: false,
     title: '',

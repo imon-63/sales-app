@@ -6,17 +6,19 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { SalesDashboardScreen } from '../../screens/dashboard/SalesDashboardScreen';
-import { SalesCalendarScreen } from '../../screens/calendar/SalesCalendarScreen';
 import { AccountScreen } from '../../screens/account/AccountScreen';
 import { LogSaleScreen } from '../../screens/sales/LogSaleScreen';
+import { ReceiveStockScreen } from '../../screens/inventory/ReceiveStockScreen';
+import { OrdersScreen } from '../../screens/orders/OrdersScreen';
 import { useT } from '../../i18n/useT';
 import { palette } from '../../theme/designSystem';
 import { FloatingTabBar } from '../components/FloatingTabBar';
 
 export type SalesTabParamList = {
   SalesHome: undefined;
+  SalesOrders: undefined;
   SalesLog: undefined;
-  SalesPulse: undefined;
+  SalesPurchase: undefined;
   SalesAccount: undefined;
 };
 
@@ -39,7 +41,6 @@ export function SalesTabs() {
         tabBarInactiveTintColor: palette.tabBarInactive,
         sceneStyle: { backgroundColor: 'transparent' },
         tabBarStyle: {
-          /** Report no reserved strip — default is ~49pt + inset and paints an opaque “dead” zone. */
           height: 0,
           position: 'absolute',
           left: 0,
@@ -56,9 +57,17 @@ export function SalesTabs() {
         options={{
           title: t('tabs.sales.home'),
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]} allowFontScaling={false}>
-              ⌂
-            </Text>
+            <Text style={[styles.icon, { color }]} allowFontScaling={false}>🏠</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="SalesOrders"
+        component={OrdersScreen}
+        options={{
+          title: 'Orders',
+          tabBarIcon: ({ color }) => (
+            <Text style={[styles.icon, { color }]} allowFontScaling={false}>📋</Text>
           ),
         }}
       />
@@ -68,21 +77,17 @@ export function SalesTabs() {
         options={{
           title: t('tabs.sales.log'),
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]} allowFontScaling={false}>
-              ✎
-            </Text>
+            <Text style={[styles.icon, { color }]} allowFontScaling={false}>💰</Text>
           ),
         }}
       />
       <Tab.Screen
-        name="SalesPulse"
-        component={SalesCalendarScreen}
+        name="SalesPurchase"
+        component={ReceiveStockScreen}
         options={{
-          title: t('tabs.sales.pulse'),
+          title: t('tabs.sales.purchase'),
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]} allowFontScaling={false}>
-              ◎
-            </Text>
+            <Text style={[styles.icon, { color }]} allowFontScaling={false}>📦</Text>
           ),
         }}
       />
@@ -92,9 +97,7 @@ export function SalesTabs() {
         options={{
           title: t('tabs.sales.you'),
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]} allowFontScaling={false}>
-              ✦
-            </Text>
+            <Text style={[styles.icon, { color }]} allowFontScaling={false}>👤</Text>
           ),
         }}
       />
@@ -103,8 +106,5 @@ export function SalesTabs() {
 }
 
 const styles = StyleSheet.create({
-  icon: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
+  icon: { fontSize: 20, fontWeight: '700' },
 });

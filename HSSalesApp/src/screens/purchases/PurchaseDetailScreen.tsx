@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +25,7 @@ import { SelectMenu } from '../../components/ui/SelectMenu';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
 import { fetchInventoryStock } from '../../store/slices/inventorySlice';
+import { fetchProductions } from '../../store/slices/productionSlice';
 import { showToast } from '../../store/slices/uiSlice';
 import { palette, radii } from '../../theme/designSystem';
 import type { MainStackParamList } from '../../navigation/mainStackTypes';
@@ -31,6 +33,11 @@ import * as salesApi from '../../api/sales';
 import * as inventoryApi from '../../api/inventory';
 import { useT } from '../../i18n/useT';
 import { unitLabelForProduct } from '../../utils/sales';
+import { generateBengaliLotNumber } from '../../utils/lotNumber';
+import { liveClient } from '../../utils/liveClient';
+import { PulseDot } from '../../components/ui/PulseDot';
+import * as productionApi from '../../api/production';
+import type { ProductionConsumption } from '../../types/models';
 
 type Tab = 'overview' | 'left' | 'sales' | 'sell' | 'buy' | 'invoice';
 type RouteProps = RouteProp<MainStackParamList, 'PurchaseDetail'>;
@@ -50,6 +57,14 @@ const calendarTheme = {
   selectedDotColor: palette.onAccent,
 };
 
+/** "Hasan Akbor Afzol" → "HA Afzol" — initials of all words except last, then full last word */
+function abbreviateName(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length <= 1) return name;
+  const initials = words.slice(0, -1).map(w => w[0].toUpperCase()).join('');
+  return `${initials} ${words[words.length - 1]}`;
+}
+
 export function PurchaseDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const route = useRoute<RouteProps>();
@@ -59,6 +74,23 @@ export function PurchaseDetailScreen() {
   const t = useT();
   const locale = useAppSelector((s) => s.ui.locale);
   const token = useAppSelector((s) => s.auth.token);
+  const activeViews = useAppSelector((s) => s.notifications.activeViews);
+  const currentUserId = useAppSelector((s) => s.auth.user?.id);
+
+  // Refresh stock & sales every time this screen comes into focus so
+  // remainingQty is always accurate and oversell validation is correct.
+  useFocusEffect(
+    useCallback(() => {
+      if (token) {
+        dispatch(fetchSalesDataset());
+        dispatch(fetchInventoryStock());
+        dispatch(fetchProductions());
+      }
+    }, [dispatch, token]),
+  );
+
+  // Production consumptions — read from Redux so old + new productions both show
+  const { productions } = useAppSelector((s) => s.production);
 
   const { products, sales, salesItems, warehouses, units, currencies, users, lots, lotBatches, salesItemAllocations } =
     useAppSelector((s) => s.salesData);
@@ -75,8 +107,21 @@ export function PurchaseDetailScreen() {
   );
   const autoWarehouseId = useMemo(() => batch?.warehouseId ?? directWarehouseId, [batch, directWarehouseId]);
 
+  // Productions that consumed from this specific lot batch
+  const lotProductionConsumptions = React.useMemo(() =>
+    productions.filter(p =>
+      p.inputLotBatchId === lotBatchId,
+    ),
+    [productions, lotBatchId],
+  );
+
   const money = useMemo(
     () => new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }),
+    [locale],
+  );
+
+  const costMoney = useMemo(
+    () => new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', minimumFractionDigits: 0, maximumFractionDigits: 3 }),
     [locale],
   );
 
@@ -110,6 +155,18 @@ export function PurchaseDetailScreen() {
     return rev;
   }, [salesItems, batchSaleItemIds, batchAllocations]);
 
+  // Qty deducted by actual sales transactions
+  const qtySoldViaSales = useMemo(() =>
+    batchAllocations.reduce((a, al) => a + Number(al.quantityAllocated), 0),
+    [batchAllocations],
+  );
+  // Qty deducted by production (gap between original/remaining that isn't covered by sales)
+  const qtyUsedInProduction = useMemo(() => {
+    const orig = Number(batch?.originalQuantity ?? 0);
+    const rem = Number(batch?.remainingQuantity ?? 0);
+    return Math.max(0, orig - rem - qtySoldViaSales);
+  }, [batch, qtySoldViaSales]);
+
   // When fully sold: only Sales + Invoice. Otherwise full set.
   const TABS: { key: Tab; label: string }[] = isSold
     ? [
@@ -126,14 +183,63 @@ export function PurchaseDetailScreen() {
   const defaultTab: Tab = isSold ? 'sales' : 'sell';
   const [activeTab, setActiveTab] = useState<Tab>(defaultTab);
 
+  // Signal live dashboard when on the Sell tab — keyed by lotBatchId so two batches
+  // of the same product don't both show live indicators
+  React.useEffect(() => {
+    if (activeTab === 'sell') {
+      liveClient.enterSellTab(lotBatchId);
+    } else {
+      liveClient.leaveSellTab(lotBatchId);
+    }
+    return () => { liveClient.leaveSellTab(lotBatchId); };
+  }, [activeTab, lotBatchId]);
+
   // Invoice sub-type
   const [invoiceType, setInvoiceType] = useState<'purchase' | 'sales'>('purchase');
 
   // Sell form state
   const [sellQty, setSellQty] = useState('');
   const [sellPrice, setSellPrice] = useState('');
-  const [sellCurrencyId, setSellCurrencyId] = useState(() => currencies[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
+
+  // Bottle breakdown — only shown when this lot was produced AND production has ≥1 bottle price
+  const BOTTLE_SIZES = [5, 2, 1, 0.5] as const;
+  const sourceProduction = useMemo(
+    () => productions.find(p => p.outputLotBatchId === lotBatchId),
+    [productions, lotBatchId],
+  );
+  // Bottle prices from production (read-only per sale, set at production completion)
+  const productionBottlePrices: Record<string, number> = useMemo(() => {
+    if (!sourceProduction?.bottlePrices) return {};
+    try {
+      const parsed: Record<string, number> = JSON.parse(sourceProduction.bottlePrices);
+      // Only include sizes with a non-zero price
+      return Object.fromEntries(Object.entries(parsed).filter(([, v]) => Number(v) > 0));
+    } catch { return {}; }
+  }, [sourceProduction?.bottlePrices]);
+  // Show bottle section only when production has at least one bottle price
+  const isBottleMode = Object.keys(productionBottlePrices).length > 0;
+
+  const [bottleCounts, setBottleCounts] = useState<Record<string, string>>({});
+  // Oil sell price per liter — used in bottle mode instead of per-unit sellPrice
+  const [oilPricePerLiter, setOilPricePerLiter] = useState('');
+
+  const totalBottleLiters = useMemo(() =>
+    BOTTLE_SIZES.reduce((sum, s) => sum + (Number(bottleCounts[String(s)]) || 0) * s, 0),
+    [bottleCounts],
+  );
+  // In bottle mode: grand total = sum(count × (size × oilPrice + bottleCost))
+  const bottleGrandTotal = useMemo(() => {
+    const oilP = Number(oilPricePerLiter) || 0;
+    return BOTTLE_SIZES.reduce((sum, s) => {
+      const count = Number(bottleCounts[String(s)]) || 0;
+      const bc = productionBottlePrices[String(s)] ?? 0;
+      return sum + count * (s * oilP + bc);
+    }, 0);
+  }, [bottleCounts, oilPricePerLiter, productionBottlePrices]);
+  // Effective price per liter (derived) — used as unitPrice in the sale record
+  const bottleEffectiveUnitPrice = totalBottleLiters > 0 ? bottleGrandTotal / totalBottleLiters : 0;
+  const bottleOverflow = isBottleMode && totalBottleLiters > remainingQty + 0.001;
 
   // Buy form state
   const [buyWarehouseId, setBuyWarehouseId] = useState(''); // empty = Direct
@@ -182,7 +288,8 @@ export function PurchaseDetailScreen() {
         const sItems = salesItems.filter((si) => si.saleId === s.id && si.productId === lot?.productId);
         const qty = sItems.reduce((a, si) => a + Number(si.quantity), 0);
         const rev = sItems.reduce((a, si) => a + Number(si.quantity) * Number(si.unitPrice), 0);
-        const seller = users.find((u) => u.id === s.createdBy)?.name ?? s.createdBy;
+        const fullName = users.find((u) => u.id === s.createdBy)?.name ?? s.createdBy;
+        const seller = abbreviateName(fullName);
         return { sale: s, qty, rev, seller };
       })
       .sort((a, b) => b.sale.saleDate.localeCompare(a.sale.saleDate));
@@ -190,13 +297,18 @@ export function PurchaseDetailScreen() {
 
   // Pre-computed for sales invoice
   const salesInvTotals = useMemo(() => {
-    const totalSold = filteredSales.reduce((a, x) => a + x.rev, 0);
-    const totalQtySold = filteredSales.reduce((a, x) => a + x.qty, 0);
-    const totalCost = originalQty * Number(batch?.unitCost ?? 0);
+    const unitCostVal = Number(batch?.unitCost ?? 0);
+    const salesRevenue = filteredSales.reduce((a, x) => a + x.rev, 0);
+    const salesQty = filteredSales.reduce((a, x) => a + x.qty, 0);
+    // Production consumption is treated as a cost-price transfer (no profit, no loss)
+    const prodRevenue = qtyUsedInProduction * unitCostVal;
+    const totalSold = salesRevenue + prodRevenue;
+    const totalQtySold = salesQty + qtyUsedInProduction;
+    const totalCost = originalQty * unitCostVal;
     const profit = totalSold - totalCost;
     const profitPct = totalCost > 0 ? (profit / totalCost) * 100 : 0;
-    return { totalSold, totalQtySold, totalCost, profit, profitPct };
-  }, [filteredSales, originalQty, batch]);
+    return { totalSold, totalQtySold, totalCost, profit, profitPct, salesRevenue, salesQty, prodRevenue };
+  }, [filteredSales, originalQty, batch, qtyUsedInProduction]);
 
   const markedDates: MarkedDates = useMemo(() => {
     const m: MarkedDates = {};
@@ -212,6 +324,34 @@ export function PurchaseDetailScreen() {
 
   async function handleSell() {
     if (!token || !lot?.productId) return;
+    const defaultCurrencyId = currencies[0]?.id ?? '';
+
+    if (isBottleMode) {
+      // Bottle mode: qty = totalBottleLiters, unitPrice = derived from grand total
+      if (totalBottleLiters <= 0) { Alert.alert(locale === 'bn' ? 'বোতল' : 'Bottles', locale === 'bn' ? 'অন্তত একটি বোতল যোগ করুন' : 'Add at least one bottle'); return; }
+      if (!(Number(oilPricePerLiter) > 0)) { Alert.alert(locale === 'bn' ? 'তেলের দাম' : 'Oil price', locale === 'bn' ? 'প্রতি লিটার দাম দিন' : 'Enter price per liter'); return; }
+      if (bottleOverflow) { Alert.alert(locale === 'bn' ? 'মজুদ কম' : 'Insufficient stock', locale === 'bn' ? `মজুদ ${remainingQty}L কিন্তু বোতলে ${totalBottleLiters}L` : `Only ${remainingQty}L in stock, bottles need ${totalBottleLiters}L`); return; }
+      setBusy(true);
+      const bottleBreakdownItems = BOTTLE_SIZES
+        .map(s => ({ sizeLiter: s, count: Number(bottleCounts[String(s)]) || 0, bottleCost: productionBottlePrices[String(s)] ?? 0 }))
+        .filter(b => b.count > 0);
+      try {
+        await salesApi.createSale({
+          warehouseId: autoWarehouseId,
+          saleDate: new Date().toISOString().slice(0, 10),
+          items: [{ productId: lot.productId, quantity: totalBottleLiters, unitPrice: bottleEffectiveUnitPrice, currencyId: defaultCurrencyId, lotIds: [lot.id], bottleBreakdown: JSON.stringify(bottleBreakdownItems) }],
+        }, token);
+        dispatch(showToast({ title: t('product.sell.successTitle'), message: t('product.sell.successMsg', { qty: totalBottleLiters, unit: unitLabel }), type: 'success' }));
+        setBottleCounts({});
+        setOilPricePerLiter('');
+        await Promise.all([dispatch(fetchSalesDataset()).unwrap(), dispatch(fetchInventoryStock()).unwrap()]);
+        setActiveTab('sales');
+      } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record sale.'); }
+      finally { setBusy(false); }
+      return;
+    }
+
+    // Regular (non-bottle) mode
     const qty = Number(sellQty);
     const price = Number(sellPrice);
     if (!qty || qty <= 0) { Alert.alert(t('product.sell.qty'), t('product.sell.errQty')); return; }
@@ -222,7 +362,7 @@ export function PurchaseDetailScreen() {
       await salesApi.createSale({
         warehouseId: autoWarehouseId,
         saleDate: new Date().toISOString().slice(0, 10),
-        items: [{ productId: lot.productId, quantity: qty, unitPrice: price, currencyId: sellCurrencyId, lotIds: [lot.id] }],
+        items: [{ productId: lot.productId, quantity: qty, unitPrice: price, currencyId: defaultCurrencyId, lotIds: [lot.id] }],
       }, token);
       dispatch(showToast({ title: t('product.sell.successTitle'), message: t('product.sell.successMsg', { qty, unit: unitLabel }), type: 'success' }));
       setSellQty('');
@@ -242,6 +382,8 @@ export function PurchaseDetailScreen() {
     if (!cost || cost <= 0) { Alert.alert(t('product.buy.unitCost'), t('product.buy.errCost')); return; }
     // Effective landed cost per unit = (base_total + extra) / qty
     const effectiveUnitCost = (qty * cost + extra) / qty;
+    // Auto-generate a Bengali lot number if user left the field blank
+    const resolvedLotNumber = buyLotNumber.trim() || generateBengaliLotNumber();
     setBuyBusy(true);
     try {
       await inventoryApi.createPurchase({
@@ -250,9 +392,8 @@ export function PurchaseDetailScreen() {
         notes: [
           `bc:${cost}`,
           extra > 0 ? `ec:${extra}` : null,
-          buyLotNumber ? `lot:${buyLotNumber}` : null,
         ].filter(Boolean).join('|') || undefined,
-        items: [{ productId: lot.productId, quantity: qty, unitCost: effectiveUnitCost }],
+        items: [{ productId: lot.productId, quantity: qty, unitCost: effectiveUnitCost, baseUnitCost: cost, lotNumber: resolvedLotNumber }],
       }, token);
       dispatch(showToast({ title: t('product.buy.successTitle'), message: t('product.buy.successMsg', { qty, unit: unitLabel, warehouse: resolvedBuyWarehouseName }), type: 'success' }));
       setBuyQty(''); setBuyUnitCost(''); setBuyExtraCost(''); setBuyLotNumber(''); setBuyWarehouseId('');
@@ -295,7 +436,7 @@ export function PurchaseDetailScreen() {
           <tr><th>Purchase Date</th><td>${dateStr}</td></tr>
           <tr><th>Warehouse</th><td>${warehouse?.name ?? '—'}</td></tr>
           <tr><th>Quantity</th><td>${originalQty.toLocaleString()} ${unitLabel}</td></tr>
-          <tr><th>Unit Cost</th><td>${money.format(Number(batch.unitCost))}</td></tr>
+          <tr><th>Unit Cost</th><td>${costMoney.format(Number(batch.unitCost))}</td></tr>
           <tr class="total-row"><th>Total Purchase Cost</th><td>${money.format(originalQty * Number(batch.unitCost))}</td></tr>
         </table>
         <p class="footer">Printed ${printedAt}</p>
@@ -334,7 +475,7 @@ export function PurchaseDetailScreen() {
           <tr><th style="background:#f8f8f8">Total Cost Price</th><td>${money.format(totalCost)}</td></tr>
           <tr><th style="background:#f8f8f8">Total Sold Price</th><td>${money.format(totalSold)}</td></tr>
           <tr style="background:${profitColor}11">
-            <th style="color:${profitColor}">Total Profit</th>
+            <th style="color:${profitColor}">${profit >= 0 ? 'Total Profit' : 'Total Loss'}</th>
             <td style="color:${profitColor};font-size:17px;font-weight:bold">${profitSign}${money.format(profit)}</td>
           </tr>
           <tr style="background:${profitColor}08">
@@ -374,7 +515,7 @@ export function PurchaseDetailScreen() {
             onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Work')}
             style={({ pressed }) => [s.back, pressed && { opacity: 0.7 }]}
             accessibilityRole="button">
-            <Text style={s.backArrow}>←</Text>
+            <Text style={s.backArrow} allowFontScaling={false}>‹</Text>
           </Pressable>
           <View style={s.headerInfo}>
             <Text style={s.productName} numberOfLines={1}>{product.name}</Text>
@@ -416,7 +557,7 @@ export function PurchaseDetailScreen() {
                 <Row icon="📦" label={t('pd.overview.lot')} value={lot.lotNumber || '—'} />
                 <Row icon="📅" label={t('pd.overview.date')} value={purchaseDate} />
                 <Row icon="🏭" label={t('pd.overview.warehouse')} value={warehouse?.name ?? '—'} />
-                <Row icon="💰" label={t('pd.overview.unitCost')} value={money.format(Number(batch.unitCost))} accent />
+                <Row icon="💰" label={t('pd.overview.unitCost')} value={costMoney.format(Number(batch.unitCost))} accent />
                 <Row icon="📊" label={t('pd.overview.originalQty')} value={`${originalQty.toLocaleString()} ${unitLabel}`} />
                 <View style={s.totalCostRow}>
                   <Text style={s.totalCostLabel}>{t('pd.overview.totalCost')}</Text>
@@ -459,21 +600,12 @@ export function PurchaseDetailScreen() {
             <View style={s.tabContent}>
               {/* Filter card — compact */}
               <View style={s.filterCard}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={s.personChipsScroll}>
-                  {salesPersonOptions.map((opt) => (
-                    <Pressable
-                      key={opt.value}
-                      onPress={() => setSalesPersonFilter(opt.value)}
-                      style={[s.personChip, salesPersonFilter === opt.value && s.personChipActive]}>
-                      <Text style={[s.personChipText, salesPersonFilter === opt.value && s.personChipTextActive]}>
-                        {opt.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                <SelectMenu
+                  label={t('pd.sales.filter.allPeople')}
+                  value={salesPersonFilter}
+                  options={salesPersonOptions}
+                  onChange={setSalesPersonFilter}
+                />
 
                 <View style={s.filterDivider} />
 
@@ -527,14 +659,47 @@ export function PurchaseDetailScreen() {
                 />
               </View>
 
-              {filteredSales.length === 0 ? (
+              {/* Production usage — treated as transfer at cost price */}
+              {qtyUsedInProduction > 0 && (
+                <View style={[s.saleCard, { borderColor: `${palette.violet}40`, borderWidth: 1 }]}>
+                  <View style={s.saleCardTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.saleDate}>
+                        {lotProductionConsumptions[0]?.startDate ?? batch?.acquiredAt ?? '—'}
+                      </Text>
+                      <Text style={[s.saleSeller, { color: palette.violet }]}>
+                        ⚙️ {locale === 'bn' ? 'উৎপাদনে ব্যবহৃত' : 'Used in Production'}
+                      </Text>
+                      {lotProductionConsumptions[0] && (
+                        <Text style={[s.saleSeller, { color: `${palette.violet}99`, fontSize: 11, marginTop: 1 }]}>
+                          {lotProductionConsumptions[0].productionNumber}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={s.saleRight}>
+                      <Text style={[s.saleRev, { color: palette.violet }]}>
+                        {money.format(qtyUsedInProduction * Number(batch?.unitCost ?? 0))}
+                      </Text>
+                      <Text style={s.saleQty}>{qtyUsedInProduction.toLocaleString()} {unitLabel}</Text>
+                      <Text style={[s.saleQty, { fontSize: 10, color: palette.textMuted, marginTop: 1 }]}>
+                        @ {costMoney.format(Number(batch?.unitCost ?? 0))}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {filteredSales.length === 0 && qtyUsedInProduction === 0 ? (
                 <GlassCard style={s.emptyCard}>
                   <Text style={s.emptyTitle}>{t('pd.sales.noSales')}</Text>
                   <Text style={s.emptyBody}>{t('pd.sales.noSalesBody')}</Text>
                 </GlassCard>
               ) : (
                 filteredSales.map((item) => (
-                  <GlassCard key={item.sale.id} style={s.saleCard}>
+                  <Pressable
+                    key={item.sale.id}
+                    onPress={() => navigation.navigate('SaleDetails', { saleId: item.sale.id })}
+                    style={({ pressed }) => [s.saleCard, pressed && { opacity: 0.82 }]}>
                     <View style={s.saleCardTop}>
                       <View>
                         <Text style={s.saleDate}>{item.sale.saleDate}</Text>
@@ -543,9 +708,10 @@ export function PurchaseDetailScreen() {
                       <View style={s.saleRight}>
                         <Text style={s.saleRev}>{money.format(item.rev)}</Text>
                         <Text style={s.saleQty}>{item.qty.toLocaleString()} {unitLabel}</Text>
+                        <Text style={s.saleArrow}>›</Text>
                       </View>
                     </View>
-                  </GlassCard>
+                  </Pressable>
                 ))
               )}
             </View>
@@ -555,28 +721,158 @@ export function PurchaseDetailScreen() {
           {activeTab === 'sell' && (
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
               <View style={s.tabContent}>
-                <GlassCard style={s.card}>
-                  <View style={s.formRow}>
-                    <View style={s.formHalf}>
-                      <Text style={s.fieldLabel}>{t('product.sell.qty')}</Text>
-                      <TextInput style={s.input} value={sellQty} onChangeText={setSellQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+
+                {/* Cost price + available strip */}
+                {/* Live pill — right-aligned above the context bar */}
+                {(activeViews.find(v => v.lotBatchId === lotBatchId)?.users ?? []).filter(u => u.id !== currentUserId).length > 0 && (() => {
+                  const others = (activeViews.find(v => v.lotBatchId === lotBatchId)?.users ?? []).filter(u => u.id !== currentUserId);
+                  return (
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <View style={s.sellLivePill}>
+                        <PulseDot color={palette.rose} />
+                        <Text style={s.sellLiveText}>
+                          {others.length === 1 ? others[0].name.split(' ')[0] : `${others.length}`}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={s.formHalf}>
-                      <Text style={s.fieldLabel}>{t('product.sell.unitPrice')}</Text>
-                      <TextInput style={s.input} value={sellPrice} onChangeText={setSellPrice} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                  );
+                })()}
+
+                <View style={s.sellContextBar}>
+
+                  <View style={s.sellContextCell}>
+                    <Text style={s.sellContextIcon}>💰</Text>
+                    <View>
+                      <Text style={s.sellContextLabel}>{locale === 'bn' ? 'ক্রয় মূল্য' : 'Cost Price'}</Text>
+                      <Text style={s.sellContextValue}>{costMoney.format(Number(batch.unitCost))}</Text>
+                      <Text style={s.sellContextSub}>{locale === 'bn' ? 'প্রতি একক' : 'per unit'}</Text>
                     </View>
                   </View>
-                  <Text style={[s.fieldLabel, { marginTop: 14 }]}>{t('product.sell.currency')}</Text>
-                  <SelectMenu label={t('product.sell.currency')} value={sellCurrencyId} options={currencyOptions} onChange={setSellCurrencyId} />
-                  {Number(sellQty) > 0 && Number(sellPrice) > 0 && (
-                    <View style={s.orderPreview}>
-                      <Text style={s.orderPreviewLabel}>{t('product.sell.orderTotal')}</Text>
-                      <Text style={s.orderPreviewValue}>{money.format(Number(sellQty) * Number(sellPrice))}</Text>
-                    </View>
-                  )}
-                </GlassCard>
 
-                <Pressable onPress={handleSell} disabled={busy || isSold} style={({ pressed }) => [s.actionBtn, pressed && { opacity: 0.85 }, (busy || isSold) && { opacity: 0.5 }]}>
+                  <View style={s.sellContextDivider} />
+
+                  <View style={[s.sellContextCell, { alignItems: 'flex-end' }]}>
+                    <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                      <Text style={s.sellContextLabel}>{locale === 'bn' ? 'উপলব্ধ' : 'Available'}</Text>
+                      <Text style={[s.sellContextValue, { color: healthColor }]}>
+                        {remainingQty.toLocaleString()}
+                      </Text>
+                      <Text style={s.sellContextSub}>{unitLabel}</Text>
+                    </View>
+                    <Text style={[s.sellContextIcon, { color: healthColor, marginLeft: 8 }]}>📦</Text>
+                  </View>
+                </View>
+
+                {isBottleMode ? (
+                  /* ── Bottle mode: oil price per liter + bottle counts ── */
+                  <GlassCard style={[s.card, { borderColor: `${palette.violet}35`, borderWidth: 1 }]}>
+                    <Text style={[s.fieldLabel, { color: palette.violet, fontSize: 13, fontWeight: '900', marginBottom: 12 }]}>
+                      🍶 {locale === 'bn' ? 'বোতলে বিক্রয়' : 'Sell in Bottles'}
+                    </Text>
+
+                    {/* Oil price per liter — single price input */}
+                    <Text style={s.fieldLabel}>{locale === 'bn' ? 'তেলের দাম (প্রতি লিটার)' : 'Oil price per litre'}</Text>
+                    <TextInput
+                      style={s.input}
+                      value={oilPricePerLiter}
+                      onChangeText={setOilPricePerLiter}
+                      keyboardType="numeric" placeholder="0"
+                      placeholderTextColor={palette.textMuted} selectTextOnFocus
+                    />
+
+                    <View style={{ marginTop: 14 }}>
+                      {BOTTLE_SIZES.filter(s2 => productionBottlePrices[String(s2)] != null).map(size => {
+                        const key = String(size);
+                        const count = Number(bottleCounts[key]) || 0;
+                        const bc = productionBottlePrices[key] ?? 0;
+                        const oilP = Number(oilPricePerLiter) || 0;
+                        const perBottle = size * oilP + bc;
+                        return (
+                          <View key={key} style={{ marginBottom: 12 }}>
+                            <View style={s.formRow}>
+                              <View style={s.formHalf}>
+                                <Text style={s.fieldLabel}>{size}L {locale === 'bn' ? 'বোতল সংখ্যা' : 'bottles'}</Text>
+                                <TextInput
+                                  style={s.input}
+                                  value={bottleCounts[key] ?? ''}
+                                  onChangeText={v => setBottleCounts(p => ({ ...p, [key]: v }))}
+                                  keyboardType="numeric" placeholder="0"
+                                  placeholderTextColor={palette.textMuted} selectTextOnFocus
+                                />
+                              </View>
+                              {/* Bottle cost — read-only from production */}
+                              <View style={s.formHalf}>
+                                <Text style={s.fieldLabel}>{locale === 'bn' ? 'বোতল খরচ' : 'Bottle cost'}</Text>
+                                <View style={[s.input, { justifyContent: 'center', backgroundColor: `${palette.violet}08`, borderColor: `${palette.violet}30` }]}>
+                                  <Text style={{ color: palette.violet, fontSize: 14, fontWeight: '800' }}>{costMoney.format(bc)}</Text>
+                                </View>
+                              </View>
+                            </View>
+                            {count > 0 && oilP > 0 && (
+                              <View style={{ backgroundColor: `${palette.violet}10`, borderRadius: 6, padding: 8, marginTop: 2, borderWidth: 1, borderColor: `${palette.violet}20` }}>
+                                <Text style={{ color: `${palette.violet}cc`, fontSize: 11, fontWeight: '700' }}>
+                                  {count} × ({size}L × {costMoney.format(oilP)} + {costMoney.format(bc)}) = {costMoney.format(perBottle)}{locale === 'bn' ? '/বোতল' : '/bottle'}
+                                </Text>
+                                <Text style={{ color: palette.violet, fontSize: 12, fontWeight: '900', marginTop: 2 }}>
+                                  {locale === 'bn' ? 'মোট' : 'Total'}: {money.format(count * perBottle)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    {/* Overflow warning */}
+                    {bottleOverflow && (
+                      <View style={{ backgroundColor: `${palette.rose}14`, borderRadius: 6, padding: 8, marginTop: 4, borderWidth: 1, borderColor: `${palette.rose}40` }}>
+                        <Text style={{ color: palette.rose, fontSize: 12, fontWeight: '900' }}>
+                          ⚠️ {locale === 'bn' ? `মজুদ ${remainingQty}L কিন্তু বোতলে ${totalBottleLiters}L` : `Only ${remainingQty}L in stock, bottles need ${totalBottleLiters}L`}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Grand total summary */}
+                    {totalBottleLiters > 0 && Number(oilPricePerLiter) > 0 && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: `${palette.violet}25`, marginTop: 12, paddingTop: 10, gap: 4 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={{ color: palette.textMuted, fontSize: 12, fontWeight: '700' }}>{locale === 'bn' ? 'মোট তেল' : 'Total oil'}</Text>
+                          <Text style={{ color: palette.text, fontSize: 12, fontWeight: '900' }}>{totalBottleLiters}L</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={{ color: palette.textMuted, fontSize: 12, fontWeight: '700' }}>{locale === 'bn' ? 'কার্যকর মূল্য/লিটার' : 'Effective price/litre'}</Text>
+                          <Text style={{ color: palette.violet, fontSize: 12, fontWeight: '900' }}>{costMoney.format(bottleEffectiveUnitPrice)}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                          <Text style={{ color: palette.text, fontSize: 13, fontWeight: '900' }}>{locale === 'bn' ? 'মোট বিক্রয়' : 'Grand Total'}</Text>
+                          <Text style={{ color: palette.emerald, fontSize: 15, fontWeight: '900' }}>{money.format(bottleGrandTotal)}</Text>
+                        </View>
+                      </View>
+                    )}
+                  </GlassCard>
+                ) : (
+                  /* ── Regular mode: qty + unit price ── */
+                  <GlassCard style={s.card}>
+                    <View style={s.formRow}>
+                      <View style={s.formHalf}>
+                        <Text style={s.fieldLabel}>{t('product.sell.qty')}</Text>
+                        <TextInput style={s.input} value={sellQty} onChangeText={setSellQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                      </View>
+                      <View style={s.formHalf}>
+                        <Text style={s.fieldLabel}>{t('product.sell.unitPrice')}</Text>
+                        <TextInput style={s.input} value={sellPrice} onChangeText={setSellPrice} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                      </View>
+                    </View>
+                    {Number(sellQty) > 0 && Number(sellPrice) > 0 && (
+                      <View style={s.orderPreview}>
+                        <Text style={s.orderPreviewLabel}>{t('product.sell.orderTotal')}</Text>
+                        <Text style={s.orderPreviewValue}>{money.format(Number(sellQty) * Number(sellPrice))}</Text>
+                      </View>
+                    )}
+                  </GlassCard>
+                )}
+
+                <Pressable onPress={handleSell} disabled={busy || isSold || bottleOverflow} style={({ pressed }) => [s.actionBtn, pressed && { opacity: 0.85 }, (busy || isSold || bottleOverflow) && { opacity: 0.5 }]}>
                   {busy ? <ActivityIndicator color={palette.onAccent} /> : <Text style={s.actionBtnText}>{t('product.sell.submit')}</Text>}
                 </Pressable>
               </View>
@@ -594,7 +890,7 @@ export function PurchaseDetailScreen() {
                     <Text style={s.warehouseOptHint}>{locale === 'bn' ? 'ঐচ্ছিক · ডিফল্ট: Direct' : 'optional · default: Direct'}</Text>
                   </View>
                   <SelectMenu
-                    label={resolvedBuyWarehouseName}
+                    label={locale === 'bn' ? 'গুদাম' : 'Warehouse'}
                     value={buyWarehouseId}
                     options={[
                       { value: '', label: locale === 'bn' ? 'Direct (ডিফল্ট)' : 'Direct (default)' },
@@ -635,7 +931,7 @@ export function PurchaseDetailScreen() {
                         {extra > 0 && <CostRow label={t('product.buy.extraCost')} value={`+ ${money.format(extra)}`} muted />}
                         <View style={s.costBreakdownDivider} />
                         <CostRow label={t('product.buy.totalLanded')} value={money.format(totalLanded)} />
-                        <CostRow label={t('product.buy.effectiveUnitCost')} value={money.format(effectiveUnit)} accent />
+                        <CostRow label={t('product.buy.effectiveUnitCost')} value={costMoney.format(effectiveUnit)} accent />
                       </View>
                     );
                   })()}
@@ -685,7 +981,7 @@ export function PurchaseDetailScreen() {
                     <InvoiceRow label={t('pd.invoice.date')} value={purchaseDate} />
                     <InvoiceRow label={t('pd.invoice.warehouse')} value={warehouse?.name ?? '—'} />
                     <InvoiceRow label={t('pd.invoice.qty')} value={`${originalQty.toLocaleString()} ${unitLabel}`} />
-                    <InvoiceRow label={t('pd.invoice.unitCost')} value={money.format(Number(batch.unitCost))} />
+                    <InvoiceRow label={t('pd.invoice.unitCost')} value={costMoney.format(Number(batch.unitCost))} />
                     <View style={s.invoiceTotalRow}>
                       <Text style={s.invoiceTotalLabel}>{t('pd.invoice.total')}</Text>
                       <Text style={s.invoiceTotalValue}>{money.format(originalQty * Number(batch.unitCost))}</Text>
@@ -710,20 +1006,20 @@ export function PurchaseDetailScreen() {
                       )}
                     </View>
                     <Text style={s.invoiceSubLine}>
-                      {filteredSales.length} {locale === 'bn' ? 'লেনদেন' : 'transaction'}{filteredSales.length !== 1 ? 's' : ''}
+                      {filteredSales.length + (qtyUsedInProduction > 0 ? 1 : 0)} {locale === 'bn' ? 'লেনদেন' : 'transaction'}{(filteredSales.length + (qtyUsedInProduction > 0 ? 1 : 0)) !== 1 ? 's' : ''}
                       {' · '}{lot.lotNumber || '—'}
                     </Text>
                   </View>
 
                   {/* Sales rows */}
-                  {filteredSales.length === 0 ? (
+                  {filteredSales.length === 0 && qtyUsedInProduction === 0 ? (
                     <Text style={s.invEmptyText}>{t('pd.sales.noSalesBody')}</Text>
                   ) : (
                     <View style={s.salesInvoiceTable}>
-                      {/* Header — Date+Seller | Qty | Revenue */}
+                      {/* Header — Seller | Qty | Revenue */}
                       <View style={[s.salesInvRow, s.salesInvHeaderRow]}>
                         <Text style={[s.salesInvCell, s.salesInvHeader, s.salesInvDateSellerCol]} numberOfLines={1}>
-                          {locale === 'bn' ? 'তারিখ · বিক্রেতা' : 'Date · Seller'}
+                          {locale === 'bn' ? 'বিক্রেতা' : 'Seller'}
                         </Text>
                         <Text style={[s.salesInvCell, s.salesInvHeader]} numberOfLines={1}>
                           {locale === 'bn' ? 'পরিমাণ' : 'Qty'}
@@ -748,6 +1044,31 @@ export function PurchaseDetailScreen() {
                           <Text style={[s.salesInvCell, s.salesInvRevenue]} numberOfLines={1}>{money.format(item.rev)}</Text>
                         </View>
                       ))}
+
+                      {/* Production consumption row — at cost price (0 profit) */}
+                      {qtyUsedInProduction > 0 && (
+                        <View style={[s.salesInvRow, { backgroundColor: `${palette.violet}12` }]}>
+                          <View style={s.salesInvDateSellerCol}>
+                            <Text style={[s.salesInvDateLine, { color: palette.violet }]} numberOfLines={1}>
+                              {lotProductionConsumptions[0]?.startDate
+                                ? new Date(lotProductionConsumptions[0].startDate).toLocaleDateString(
+                                    locale === 'bn' ? 'bn-BD' : 'en-GB',
+                                    { day: 'numeric', month: 'short', year: 'numeric' },
+                                  )
+                                : (batch?.acquiredAt ?? '—')}
+                            </Text>
+                            <Text style={[s.salesInvSellerLine, { color: `${palette.violet}cc` }]} numberOfLines={1}>
+                              ⚙️ {lotProductionConsumptions[0]?.productionNumber ?? (locale === 'bn' ? 'উৎপাদন' : 'Production')}
+                            </Text>
+                          </View>
+                          <Text style={[s.salesInvCell, { color: palette.violet }]} numberOfLines={1}>
+                            {qtyUsedInProduction.toLocaleString()}
+                          </Text>
+                          <Text style={[s.salesInvCell, s.salesInvRevenue, { color: palette.violet }]} numberOfLines={1}>
+                            {money.format(salesInvTotals.prodRevenue)}
+                          </Text>
+                        </View>
+                      )}
 
                       {/* Totals row */}
                       <View style={s.salesInvTotalRow}>
@@ -775,14 +1096,21 @@ export function PurchaseDetailScreen() {
                           </View>
                           <View style={s.profitDivider} />
                           <View style={s.profitRow}>
-                            <Text style={s.profitBigLabel}>{locale === 'bn' ? 'মোট মুনাফা' : 'Total Profit'}</Text>
+                            <Text style={s.profitBigLabel}>
+                              {salesInvTotals.profit >= 0
+                                ? (locale === 'bn' ? 'মোট মুনাফা' : 'Total Profit')
+                                : (locale === 'bn' ? 'মোট ক্ষতি' : 'Total Loss')}
+                            </Text>
                             <Text style={[s.profitBigVal, { color: salesInvTotals.profit >= 0 ? palette.success : palette.rose }]}>
                               {salesInvTotals.profit >= 0 ? '+' : ''}{money.format(salesInvTotals.profit)}
                             </Text>
                           </View>
                           <View style={[s.profitPctBadge, { backgroundColor: salesInvTotals.profit >= 0 ? 'rgba(0,214,143,0.15)' : 'rgba(255,59,92,0.13)' }]}>
                             <Text style={[s.profitPctText, { color: salesInvTotals.profit >= 0 ? palette.success : palette.rose }]}>
-                              {salesInvTotals.profit >= 0 ? '▲' : '▼'} {Math.abs(salesInvTotals.profitPct).toFixed(1)}% {locale === 'bn' ? 'মুনাফা' : 'profit'}
+                              {salesInvTotals.profit >= 0 ? '▲' : '▼'} {Math.abs(salesInvTotals.profitPct).toFixed(1)}%{' '}
+                              {salesInvTotals.profit >= 0
+                                ? (locale === 'bn' ? 'মুনাফা' : 'profit')
+                                : (locale === 'bn' ? 'ক্ষতি' : 'loss')}
                             </Text>
                           </View>
                         </View>
@@ -895,7 +1223,7 @@ const s = StyleSheet.create({
   notFoundText: { color: palette.rose, fontSize: 16, fontWeight: '800' },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, gap: 14 },
   back: { width: 44, height: 44, borderRadius: radii.md, backgroundColor: palette.paper, borderWidth: 1, borderColor: palette.stroke, alignItems: 'center', justifyContent: 'center' },
-  backArrow: { color: palette.emerald, fontSize: 20, fontWeight: '900', marginTop: -2 },
+  backArrow: { color: palette.emerald, fontSize: Platform.OS === 'android' ? 26 : 28, fontWeight: Platform.OS === 'android' ? '700' : '300', lineHeight: 32, includeFontPadding: false },
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   productName: { flex: 1, color: palette.text, fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
   soldBadge: {
@@ -927,13 +1255,13 @@ const s = StyleSheet.create({
 
   tabBarRow: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 2, gap: 4 },
   tabItem: { flex: 1, paddingVertical: 10, borderRadius: radii.md, position: 'relative', alignItems: 'center' },
-  tabItemActive: { backgroundColor: palette.night, shadowColor: palette.emerald, shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
+  tabItemActive: { backgroundColor: palette.paper, shadowColor: palette.emerald, shadowOpacity: 0.55, shadowRadius: 14, shadowOffset: { width: 0, height: 3 }, elevation: 9 },
   tabLabel: { color: palette.textMuted, fontSize: 13, fontWeight: '700' },
-  tabLabelActive: { color: palette.emerald, fontWeight: '900' },
-  tabUnder: { position: 'absolute', bottom: 4, width: 18, height: 2, backgroundColor: palette.emerald, borderRadius: 999 },
+  tabLabelActive: { color: palette.emerald, fontWeight: '900', textShadowColor: 'rgba(0,168,255,0.55)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 },
+  tabUnder: { position: 'absolute', bottom: 4, width: 26, height: 2.5, backgroundColor: palette.emerald, borderRadius: 999, shadowColor: palette.emerald, shadowOpacity: 0.80, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
 
   scroll: { flex: 1 },
-  scrollInner: { paddingHorizontal: 20, paddingTop: 12, gap: 14 },
+  scrollInner: { paddingHorizontal: 10, paddingTop: 12, gap: 14 },
   tabContent: { gap: 14 },
 
   heroCard: { padding: 18, gap: 4, backgroundColor: palette.cardBgPrimary, borderWidth: 1, borderColor: palette.cardBorderAccent },
@@ -959,13 +1287,21 @@ const s = StyleSheet.create({
   clearBtn: { width: 36, height: 36, borderRadius: radii.sm, backgroundColor: palette.paper, borderWidth: 1, borderColor: palette.stroke, alignItems: 'center', justifyContent: 'center' },
   clearBtnText: { color: palette.textMuted, fontSize: 14, fontWeight: '900' },
 
-  saleCard: { padding: 14, backgroundColor: palette.cardBg, borderWidth: 1, borderColor: palette.cardBorder },
+  saleCard: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: palette.cardBg,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    borderRadius: radii.lg,
+  },
   saleCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   saleDate: { color: palette.text, fontSize: 14, fontWeight: '900' },
   saleSeller: { color: palette.textMuted, fontSize: 12, fontWeight: '700', marginTop: 3 },
   saleRight: { alignItems: 'flex-end' },
   saleRev: { color: palette.emerald, fontSize: 17, fontWeight: '900' },
   saleQty: { color: palette.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  saleArrow: { color: palette.emerald, fontSize: 18, fontWeight: '900', marginTop: 4, textAlign: 'right' as const },
 
   sellHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   sellHeroIcon: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: 'rgba(0,168,255,0.14)', borderWidth: 1, borderColor: 'rgba(0,168,255,0.28)', alignItems: 'center', justifyContent: 'center' },
@@ -1028,7 +1364,8 @@ const s = StyleSheet.create({
   invBadgeTextActive: { color: palette.emerald },
 
   invoiceCard: {
-    padding: 18,
+    paddingHorizontal: 6,
+    paddingVertical: 12,
     gap: 0,
     backgroundColor: palette.cardBgPrimary,
     borderWidth: 1,
@@ -1065,11 +1402,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 6,
   },
   salesInvRowAlt: { backgroundColor: 'rgba(0,0,0,0.08)' },
-  salesInvCell: { flex: 1, color: palette.text, fontSize: 12, fontWeight: '700', paddingHorizontal: 4 },
+  salesInvCell: { flex: 1, color: palette.text, fontSize: 12, fontWeight: '700', paddingHorizontal: 2 },
   salesInvHeader: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' as const, letterSpacing: 0.4 },
-  salesInvTimestamp: { color: palette.textMuted, fontSize: 10, fontWeight: '600', marginTop: 1, paddingHorizontal: 4 },
-  salesInvRevenue: { flex: 1.6, color: palette.emerald, fontWeight: '900', fontSize: 12, textAlign: 'right' as const },
-  salesInvDateSellerCol: { flex: 2.4, paddingHorizontal: 4 },
+  salesInvTimestamp: { color: palette.textMuted, fontSize: 10, fontWeight: '600', marginTop: 1, paddingHorizontal: 2 },
+  salesInvRevenue: { flex: 1.8, color: palette.emerald, fontWeight: '900', fontSize: 12, textAlign: 'right' as const, paddingRight: 4 },
+  salesInvDateSellerCol: { flex: 2, paddingHorizontal: 2 },
   salesInvTotalRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1122,6 +1459,8 @@ const s = StyleSheet.create({
   },
   profitPctText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.2 },
 
+  sellLivePill: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5 },
+  sellLiveText: { color: palette.rose, fontSize: 11, fontWeight: '900' },
   warehouseOptRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'baseline' as const, marginBottom: 8 },
   warehouseOptHint: { color: palette.textMuted, fontSize: 10, fontWeight: '600' as const },
 
@@ -1137,6 +1476,34 @@ const s = StyleSheet.create({
   },
   filterDivider: { height: 1, backgroundColor: palette.cardBorder },
   inlineCalendar: { borderRadius: radii.md, overflow: 'hidden' as const, marginTop: 4 },
+
+  // Sell tab context strip
+  sellContextBar: {
+    flexDirection: 'row' as const,
+    backgroundColor: palette.cardBgPrimary,
+    borderWidth: 1,
+    borderColor: palette.cardBorderAccent,
+    borderRadius: radii.lg,
+    overflow: 'hidden' as const,
+    shadowColor: palette.emerald,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  sellContextCell: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  sellContextDivider: { width: 1, backgroundColor: palette.cardBorder, marginVertical: 10 },
+  sellContextIcon: { fontSize: 22 },
+  sellContextLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 3 },
+  sellContextValue: { color: palette.emerald, fontSize: 20, fontWeight: '900' as const, letterSpacing: -0.4 },
+  sellContextSub: { color: palette.textMuted, fontSize: 10, fontWeight: '700' as const, marginTop: 2 },
 
   invoiceProductRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
   invoiceUnitPill: {

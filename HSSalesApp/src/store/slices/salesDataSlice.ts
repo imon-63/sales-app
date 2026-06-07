@@ -91,6 +91,8 @@ export const fetchSalesDataset = createAsyncThunk(
               warehouseId
               acquiredAt
               unitCost
+              baseUnitCost
+              notes
               originalQuantity
               remainingQuantity
             }

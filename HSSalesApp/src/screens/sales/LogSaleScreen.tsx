@@ -61,11 +61,14 @@ export function LogSaleScreen() {
   const role = useAppSelector((s) => s.auth.user?.role);
   const stockRows = useAppSelector((s) => s.inventory.stockRows);
 
-  const defaultWh = warehouses[0]?.id ?? '';
+  const defaultWh = useMemo(
+    () => warehouses.find(w => w.name.toLowerCase() === 'direct')?.id ?? warehouses[0]?.id ?? '',
+    [warehouses],
+  );
   const defaultProduct = products[0]?.id ?? '';
   const defaultCurrency = currencies[0]?.id ?? '';
 
-  const [warehouseId, setWarehouseId] = useState('');
+  const [warehouseId, setWarehouseId] = useState(() => defaultWh);
   const [saleDate, setSaleDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -75,13 +78,14 @@ export function LogSaleScreen() {
   );
   const [busy, setBusy] = useState(false);
   const [collapsedLineIds, setCollapsedLineIds] = useState<Record<string, boolean>>({});
-  const [unitModal, setUnitModal] = useState(false);
-  const [unitDraft, setUnitDraft] = useState('');
   const [catalogBusy, setCatalogBusy] = useState(false);
 
   const tabBottomPad = useTabScreenBottomPadding();
 
-  // Removed auto-select first warehouse logic to keep it empty initially
+  // Sync warehouse to Direct whenever warehouses load
+  useEffect(() => {
+    if (defaultWh && !warehouseId) setWarehouseId(defaultWh);
+  }, [defaultWh]);
 
   useEffect(() => {
     if (lines.length === 0 && defaultCurrency) {
@@ -263,26 +267,10 @@ export function LogSaleScreen() {
     [currencies],
   );
 
-  const onAddUnit = useCallback(
-    async (label: string) => {
-      if (!token) return;
-      await catalogApi.createUnit({ label }, token);
-      await dispatch(fetchSalesDataset()).unwrap();
-    },
-    [dispatch, token],
-  );
-
-
-
   async function saveNewUnit() {
     if (!token) return;
-    const t = unitDraft.trim();
-    if (!t) return;
     try {
       setCatalogBusy(true);
-      await onAddUnit(t);
-      setUnitModal(false);
-      setUnitDraft('');
     } catch (e: any) {
       dispatch(showToast({
         title: 'Could not add unit',
@@ -304,7 +292,7 @@ export function LogSaleScreen() {
       const u = units.find(x => x.id === ln.unitId);
       const prod = products.find(x => x.id === ln.productId);
       
-      if (!ln.productId || !ln.unitId || !ln.currencyId) return false;
+      if (!ln.productId || !ln.currencyId) return false;
       if (!Number.isFinite(q) || q <= 0) return false;
       if (!Number.isFinite(p) || p < 0) return false;
 
@@ -439,20 +427,6 @@ export function LogSaleScreen() {
                 style={[styles.input, styles.inputTall]}
                 multiline
               />
-            </GlassCard>
-
-            <GlassCard style={styles.catalogCard}>
-              <Text style={styles.cardTitle}>Units</Text>
-              <Text style={styles.catalogHint}>
-                New values are saved to the catalog and show up in line dropdowns.
-              </Text>
-              <View style={styles.catalogRow}>
-                <Pressable
-                  onPress={() => setUnitModal(true)}
-                  style={styles.catalogBtn}>
-                  <Text style={styles.catalogBtnText}>+ Add unit</Text>
-                </Pressable>
-              </View>
             </GlassCard>
 
             {lines.map((ln, idx) => {
@@ -680,44 +654,21 @@ export function LogSaleScreen() {
                         </Text>
                       ) : null}
 
-                      <View style={styles.qtyUnitRow}>
-                        <View style={styles.qtyCol}>
-                          <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
-                          <TextInput
-                            value={ln.quantity}
-                            onChangeText={(t) =>
-                              setLines((prev) =>
-                                prev.map((x) =>
-                                  x.id === ln.id ? { ...x, quantity: t } : x,
-                                ),
-                              )
-                            }
-                            keyboardType="decimal-pad"
-                            placeholder="0"
-                            placeholderTextColor={palette.textMuted}
-                            style={styles.input}
-                          />
-                        </View>
-                        <View style={styles.unitCol}>
-                          <SelectMenu
-                            label="Unit"
-                            value={ln.unitId}
-                            options={units
-                              .filter(u => {
-                                if (!prod) return u.globalFactor !== undefined || u.label === 'BOSTA';
-                                return u.globalFactor !== undefined || (prod.conversions && prod.conversions[u.id] !== undefined) || u.id === prod.unitId;
-                              })
-                              .map(u => ({ value: u.id, label: u.label }))
-                            }
-                            onChange={(uid) =>
-                              setLines((prev) =>
-                                prev.map((x) => (x.id === ln.id ? { ...x, unitId: uid } : x)),
-                              )
-                            }
-                            placeholder="Unit"
-                          />
-                        </View>
-                      </View>
+                      <Text style={[styles.label, styles.labelSpaced]}>Quantity{unitLbl ? ` (${unitLbl})` : ''}</Text>
+                      <TextInput
+                        value={ln.quantity}
+                        onChangeText={(t) =>
+                          setLines((prev) =>
+                            prev.map((x) =>
+                              x.id === ln.id ? { ...x, quantity: t } : x,
+                            ),
+                          )
+                        }
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={palette.textMuted}
+                        style={styles.input}
+                      />
 
                       <Text style={[styles.label, styles.labelSpaced]}>
                         Unit price (BDT)
@@ -769,39 +720,6 @@ export function LogSaleScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
 
-        <Modal visible={unitModal} transparent animationType="fade">
-          <Pressable style={styles.modalBg} onPress={() => !catalogBusy && setUnitModal(false)}>
-            <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.modalTitle}>New unit</Text>
-              <TextInput
-                value={unitDraft}
-                onChangeText={setUnitDraft}
-                placeholder="e.g. crate, pallet"
-                placeholderTextColor={palette.textMuted}
-                style={styles.input}
-                editable={!catalogBusy}
-              />
-              <View style={styles.modalActions}>
-                <Pressable
-                  onPress={() => !catalogBusy && setUnitModal(false)}
-                  style={styles.ghost}>
-                  <Text style={styles.ghostText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => void saveNewUnit()}
-                  disabled={catalogBusy || !unitDraft.trim()}
-                  style={[
-                    styles.primaryMini,
-                    (!unitDraft.trim() || catalogBusy) && styles.primaryMiniOff,
-                  ]}>
-                  <Text style={styles.primaryMiniText}>
-                    {catalogBusy ? 'Saving…' : 'Save'}
-                  </Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
 
 
       </SafeAreaView>

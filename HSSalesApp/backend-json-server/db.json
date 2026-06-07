@@ -18,6 +18,7 @@
     },
     {
       "id": "46916c51-d817-4e57-8778-0a6671967b64",
+      "name": "Imran",
       "email": "imran@hs.com",
       "password": "123456",
       "role": "sales"
@@ -103,6 +104,11 @@
       "conversions": {
         "90000000-0000-0000-0000-000000000002": 50
       }
+    },
+    {
+      "id": "69117488-a131-4351-9450-65caea29732e",
+      "name": "Mustard Oil",
+      "unitId": "90000000-0000-0000-0000-000000000005"
     }
   ],
   "warehouses": [
@@ -157,6 +163,66 @@
       "id": "18a41d01-47d2-4316-8732-80d76ad1e9e7",
       "productId": "10000000-0000-0000-0000-000000000003",
       "lotNumber": "RCV-2026-06-02-000003-f61b"
+    },
+    {
+      "id": "4c45aa4d-f1ce-46dd-ba5d-587d078e9391",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "lotNumber": "ব্যাচ-০৩-জুন-৫৭০"
+    },
+    {
+      "id": "20e4c163-dba9-42f3-886e-0799db3babe1",
+      "productId": "10000000-0000-0000-0000-000000000004",
+      "lotNumber": "ব্যাচ-০৩-জুন-০৫৩"
+    },
+    {
+      "id": "718458c7-ab86-4838-8fce-ed6e88bb6e05",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "lotNumber": "ব্যাচ-০৩-জুন-৫২২"
+    },
+    {
+      "id": "c569f3ff-d2ca-49f2-912d-48f12481ac79",
+      "productId": "10000000-0000-0000-0000-000000000002",
+      "lotNumber": "ব্যাচ-০৩-জুন-৯৪০"
+    },
+    {
+      "id": "9e69a7af-5d09-4f3c-9b7c-b75ac4509497",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotNumber": "ব্যাচ-০৩-জুন-৯৬৪"
+    },
+    {
+      "id": "45af34ff-b60d-4521-b99c-ec19baba2ffb",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotNumber": "ব্যাচ-০৩-জুন-৫৭৪"
+    },
+    {
+      "id": "0e59579e-1300-4221-8551-d5b006c0fa19",
+      "productId": "10000000-0000-0000-0000-000000000004",
+      "lotNumber": "ব্যাচ-০৩-জুন-১০৯"
+    },
+    {
+      "id": "64190450-de27-4431-bc87-d2b60b05a890",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "lotNumber": "ব্যাচ-০৩-জুন-৮২২"
+    },
+    {
+      "id": "9fa9ab44-f7b9-401c-a3a5-078a7e8dbc50",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "lotNumber": "ব্যাচ-০৪-জুন-১১০"
+    },
+    {
+      "id": "299ac408-afda-4a0b-b3ab-52976bfbefca",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "lotNumber": "ব্যাচ-০৪-জুন-১৮৭"
+    },
+    {
+      "id": "2749813c-f896-4317-9170-77eb965c40ba",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "lotNumber": "উৎ-উৎপা-০৪-জুন-০০১"
+    },
+    {
+      "id": "01260ea2-1f8e-457f-9078-1161c7393643",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "lotNumber": "উৎ-উৎপা-০৪-জুন-০০২"
     }
   ],
   "lotBatches": [
@@ -166,6 +232,8 @@
       "warehouseId": "20000000-0000-0000-0000-000000000001",
       "acquiredAt": "2026-04-19",
       "unitCost": 20,
+      "baseUnitCost": 20,
+      "notes": "",
       "originalQuantity": 5000,
       "remainingQuantity": 0
     },
@@ -175,8 +243,10 @@
       "warehouseId": "20000000-0000-0000-0000-000000000002",
       "acquiredAt": "2026-05-04",
       "unitCost": 30,
+      "baseUnitCost": 30,
+      "notes": "",
       "originalQuantity": 100000,
-      "remainingQuantity": 100000
+      "remainingQuantity": 0
     },
     {
       "id": "1b86e943-5e89-4b70-9bb8-ebd1e7f84d9e",
@@ -184,8 +254,10 @@
       "warehouseId": "20000000-0000-0000-0000-000000000004",
       "acquiredAt": "2026-05-04",
       "unitCost": 10,
+      "baseUnitCost": 10,
+      "notes": "Russel, Burimari",
       "originalQuantity": 50000,
-      "remainingQuantity": 49250
+      "remainingQuantity": 0
     },
     {
       "id": "96ca348e-2cbc-4c82-b8f7-0c818a388ab2",
@@ -193,8 +265,10 @@
       "warehouseId": "20000000-0000-0000-0000-000000000004",
       "acquiredAt": "2026-05-05",
       "unitCost": 43,
+      "baseUnitCost": 43,
+      "notes": "",
       "originalQuantity": 10000,
-      "remainingQuantity": 7500
+      "remainingQuantity": 0
     },
     {
       "id": "61ff3d80-4097-4c69-8f21-be58e9f28ca0",
@@ -202,8 +276,10 @@
       "warehouseId": "20000000-0000-0000-0000-000000000001",
       "acquiredAt": "2026-05-05",
       "unitCost": 32,
+      "baseUnitCost": 32,
+      "notes": "",
       "originalQuantity": 25000,
-      "remainingQuantity": 21999
+      "remainingQuantity": 0
     },
     {
       "id": "f61b607c-ddfe-4603-88d2-270ecda514f7",
@@ -211,8 +287,142 @@
       "warehouseId": "20000000-0000-0000-0000-000000000004",
       "acquiredAt": "2026-06-02",
       "unitCost": 45.625,
+      "baseUnitCost": 45.625,
+      "notes": "",
       "originalQuantity": 8000,
       "remainingQuantity": 0
+    },
+    {
+      "id": "6cfb7409-a7e4-4736-a3d9-28093ad2fc02",
+      "lotId": "4c45aa4d-f1ce-46dd-ba5d-587d078e9391",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 44.35,
+      "baseUnitCost": 44,
+      "notes": "bc:44|ec:7000",
+      "originalQuantity": 20000,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "00c702cc-7622-4816-84b5-0f275c1fd9db",
+      "lotId": "20e4c163-dba9-42f3-886e-0799db3babe1",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 25.32,
+      "baseUnitCost": 25.32,
+      "notes": "Kurigram, sharif",
+      "originalQuantity": 25000,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "6c27d124-a2fc-4326-856a-9c6611eea197",
+      "lotId": "718458c7-ab86-4838-8fce-ed6e88bb6e05",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 189.8,
+      "baseUnitCost": 189.8,
+      "notes": "Shorsha",
+      "originalQuantity": 2500,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "86bceffa-685c-4b6f-970f-ac388f623fd5",
+      "lotId": "c569f3ff-d2ca-49f2-912d-48f12481ac79",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 50.4,
+      "baseUnitCost": 50.4,
+      "notes": "Rice",
+      "originalQuantity": 25000,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "09d92bb6-5ba2-4bb1-8a36-c51e3a4a8fa4",
+      "lotId": "9e69a7af-5d09-4f3c-9b7c-b75ac4509497",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 20.075,
+      "baseUnitCost": 20,
+      "notes": "From Noimile, bogura",
+      "originalQuantity": 4000,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "9fe1c0e7-deea-4b14-ab4e-66449f587160",
+      "lotId": "45af34ff-b60d-4521-b99c-ec19baba2ffb",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 19.4,
+      "baseUnitCost": 19,
+      "notes": "From shariakandi, bogura",
+      "originalQuantity": 5000,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "62824058-4221-48b0-a42a-1cffec9cda90",
+      "lotId": "0e59579e-1300-4221-8551-d5b006c0fa19",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 26.44,
+      "baseUnitCost": 25,
+      "notes": "From gaibandha sadar",
+      "originalQuantity": 2500,
+      "remainingQuantity": 700
+    },
+    {
+      "id": "6cf83cd9-aa0b-4e54-9f11-53bd5e9bd5a2",
+      "lotId": "64190450-de27-4431-bc87-d2b60b05a890",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "acquiredAt": "2026-06-03",
+      "unitCost": 53,
+      "baseUnitCost": 52,
+      "notes": "From dinajpur",
+      "originalQuantity": 6000,
+      "remainingQuantity": 6000
+    },
+    {
+      "id": "37c35d88-a2e6-458f-bdd6-b9856cee9a71",
+      "lotId": "9fa9ab44-f7b9-401c-a3a5-078a7e8dbc50",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-04",
+      "unitCost": 33.8,
+      "baseUnitCost": 33,
+      "notes": "From dhunat, bogura",
+      "originalQuantity": 5000,
+      "remainingQuantity": 3000
+    },
+    {
+      "id": "e57c2bb0-4ce2-49b5-84bc-8d85962e0e41",
+      "lotId": "299ac408-afda-4a0b-b3ab-52976bfbefca",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-04",
+      "unitCost": 29.5,
+      "baseUnitCost": 29,
+      "notes": "From jacky",
+      "originalQuantity": 10000,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "c5b05ae0-26cf-48c9-935a-032c0befbea1",
+      "lotId": "2749813c-f896-4317-9170-77eb965c40ba",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-04",
+      "unitCost": 73.240625,
+      "baseUnitCost": 73.240625,
+      "notes": "উৎপাদন: উৎপা-০৪-জুন-০০১",
+      "originalQuantity": 3200,
+      "remainingQuantity": 0
+    },
+    {
+      "id": "0687c798-5e82-452f-8558-25935e937d7a",
+      "lotId": "01260ea2-1f8e-457f-9078-1161c7393643",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-04",
+      "unitCost": 92.27272727272727,
+      "baseUnitCost": 92.27272727272727,
+      "notes": "উৎপাদন: উৎপা-০৪-জুন-০০২",
+      "originalQuantity": 1100,
+      "remainingQuantity": 765
     }
   ],
   "purchases": [
@@ -257,56 +467,91 @@
       "warehouseId": "20000000-0000-0000-0000-000000000004",
       "createdBy": "00000000-0000-0000-0000-000000000001",
       "notes": ""
+    },
+    {
+      "id": "56930998-ef06-490b-91b7-6465500d40f7",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "bc:44|ec:7000"
+    },
+    {
+      "id": "fd7bdf8f-22e0-4dd6-a29e-006919918019",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "Kurigram, sharif"
+    },
+    {
+      "id": "39a6e97b-863c-4ba5-b877-24cccf967eb1",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "Shorsha"
+    },
+    {
+      "id": "5d6a67d4-0dfa-4259-84db-2c77def9f465",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "Rice"
+    },
+    {
+      "id": "64b03e66-05b8-4bbc-a973-40f01e2bc001",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "e905d32d-5005-499b-97e1-5d82afefaa7d",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "d3a6b345-873a-4feb-80b1-3718cc509366",
+      "purchaseDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "394a4f48-0489-4dcd-a62f-d2d464d425ff",
+      "purchaseDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "54f8e443-0198-48b8-9ba2-2e55a53091a7",
+      "purchaseDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
     }
   ],
   "purchaseItems": [
     {
-      "id": "1190774d-a8a9-461c-8f9e-6294921974fe",
-      "purchaseId": "8bcac0ed-068c-4157-99e0-e2651ebe414c",
-      "productId": "10000000-0000-0000-0000-000000000006",
-      "lotId": "db42f49b-6b3e-4e8b-9e7b-3e653e54ca1a",
-      "quantity": 5,
-      "unitCost": 20
-    },
-    {
-      "id": "bdd870d1-da85-4ba1-a467-6bf744a4adde",
-      "purchaseId": "8a29607f-dc30-437f-bfa9-a070b2ce5721",
+      "id": "b2c3cd50-ca7b-4b26-bc52-3d3f090beeae",
+      "purchaseId": "394a4f48-0489-4dcd-a62f-d2d464d425ff",
       "productId": "10000000-0000-0000-0000-000000000005",
-      "lotId": "4d80a45f-c238-4aa1-9357-6156d54a5d0b",
-      "quantity": 100,
-      "unitCost": 30
+      "lotId": "9fa9ab44-f7b9-401c-a3a5-078a7e8dbc50",
+      "quantity": 5000,
+      "unitCost": 33.8,
+      "baseUnitCost": 33,
+      "notes": "From dhunat, bogura"
     },
     {
-      "id": "59ab2f5f-2c24-4fea-a3dc-aaea2a9c9d43",
-      "purchaseId": "7e5bc811-b022-4679-a023-dadaa1b54a0c",
-      "productId": "10000000-0000-0000-0000-000000000006",
-      "lotId": "4f9d6399-8977-42b8-8b43-9876718df91a",
-      "quantity": 50,
-      "unitCost": 10
-    },
-    {
-      "id": "624dd1eb-4bfc-4417-b599-1e614853605e",
-      "purchaseId": "341a3171-d4ca-4b63-902a-2653c59965ac",
-      "productId": "10000000-0000-0000-0000-000000000003",
-      "lotId": "e4393a85-8988-4b34-a599-010a2485160c",
+      "id": "a28a7f12-e498-44ce-b590-0ee54fa064d9",
+      "purchaseId": "54f8e443-0198-48b8-9ba2-2e55a53091a7",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "lotId": "299ac408-afda-4a0b-b3ab-52976bfbefca",
       "quantity": 10000,
-      "unitCost": 43
-    },
-    {
-      "id": "cd8ab380-6862-4cd7-8347-09a27e91b2a4",
-      "purchaseId": "6fa28ac2-0c73-41f6-9c5e-6d6ae39496e0",
-      "productId": "10000000-0000-0000-0000-000000000006",
-      "lotId": "17d584ae-01b2-4621-b4db-527338c8c556",
-      "quantity": 25,
-      "unitCost": 32
-    },
-    {
-      "id": "a11de888-18d6-4149-9b21-5e02a8a9a06e",
-      "purchaseId": "8527262d-917c-4d0f-8eda-eb66257e3d1b",
-      "productId": "10000000-0000-0000-0000-000000000003",
-      "lotId": "18a41d01-47d2-4316-8732-80d76ad1e9e7",
-      "quantity": 8000,
-      "unitCost": 45.625
+      "unitCost": 29.5,
+      "baseUnitCost": 29,
+      "notes": "From jacky"
     }
   ],
   "sales": [
@@ -365,6 +610,139 @@
       "warehouseId": "20000000-0000-0000-0000-000000000004",
       "createdBy": "00000000-0000-0000-0000-000000000001",
       "notes": ""
+    },
+    {
+      "id": "1d883eb5-a2bf-41d8-b38d-53e66bad77f6",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000002",
+      "notes": ""
+    },
+    {
+      "id": "6f94ddd6-75dc-4fa4-b800-e5a9cd746633",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "f1812ed2-94a7-421a-986b-a2b3ab8e87a1",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "9d6b0605-797b-4978-9342-e93101263e7b",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "6f90faaf-9138-41f3-8d61-a7d1a9c1b42d",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000002",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "55ddb52b-cf70-419a-9196-d384dce0d3af",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "12ee9927-7bf0-4714-b8b4-307743f586c1",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "46c5a36f-b259-4774-8daf-c441a9c07076",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "03736a4d-3ee1-49ee-b353-78f090b13dd0",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "628e67a2-f62c-46f5-a317-039622105c37",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "6ac3066a-9a27-495c-9c09-270f01aac6dd",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "71d73bb1-5478-4243-8662-797023b741c8",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "9a7e9b24-ecaa-431b-b01b-25e9103b15db",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "2ea96088-8c9a-4ea1-97e8-2d807685b1f3",
+      "saleDate": "2026-06-03",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "e68bada6-2b06-4e67-bcb5-8cbd7b7bdd09",
+      "saleDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "2719a6e7-4cca-40a7-9348-6a2b6cb7684e",
+      "saleDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "a70e0a80-0de6-48b2-8591-8c296b876e16",
+      "saleDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "4cd404fa-5e45-4553-884e-6261e423a251",
+      "saleDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "অর্ডার: অর্ড-2026০৬০৪-০০১"
+    },
+    {
+      "id": "6a03c8c1-3ddb-47d8-a5ac-d1b0e68529bb",
+      "saleDate": "2026-06-04",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "অর্ডার: অর্ড-2026০৬০৪-০০২"
     }
   ],
   "salesItems": [
@@ -470,6 +848,203 @@
       "lotIds": [
         "18a41d01-47d2-4316-8732-80d76ad1e9e7"
       ]
+    },
+    {
+      "id": "783a1ecb-e1fa-4322-bd0f-3d1ad22af04d",
+      "saleId": "1d883eb5-a2bf-41d8-b38d-53e66bad77f6",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "quantity": 5000,
+      "unitPrice": 48,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "e4393a85-8988-4b34-a599-010a2485160c"
+      ]
+    },
+    {
+      "id": "dafba2ac-c83b-4ad0-a5a0-5b6075b0f8f5",
+      "saleId": "6f94ddd6-75dc-4fa4-b800-e5a9cd746633",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "quantity": 20000,
+      "unitPrice": 46,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "4c45aa4d-f1ce-46dd-ba5d-587d078e9391"
+      ]
+    },
+    {
+      "id": "1441965d-c27a-4f7d-87e4-dc5162fedabe",
+      "saleId": "f1812ed2-94a7-421a-986b-a2b3ab8e87a1",
+      "productId": "10000000-0000-0000-0000-000000000003",
+      "quantity": 2500,
+      "unitPrice": 45,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "e4393a85-8988-4b34-a599-010a2485160c"
+      ]
+    },
+    {
+      "id": "b01f96b3-3de0-4d19-bea5-2c82afc48a1b",
+      "saleId": "9d6b0605-797b-4978-9342-e93101263e7b",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 21999,
+      "unitPrice": 34,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "17d584ae-01b2-4621-b4db-527338c8c556"
+      ]
+    },
+    {
+      "id": "31281f6e-0536-4a5f-b81f-0fbc06cb126b",
+      "saleId": "6f90faaf-9138-41f3-8d61-a7d1a9c1b42d",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 100000,
+      "unitPrice": 31,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "4d80a45f-c238-4aa1-9357-6156d54a5d0b"
+      ]
+    },
+    {
+      "id": "84760bb8-57d8-4125-9060-03a948bdccf0",
+      "saleId": "55ddb52b-cf70-419a-9196-d384dce0d3af",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 49200,
+      "unitPrice": 13,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "4f9d6399-8977-42b8-8b43-9876718df91a"
+      ]
+    },
+    {
+      "id": "dd6f9ebc-3867-4266-873b-56b77ca4c517",
+      "saleId": "12ee9927-7bf0-4714-b8b4-307743f586c1",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 50,
+      "unitPrice": 12,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "4f9d6399-8977-42b8-8b43-9876718df91a"
+      ]
+    },
+    {
+      "id": "e5bcb1dc-b5b8-4a69-91c8-4c7bf6c00e75",
+      "saleId": "46c5a36f-b259-4774-8daf-c441a9c07076",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 1500,
+      "unitPrice": 22.8,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "9e69a7af-5d09-4f3c-9b7c-b75ac4509497"
+      ]
+    },
+    {
+      "id": "09d67d32-5bfb-4b1d-9c0b-654454a0589a",
+      "saleId": "03736a4d-3ee1-49ee-b353-78f090b13dd0",
+      "productId": "10000000-0000-0000-0000-000000000004",
+      "quantity": 25000,
+      "unitPrice": 30,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "20e4c163-dba9-42f3-886e-0799db3babe1"
+      ]
+    },
+    {
+      "id": "b6624c2c-d4f6-4fb3-b62e-9c615cc976b8",
+      "saleId": "628e67a2-f62c-46f5-a317-039622105c37",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 2500,
+      "unitPrice": 210,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "718458c7-ab86-4838-8fce-ed6e88bb6e05"
+      ]
+    },
+    {
+      "id": "f50cc55b-ce6e-40e9-87f6-19b667f5bba8",
+      "saleId": "6ac3066a-9a27-495c-9c09-270f01aac6dd",
+      "productId": "10000000-0000-0000-0000-000000000002",
+      "quantity": 25000,
+      "unitPrice": 48,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "c569f3ff-d2ca-49f2-912d-48f12481ac79"
+      ]
+    },
+    {
+      "id": "30e25c27-f8e6-4d86-ab15-94c4be22b774",
+      "saleId": "71d73bb1-5478-4243-8662-797023b741c8",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 2500,
+      "unitPrice": 21,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "9e69a7af-5d09-4f3c-9b7c-b75ac4509497"
+      ]
+    },
+    {
+      "id": "02d77aff-a40f-4083-b943-63131f1372e0",
+      "saleId": "9a7e9b24-ecaa-431b-b01b-25e9103b15db",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 5000,
+      "unitPrice": 23,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "45af34ff-b60d-4521-b99c-ec19baba2ffb"
+      ]
+    },
+    {
+      "id": "e49ca361-9f67-4e97-94c8-11f819fbcae9",
+      "saleId": "2ea96088-8c9a-4ea1-97e8-2d807685b1f3",
+      "productId": "10000000-0000-0000-0000-000000000004",
+      "quantity": 1800,
+      "unitPrice": 28,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "0e59579e-1300-4221-8551-d5b006c0fa19"
+      ]
+    },
+    {
+      "id": "099bf6d9-95a5-454f-a7c1-2b7e74ff1772",
+      "saleId": "e68bada6-2b06-4e67-bcb5-8cbd7b7bdd09",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 2000,
+      "unitPrice": 37,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "9fa9ab44-f7b9-401c-a3a5-078a7e8dbc50"
+      ]
+    },
+    {
+      "id": "11130b11-0f5b-4bcc-9400-225e99281241",
+      "saleId": "a70e0a80-0de6-48b2-8591-8c296b876e16",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 35,
+      "unitPrice": 127.21428571428571,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "2749813c-f896-4317-9170-77eb965c40ba"
+      ],
+      "bottleBreakdown": "[{\"sizeLiter\":5,\"count\":5,\"bottleCost\":32.5},{\"sizeLiter\":2,\"count\":5,\"bottleCost\":18}]"
+    },
+    {
+      "id": "765adb48-ea21-469f-8f86-b5ec98a7c1ba",
+      "saleId": "4cd404fa-5e45-4553-884e-6261e423a251",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 500,
+      "unitPrice": 110,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [],
+      "bottleBreakdown": null
+    },
+    {
+      "id": "fef875de-644a-495e-a343-94046108d139",
+      "saleId": "6a03c8c1-3ddb-47d8-a5ac-d1b0e68529bb",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 3000,
+      "unitPrice": 150,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [],
+      "bottleBreakdown": null
     }
   ],
   "salesItemAllocations": [
@@ -549,6 +1124,139 @@
       "lotBatchId": "f61b607c-ddfe-4603-88d2-270ecda514f7",
       "quantityAllocated": 1000,
       "unitCostAtTime": 45.625
+    },
+    {
+      "id": "a2fad3a6-418f-4e37-92a7-1252786a1058",
+      "salesItemId": "783a1ecb-e1fa-4322-bd0f-3d1ad22af04d",
+      "lotBatchId": "96ca348e-2cbc-4c82-b8f7-0c818a388ab2",
+      "quantityAllocated": 5000,
+      "unitCostAtTime": 43
+    },
+    {
+      "id": "e3259b50-48dc-48bb-9ddb-566fa7dd686e",
+      "salesItemId": "dafba2ac-c83b-4ad0-a5a0-5b6075b0f8f5",
+      "lotBatchId": "6cfb7409-a7e4-4736-a3d9-28093ad2fc02",
+      "quantityAllocated": 20000,
+      "unitCostAtTime": 44.35
+    },
+    {
+      "id": "8988df45-20b6-436f-b7bd-971e52939515",
+      "salesItemId": "1441965d-c27a-4f7d-87e4-dc5162fedabe",
+      "lotBatchId": "96ca348e-2cbc-4c82-b8f7-0c818a388ab2",
+      "quantityAllocated": 2500,
+      "unitCostAtTime": 43
+    },
+    {
+      "id": "0cf057b8-77b5-4cb9-9844-5b1c22738ab5",
+      "salesItemId": "b01f96b3-3de0-4d19-bea5-2c82afc48a1b",
+      "lotBatchId": "61ff3d80-4097-4c69-8f21-be58e9f28ca0",
+      "quantityAllocated": 21999,
+      "unitCostAtTime": 32
+    },
+    {
+      "id": "4b1fd822-0fda-4b78-be70-b6932b1685fa",
+      "salesItemId": "31281f6e-0536-4a5f-b81f-0fbc06cb126b",
+      "lotBatchId": "9f443fdd-75df-4a71-99f6-ae65d97af030",
+      "quantityAllocated": 100000,
+      "unitCostAtTime": 30
+    },
+    {
+      "id": "78d155e8-8f03-4b16-a522-4d67f54c224a",
+      "salesItemId": "84760bb8-57d8-4125-9060-03a948bdccf0",
+      "lotBatchId": "1b86e943-5e89-4b70-9bb8-ebd1e7f84d9e",
+      "quantityAllocated": 49200,
+      "unitCostAtTime": 10
+    },
+    {
+      "id": "aec5e728-82d2-48bd-bb69-03d5ce6d71e1",
+      "salesItemId": "dd6f9ebc-3867-4266-873b-56b77ca4c517",
+      "lotBatchId": "1b86e943-5e89-4b70-9bb8-ebd1e7f84d9e",
+      "quantityAllocated": 50,
+      "unitCostAtTime": 10
+    },
+    {
+      "id": "579c8163-c566-4553-9e5e-a8965be77f36",
+      "salesItemId": "e5bcb1dc-b5b8-4a69-91c8-4c7bf6c00e75",
+      "lotBatchId": "09d92bb6-5ba2-4bb1-8a36-c51e3a4a8fa4",
+      "quantityAllocated": 1500,
+      "unitCostAtTime": 20.075
+    },
+    {
+      "id": "32e41c64-b669-4fa8-8f63-b2a112bbe16f",
+      "salesItemId": "09d67d32-5bfb-4b1d-9c0b-654454a0589a",
+      "lotBatchId": "00c702cc-7622-4816-84b5-0f275c1fd9db",
+      "quantityAllocated": 25000,
+      "unitCostAtTime": 25.32
+    },
+    {
+      "id": "e622fe6d-64e8-4d42-9500-963a9f3bc8cd",
+      "salesItemId": "b6624c2c-d4f6-4fb3-b62e-9c615cc976b8",
+      "lotBatchId": "6c27d124-a2fc-4326-856a-9c6611eea197",
+      "quantityAllocated": 2500,
+      "unitCostAtTime": 189.8
+    },
+    {
+      "id": "bc1abe1f-c261-4c64-9d86-cdaf6ee78c4e",
+      "salesItemId": "f50cc55b-ce6e-40e9-87f6-19b667f5bba8",
+      "lotBatchId": "86bceffa-685c-4b6f-970f-ac388f623fd5",
+      "quantityAllocated": 25000,
+      "unitCostAtTime": 50.4
+    },
+    {
+      "id": "6731bf7d-af48-4421-838e-e95a153197d7",
+      "salesItemId": "30e25c27-f8e6-4d86-ab15-94c4be22b774",
+      "lotBatchId": "09d92bb6-5ba2-4bb1-8a36-c51e3a4a8fa4",
+      "quantityAllocated": 2500,
+      "unitCostAtTime": 20.075
+    },
+    {
+      "id": "59ff5093-d84f-4056-8a97-aff6ab8c0e29",
+      "salesItemId": "02d77aff-a40f-4083-b943-63131f1372e0",
+      "lotBatchId": "9fe1c0e7-deea-4b14-ab4e-66449f587160",
+      "quantityAllocated": 5000,
+      "unitCostAtTime": 19.4
+    },
+    {
+      "id": "bbdeec87-9cc1-40f5-8b04-60123ae73805",
+      "salesItemId": "e49ca361-9f67-4e97-94c8-11f819fbcae9",
+      "lotBatchId": "62824058-4221-48b0-a42a-1cffec9cda90",
+      "quantityAllocated": 1800,
+      "unitCostAtTime": 26.44
+    },
+    {
+      "id": "ddc86040-0ff7-4f8f-8f2d-816239fe8427",
+      "salesItemId": "099bf6d9-95a5-454f-a7c1-2b7e74ff1772",
+      "lotBatchId": "37c35d88-a2e6-458f-bdd6-b9856cee9a71",
+      "quantityAllocated": 2000,
+      "unitCostAtTime": 33.8
+    },
+    {
+      "id": "77680770-a85b-4737-8bea-74c02b7281c2",
+      "salesItemId": "11130b11-0f5b-4bcc-9400-225e99281241",
+      "lotBatchId": "c5b05ae0-26cf-48c9-935a-032c0befbea1",
+      "quantityAllocated": 35,
+      "unitCostAtTime": 73.240625
+    },
+    {
+      "id": "d5edbe08-0480-4ade-96a6-1baf0212240b",
+      "salesItemId": "765adb48-ea21-469f-8f86-b5ec98a7c1ba",
+      "lotBatchId": "c5b05ae0-26cf-48c9-935a-032c0befbea1",
+      "quantityAllocated": 500,
+      "unitCostAtTime": 73.240625
+    },
+    {
+      "id": "c99906f1-8d03-4f69-83d8-f5fc7f4d223c",
+      "salesItemId": "fef875de-644a-495e-a343-94046108d139",
+      "lotBatchId": "c5b05ae0-26cf-48c9-935a-032c0befbea1",
+      "quantityAllocated": 2665,
+      "unitCostAtTime": 73.240625
+    },
+    {
+      "id": "b2f34da3-fde1-4e42-8c40-854e54132205",
+      "salesItemId": "fef875de-644a-495e-a343-94046108d139",
+      "lotBatchId": "0687c798-5e82-452f-8558-25935e937d7a",
+      "quantityAllocated": 335,
+      "unitCostAtTime": 92.27272727272727
     }
   ],
   "inventoryTransfers": [],
@@ -649,6 +1357,620 @@
       "readByUserIds": [
         "00000000-0000-0000-0000-000000000001"
       ]
+    },
+    {
+      "id": "ba7af648-0742-4c38-84c9-af48d9a59e33",
+      "type": "sale_created",
+      "saleId": "1d883eb5-a2bf-41d8-b38d-53e66bad77f6",
+      "title": "New sale logged",
+      "body": "sales@hs.com · Cold Storage East · 2026-06-03 · Rice Bag ×5000 BOSTA @ BDT 48.00",
+      "createdAt": "2026-06-03T06:56:45.768Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000002",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "8d69fca1-2e89-4e69-b9ea-9e4457a04fb8",
+      "type": "sale_created",
+      "saleId": "6f94ddd6-75dc-4fa4-b800-e5a9cd746633",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Direct · 2026-06-03 · Rice Bag ×20000 BOSTA @ BDT 46.00",
+      "createdAt": "2026-06-03T07:12:03.153Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "c64519d6-571a-4774-b1a4-5c1890feab6a",
+      "type": "lot_depleted",
+      "lotId": "4c45aa4d-f1ce-46dd-ba5d-587d078e9391",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot ব্যাচ-০৩-জুন-৫৭০ (Rice Bag) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T07:12:03.154Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "5a220ca9-9870-43a7-bd38-1bedd2d96ad5",
+      "type": "sale_created",
+      "saleId": "f1812ed2-94a7-421a-986b-a2b3ab8e87a1",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Cold Storage East · 2026-06-03 · Rice Bag ×2500 BOSTA @ BDT 45.00",
+      "createdAt": "2026-06-03T07:25:21.817Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "f46bed8a-4324-45d1-b90e-5604e76d0a05",
+      "type": "lot_depleted",
+      "lotId": "e4393a85-8988-4b34-a599-010a2485160c",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot RCV-2026-05-05-000003-96ca (Rice Bag) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T07:25:21.818Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "97cc7c48-211b-49c4-ad71-9f4948d118bd",
+      "type": "sale_created",
+      "saleId": "9d6b0605-797b-4978-9342-e93101263e7b",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-03 · Potato ×21999 KG @ BDT 34.00",
+      "createdAt": "2026-06-03T07:25:44.069Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "fe099024-3712-46b3-820a-c6c7ab34aa96",
+      "type": "lot_depleted",
+      "lotId": "17d584ae-01b2-4621-b4db-527338c8c556",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot RCV-2026-05-05-000006-61ff (Potato) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T07:25:44.070Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "7c45848c-ee07-4721-87d3-6394f0ac3103",
+      "type": "sale_created",
+      "saleId": "6f90faaf-9138-41f3-8d61-a7d1a9c1b42d",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Secondary Warehouse · 2026-06-03 · Mastard ×100000 KG @ BDT 31.00",
+      "createdAt": "2026-06-03T07:26:29.485Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "7c3e4f4f-0310-489f-a369-3fc69c4bdaf5",
+      "type": "lot_depleted",
+      "lotId": "4d80a45f-c238-4aa1-9357-6156d54a5d0b",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot RCV-2026-05-04-000005-9f44 (Mastard) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T07:26:29.486Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "1cd6ba97-ecc3-46ab-80a4-1a6f7e2f5987",
+      "type": "sale_created",
+      "saleId": "55ddb52b-cf70-419a-9196-d384dce0d3af",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Cold Storage East · 2026-06-03 · Potato ×49200 KG @ BDT 13.00",
+      "createdAt": "2026-06-03T07:26:54.595Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "5b4ea373-31f4-472f-892b-c0ed545af7a3",
+      "type": "sale_created",
+      "saleId": "12ee9927-7bf0-4714-b8b4-307743f586c1",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Cold Storage East · 2026-06-03 · Potato ×50 KG @ BDT 12.00",
+      "createdAt": "2026-06-03T07:27:35.673Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "87ea7614-bbc9-458c-8e87-877edcea4a10",
+      "type": "lot_depleted",
+      "lotId": "4f9d6399-8977-42b8-8b43-9876718df91a",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot RCV-2026-05-04-000006-1b86 (Potato) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T07:27:35.674Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "cf3a6a6c-cf3c-4622-8a9f-a0ae320606af",
+      "type": "sale_created",
+      "saleId": "46c5a36f-b259-4774-8daf-c441a9c07076",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-03 · Potato ×1500 KG @ BDT 22.80",
+      "createdAt": "2026-06-03T09:43:19.303Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "1f7e30eb-db0e-4d1b-8a05-27aede3c4879",
+      "type": "sale_created",
+      "saleId": "03736a4d-3ee1-49ee-b353-78f090b13dd0",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Direct · 2026-06-03 · Corn ×25000 KG @ BDT 30.00",
+      "createdAt": "2026-06-03T10:00:37.741Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "31d37269-c26d-49e7-8c1b-5b946526debe",
+      "type": "lot_depleted",
+      "lotId": "20e4c163-dba9-42f3-886e-0799db3babe1",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot ব্যাচ-০৩-জুন-০৫৩ (Corn) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T10:00:37.742Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "ebfcb810-944f-44f9-bf19-de37a1f3171a",
+      "type": "sale_created",
+      "saleId": "628e67a2-f62c-46f5-a317-039622105c37",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Direct · 2026-06-03 · Mastard ×2500 KG @ BDT 210.00",
+      "createdAt": "2026-06-03T10:01:29.505Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "97885fea-aad3-4e50-96e9-874b73aeb0ae",
+      "type": "lot_depleted",
+      "lotId": "718458c7-ab86-4838-8fce-ed6e88bb6e05",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot ব্যাচ-০৩-জুন-৫২২ (Mastard) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T10:01:29.505Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "102bc794-0ed7-4310-856d-9fcb6bd47ee8",
+      "type": "sale_created",
+      "saleId": "6ac3066a-9a27-495c-9c09-270f01aac6dd",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Direct · 2026-06-03 · Rice ×25000 KG @ BDT 48.00",
+      "createdAt": "2026-06-03T10:02:18.842Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "94012abb-6336-42af-96b1-5e0e1c2feafa",
+      "type": "lot_depleted",
+      "lotId": "c569f3ff-d2ca-49f2-912d-48f12481ac79",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot ব্যাচ-০৩-জুন-৯৪০ (Rice) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T10:02:18.843Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "147a812f-4c9b-4542-b099-37aab59028ea",
+      "type": "sale_created",
+      "saleId": "71d73bb1-5478-4243-8662-797023b741c8",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-03 · Potato ×2500 KG @ BDT 21.00",
+      "createdAt": "2026-06-03T10:03:35.836Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "4a4d5d84-4fa0-471d-bc30-5ce9c488f6da",
+      "type": "lot_depleted",
+      "lotId": "9e69a7af-5d09-4f3c-9b7c-b75ac4509497",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot ব্যাচ-০৩-জুন-৯৬৪ (Potato) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T10:03:35.837Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "75f321b5-15f8-4ce4-a889-560e30e4b34e",
+      "type": "sale_created",
+      "saleId": "9a7e9b24-ecaa-431b-b01b-25e9103b15db",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-03 · Potato ×5000 KG @ BDT 23.00",
+      "createdAt": "2026-06-03T10:04:14.194Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "b3f5c335-cb66-4e6a-a6b0-e862f6622f6f",
+      "type": "lot_depleted",
+      "lotId": "45af34ff-b60d-4521-b99c-ec19baba2ffb",
+      "title": "Lot Fully Sold Out",
+      "body": "Inventory Alert: Lot ব্যাচ-০৩-জুন-৫৭৪ (Potato) is now completely depleted across all warehouses. Tap to view the lifecycle profitability report.",
+      "createdAt": "2026-06-03T10:04:14.194Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "9f3f7e97-b23f-4d95-af24-7dfa01aa32d7",
+      "type": "sale_created",
+      "saleId": "2ea96088-8c9a-4ea1-97e8-2d807685b1f3",
+      "title": "New sale logged",
+      "body": "admin@hs.com · Direct · 2026-06-03 · Corn ×1800 KG @ BDT 28.00",
+      "createdAt": "2026-06-03T11:15:58.388Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "e52e928c-de8c-42c8-815f-b54acab979f3",
+      "type": "order_created",
+      "orderId": "950b4242-8ffb-4c7a-9b79-39f22a4b33ce",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৪-০০১",
+      "body": "Uzzal dutta · 01725-456789 · Mustard Oil ×30",
+      "createdAt": "2026-06-04T07:23:17.631Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "46916c51-d817-4e57-8778-0a6671967b64"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "2cce9528-d540-45b3-b705-34ff9251f5a9",
+      "type": "order_created",
+      "orderId": "5e46515a-4da1-4a4e-b295-91917e1c2293",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৪-০০১",
+      "body": "uzzal dutta · 01724-456789 · Mustard Oil ×40",
+      "createdAt": "2026-06-04T08:03:41.251Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000002",
+        "46916c51-d817-4e57-8778-0a6671967b64",
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "0d78d2a4-4388-4d09-b947-1343f04bac03",
+      "type": "order_created",
+      "orderId": "0e3eaffb-bfb8-456e-8acf-68bbbff2fd77",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৪-০০২",
+      "body": "Jacky · 01987-654321 · Mustard Oil ×50, Rice Bag ×200",
+      "createdAt": "2026-06-04T08:52:46.601Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "46916c51-d817-4e57-8778-0a6671967b64"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "25d0d4ca-83e7-4679-afd5-887627ada713",
+      "type": "sale_created",
+      "saleId": "e68bada6-2b06-4e67-bcb5-8cbd7b7bdd09",
+      "title": "নতুন বিক্রয় রেকর্ড",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-04 · Mastard ×2000 KG @ BDT 37.00",
+      "createdAt": "2026-06-04T10:51:21.155Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "6c227bc9-f8fe-499c-8180-4e0bc79ee26c",
+      "type": "lot_depleted",
+      "lotId": "9fa9ab44-f7b9-401c-a3a5-078a7e8dbc50",
+      "title": "লট সম্পূর্ণ বিক্রিত",
+      "body": "ইনভেন্টরি অ্যালার্ট: লট ব্যাচ-০৪-জুন-১১০ (সরিষা) নিঃশেষ হয়েছে।",
+      "createdAt": "2026-06-04T10:51:21.155Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "e921128a-645e-4bd7-9e6b-03c2de2c377a",
+      "type": "order_created",
+      "orderId": "3d1e938f-f35a-4a13-ae8e-0e025c5ad8db",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৪-০০১",
+      "body": "uzzal dutta · 01789-909090 · Mustard Oil ×200",
+      "createdAt": "2026-06-04T13:30:31.719Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "46916c51-d817-4e57-8778-0a6671967b64"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "e8b8c162-0950-4541-ab2b-774dfff1068d",
+      "type": "sale_created",
+      "saleId": "a70e0a80-0de6-48b2-8591-8c296b876e16",
+      "title": "নতুন বিক্রয় রেকর্ড",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-04 · Mustard Oil ×35 LITER [5×5L + 5×2L] @ BDT 127.21",
+      "createdAt": "2026-06-04T14:20:20.489Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "054b63d9-3a7a-46d8-bcfe-f8e866b2545f",
+      "type": "order_created",
+      "orderId": "b6414849-c292-497c-9924-853b3463c35c",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৪-০০১",
+      "body": "uzzal dutta · 01790-689099 · Mustard Oil ×500",
+      "createdAt": "2026-06-04T14:23:12.699Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "46916c51-d817-4e57-8778-0a6671967b64"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "6b0aa3f3-887a-4c10-a3c3-0722fb9e895b",
+      "type": "sale_created",
+      "saleId": "4cd404fa-5e45-4553-884e-6261e423a251",
+      "title": "নতুন বিক্রয় রেকর্ড",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-04 · Mustard Oil ×500 LITER @ BDT 110.00",
+      "createdAt": "2026-06-04T14:32:16.745Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "399dfd0c-354c-4e69-8c92-f27d2d9fa744",
+      "type": "order_created",
+      "orderId": "6754825a-754b-4df4-9a4a-bc8da8e11a99",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৪-০০২",
+      "body": "Imran · 01987654321 · Mustard Oil ×3000",
+      "createdAt": "2026-06-04T15:14:17.957Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "b2db16ab-7f3a-49e8-a573-b669c00cc59c",
+      "type": "lot_depleted",
+      "lotId": "299ac408-afda-4a0b-b3ab-52976bfbefca",
+      "title": "লট সম্পূর্ণ ব্যবহৃত",
+      "body": "উৎপাদনে ব্যবহারের পর লট ব্যাচ-০৪-জুন-১৮৭ (Mastard) নিঃশেষ হয়েছে।",
+      "createdAt": "2026-06-04T15:17:57.492Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "d0b0a908-652c-4342-b42d-21a196cba1c3",
+      "type": "sale_created",
+      "saleId": "6a03c8c1-3ddb-47d8-a5ac-d1b0e68529bb",
+      "title": "নতুন বিক্রয় রেকর্ড",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-04 · Mustard Oil ×3000 LITER @ BDT 150.00",
+      "createdAt": "2026-06-04T15:18:19.796Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "be03ecc5-3d09-48f7-8715-7aa8869eef2b",
+      "type": "lot_depleted",
+      "lotId": "2749813c-f896-4317-9170-77eb965c40ba",
+      "title": "লট সম্পূর্ণ বিক্রিত",
+      "body": "ইনভেন্টরি অ্যালার্ট: লট উৎ-উৎপা-০৪-জুন-০০১ (Mustard Oil) নিঃশেষ হয়েছে।",
+      "createdAt": "2026-06-04T15:18:19.797Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
     }
-  ]
+  ],
+  "orders": [
+    {
+      "id": "b6414849-c292-497c-9924-853b3463c35c",
+      "orderNumber": "অর্ড-2026০৬০৪-০০১",
+      "status": "delivered",
+      "customerName": "uzzal dutta",
+      "customerPhone": "01790-689099",
+      "customerAddress": null,
+      "orderDate": "2026-06-04",
+      "expectedDelivery": "2026-06-11",
+      "deliveredDate": "2026-06-04",
+      "warehouseId": null,
+      "advancePaid": 8000,
+      "notes": null,
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "cancelReason": null
+    },
+    {
+      "id": "6754825a-754b-4df4-9a4a-bc8da8e11a99",
+      "orderNumber": "অর্ড-2026০৬০৪-০০২",
+      "status": "delivered",
+      "customerName": "Imran",
+      "customerPhone": "01987654321",
+      "customerAddress": null,
+      "orderDate": "2026-06-04",
+      "expectedDelivery": "2026-06-10",
+      "deliveredDate": "2026-06-04",
+      "warehouseId": null,
+      "advancePaid": 4000,
+      "notes": "Box a diyen",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "cancelReason": null
+    }
+  ],
+  "orderItems": [
+    {
+      "id": "eee3090d-00f2-42ed-a7e5-4e8bbb46e58d",
+      "orderId": "b6414849-c292-497c-9924-853b3463c35c",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 500,
+      "unitPrice": 110,
+      "currencyId": "a0000000-0000-0000-0000-000000000002"
+    },
+    {
+      "id": "707fc441-f00d-48ae-8596-86483f4d1826",
+      "orderId": "6754825a-754b-4df4-9a4a-bc8da8e11a99",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 3000,
+      "unitPrice": 150,
+      "currencyId": "a0000000-0000-0000-0000-000000000002"
+    }
+  ],
+  "orderPayments": [
+    {
+      "id": "23145aaf-42b0-4236-9f6b-d3411a63dcdd",
+      "orderId": "b6414849-c292-497c-9924-853b3463c35c",
+      "amount": 42000,
+      "notes": "5000 pabo",
+      "paidAt": "2026-06-04",
+      "recordedBy": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "id": "23717e28-b8f5-4084-bae7-3ff45a41bf9a",
+      "orderId": "b6414849-c292-497c-9924-853b3463c35c",
+      "amount": 42000,
+      "notes": "Aro 500 pabo",
+      "paidAt": "2026-06-04",
+      "recordedBy": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "id": "eb3a5a66-9934-45bf-a248-64b92ce41b75",
+      "orderId": "6754825a-754b-4df4-9a4a-bc8da8e11a99",
+      "amount": 400000,
+      "notes": "46000 pabo",
+      "paidAt": "2026-06-04",
+      "recordedBy": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "id": "85d9e066-d41b-4e06-ba81-b72f6c9f400c",
+      "orderId": "6754825a-754b-4df4-9a4a-bc8da8e11a99",
+      "amount": 46000,
+      "notes": null,
+      "paidAt": "2026-06-04",
+      "recordedBy": "00000000-0000-0000-0000-000000000001"
+    }
+  ],
+  "productionConsumptions": [
+    {
+      "id": "7ff567aa-5794-41ac-b903-424808ff897f",
+      "productionId": "3dcb503f-df1a-4183-87c1-5415a93b0020",
+      "productionNumber": "উৎপা-০৪-জুন-০০১",
+      "lotBatchId": "e57c2bb0-4ce2-49b5-84bc-8d85962e0e41",
+      "quantity": 7000,
+      "consumedAt": "2026-06-04",
+      "createdBy": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "id": "3e139ace-a7b7-4a6f-8533-22cade57d496",
+      "productionId": "09a62c54-b0a0-4a2c-a5cb-6ae1ee58f287",
+      "productionNumber": "উৎপা-০৪-জুন-০০২",
+      "lotBatchId": "e57c2bb0-4ce2-49b5-84bc-8d85962e0e41",
+      "quantity": 3000,
+      "consumedAt": "2026-06-04",
+      "createdBy": "00000000-0000-0000-0000-000000000001"
+    }
+  ],
+  "productions": [
+    {
+      "id": "3dcb503f-df1a-4183-87c1-5415a93b0020",
+      "productionNumber": "উৎপা-০৪-জুন-০০১",
+      "status": "completed",
+      "orderDate": "2026-06-04",
+      "startDate": "2026-06-04",
+      "completedDate": "2026-06-04",
+      "cancelDate": null,
+      "inputLotBatchId": "e57c2bb0-4ce2-49b5-84bc-8d85962e0e41",
+      "inputQuantity": 7000,
+      "processingCostPerUnit": 3.9,
+      "extraCosts": "[{\"label\":\"Transport\",\"amount\":570}]",
+      "outputProductId": "69117488-a131-4351-9450-65caea29732e",
+      "expectedOutputQty": 3200,
+      "actualOutputQty": 3200,
+      "effectiveCostPerOutputUnit": 73.240625,
+      "outputLotBatchId": "c5b05ae0-26cf-48c9-935a-032c0befbea1",
+      "cancelReason": null,
+      "notes": null,
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "bottlePrices": "{\"1\":11,\"2\":18,\"5\":32.5,\"0.5\":5.9}"
+    },
+    {
+      "id": "09a62c54-b0a0-4a2c-a5cb-6ae1ee58f287",
+      "productionNumber": "উৎপা-০৪-জুন-০০২",
+      "status": "completed",
+      "orderDate": "2026-06-04",
+      "startDate": "2026-06-04",
+      "completedDate": "2026-06-04",
+      "cancelDate": null,
+      "inputLotBatchId": "e57c2bb0-4ce2-49b5-84bc-8d85962e0e41",
+      "inputQuantity": 3000,
+      "processingCostPerUnit": 4,
+      "extraCosts": "[{\"label\":\"Transport\",\"amount\":1000}]",
+      "outputProductId": "69117488-a131-4351-9450-65caea29732e",
+      "expectedOutputQty": 1100,
+      "actualOutputQty": 1100,
+      "effectiveCostPerOutputUnit": 92.27272727272727,
+      "outputLotBatchId": "0687c798-5e82-452f-8558-25935e937d7a",
+      "cancelReason": null,
+      "notes": null,
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "bottlePrices": "{\"1\":7,\"2\":16,\"5\":32.5,\"0.5\":4.7}"
+    }
+  ],
+  "packagingOrders": []
 }

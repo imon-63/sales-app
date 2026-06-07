@@ -48,6 +48,7 @@ export const bn = {
   'tabs.sales.home': 'হোম',
   'tabs.sales.log': 'লগ',
   'tabs.sales.pulse': 'পালস',
+  'tabs.sales.purchase': 'ক্রয়',
   'tabs.sales.you': 'আপনি',
 
   'dashboard.sales.title': 'ড্যাশবোর্ড',

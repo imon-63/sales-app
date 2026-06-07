@@ -44,6 +44,12 @@ export type Sale = {
   notes?: string;
 };
 
+export type BottleBreakdownItem = {
+  sizeLiter: number;
+  count: number;
+  bottleCost: number;
+};
+
 export type SalesItem = {
   id: string;
   saleId: string;
@@ -51,6 +57,7 @@ export type SalesItem = {
   quantity: number;
   unitPrice: number;
   currencyId?: string;
+  bottleBreakdown?: string; // JSON string of BottleBreakdownItem[]
 };
 
 /** Aggregated on-hand from lot batches (GET /api/inventory/stock). */
@@ -68,14 +75,17 @@ export type StockRow = {
   warehouseName: string;
   quantityOnHand: number;
   unitCost?: number;
+  baseUnitCost?: number;
   acquiredAt?: string;
 };
 
 export type AdminNotification = {
   id: string;
-  type: 'sale_created' | 'lot_depleted';
+  type: 'sale_created' | 'lot_depleted' | 'sell_viewing' | 'order_created';
   saleId?: string;
   lotId?: string;
+  orderId?: string;
+  productId?: string;
   title: string;
   body: string;
   createdAt: string;
@@ -96,6 +106,8 @@ export type LotBatch = {
   warehouseId: string;
   acquiredAt: string;
   unitCost: number;
+  baseUnitCost?: number;
+  notes?: string;
   originalQuantity: number;
   remainingQuantity: number;
 };
@@ -123,4 +135,79 @@ export type InventoryTransferLine = {
   productId: string;
   lotId?: string;
   quantity: number;
+};
+
+// ── Production ─────────────────────────────────────────────────────────────────
+export type ProductionStatus = 'draft' | 'in_progress' | 'completed' | 'cancelled';
+
+export type ExtraCost = { label: string; amount: number };
+
+export type Production = {
+  id: string;
+  productionNumber: string;
+  status: ProductionStatus;
+  orderDate: string;
+  startDate?: string;
+  completedDate?: string;
+  cancelDate?: string;
+  inputLotBatchId: string;
+  inputQuantity: number;
+  processingCostPerUnit?: number;
+  extraCosts?: string; // JSON string of ExtraCost[]
+  outputProductId: string;
+  expectedOutputQty?: number;
+  actualOutputQty?: number;
+  effectiveCostPerOutputUnit?: number;
+  outputLotBatchId?: string;
+  cancelReason?: string;
+  bottlePrices?: string; // JSON string of { "5": number, "2": number, ... }
+  notes?: string;
+  createdBy: string;
+};
+
+export type ProductionConsumption = {
+  id: string;
+  productionId: string;
+  productionNumber: string;
+  lotBatchId: string;
+  quantity: number;
+  consumedAt: string;
+  createdBy: string;
+};
+
+export type OrderPayment = {
+  id: string;
+  orderId: string;
+  amount: number;
+  notes?: string;
+  paidAt: string;
+  recordedBy: string;
+};
+
+export type OrderStatus = 'draft' | 'confirmed' | 'processing' | 'out_for_delivery' | 'delivered' | 'cancelled';
+
+export type Order = {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  orderDate: string;
+  expectedDelivery?: string;
+  deliveredDate?: string;
+  warehouseId?: string;
+  advancePaid?: number;
+  notes?: string;
+  createdBy: string;
+  cancelReason?: string;
+};
+
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  currencyId?: string;
 };
