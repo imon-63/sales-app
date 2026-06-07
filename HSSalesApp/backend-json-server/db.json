@@ -223,6 +223,21 @@
       "id": "01260ea2-1f8e-457f-9078-1161c7393643",
       "productId": "69117488-a131-4351-9450-65caea29732e",
       "lotNumber": "উৎ-উৎপা-০৪-জুন-০০২"
+    },
+    {
+      "id": "e27e3ed7-f2c0-4ed3-a028-78379dc741ed",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "lotNumber": "উৎ-উৎপা-০৭-জুন-০০৩"
+    },
+    {
+      "id": "283d308b-dc3e-4b49-b294-97ca94d18e0c",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotNumber": "ব্যাচ-০৭-জুন-৯৯০"
+    },
+    {
+      "id": "ed6b1be2-5a73-4dd9-95bf-7391600c1501",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotNumber": "ব্যাচ-০৭-জুন-০০২"
     }
   ],
   "lotBatches": [
@@ -389,7 +404,7 @@
       "baseUnitCost": 33,
       "notes": "From dhunat, bogura",
       "originalQuantity": 5000,
-      "remainingQuantity": 3000
+      "remainingQuantity": 250
     },
     {
       "id": "e57c2bb0-4ce2-49b5-84bc-8d85962e0e41",
@@ -423,6 +438,39 @@
       "notes": "উৎপাদন: উৎপা-০৪-জুন-০০২",
       "originalQuantity": 1100,
       "remainingQuantity": 765
+    },
+    {
+      "id": "e1f5b1cb-016b-44b4-afab-39e0764c471d",
+      "lotId": "e27e3ed7-f2c0-4ed3-a028-78379dc741ed",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "acquiredAt": "2026-06-07",
+      "unitCost": 110.76833527357392,
+      "baseUnitCost": 110.76833527357392,
+      "notes": "উৎপাদন: উৎপা-০৭-জুন-০০৩",
+      "originalQuantity": 859,
+      "remainingQuantity": 859
+    },
+    {
+      "id": "79f60f92-3f2d-454a-90ef-eb26a8682892",
+      "lotId": "283d308b-dc3e-4b49-b294-97ca94d18e0c",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "acquiredAt": "2026-06-07",
+      "unitCost": 17.6,
+      "baseUnitCost": 17,
+      "notes": "bc:17|ec:3000|From Mithapukur, Rangpur",
+      "originalQuantity": 5000,
+      "remainingQuantity": 5000
+    },
+    {
+      "id": "fd23ceaf-e2bd-40e8-ae55-b978a150aa36",
+      "lotId": "ed6b1be2-5a73-4dd9-95bf-7391600c1501",
+      "warehouseId": "20000000-0000-0000-0000-000000000002",
+      "acquiredAt": "2026-06-07",
+      "unitCost": 15.523076923076923,
+      "baseUnitCost": 15,
+      "notes": "bc:15|ec:680",
+      "originalQuantity": 1300,
+      "remainingQuantity": 1300
     }
   ],
   "purchases": [
@@ -530,6 +578,20 @@
       "warehouseId": "20000000-0000-0000-0000-000000000001",
       "createdBy": "00000000-0000-0000-0000-000000000001",
       "notes": ""
+    },
+    {
+      "id": "13eb6f33-79ce-4df1-9823-84c1fbadf666",
+      "purchaseDate": "2026-06-07",
+      "warehouseId": "20000000-0000-0000-0000-000000000004",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": ""
+    },
+    {
+      "id": "bc2ebb8f-af7a-4dfd-b999-f607c5bcfa2f",
+      "purchaseDate": "2026-06-07",
+      "warehouseId": "20000000-0000-0000-0000-000000000002",
+      "createdBy": "00000000-0000-0000-0000-000000000002",
+      "notes": ""
     }
   ],
   "purchaseItems": [
@@ -552,6 +614,26 @@
       "unitCost": 29.5,
       "baseUnitCost": 29,
       "notes": "From jacky"
+    },
+    {
+      "id": "e5c2e491-1c7a-4ce9-b0fa-2a85f5f5a208",
+      "purchaseId": "13eb6f33-79ce-4df1-9823-84c1fbadf666",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotId": "283d308b-dc3e-4b49-b294-97ca94d18e0c",
+      "quantity": 5000,
+      "unitCost": 17.6,
+      "baseUnitCost": 17,
+      "notes": "bc:17|ec:3000|From Mithapukur, Rangpur"
+    },
+    {
+      "id": "c081bdb6-e7c7-4b29-8911-d4899f4857be",
+      "purchaseId": "bc2ebb8f-af7a-4dfd-b999-f607c5bcfa2f",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "lotId": "ed6b1be2-5a73-4dd9-95bf-7391600c1501",
+      "quantity": 1300,
+      "unitCost": 15.523076923076923,
+      "baseUnitCost": 15,
+      "notes": "bc:15|ec:680"
     }
   ],
   "sales": [
@@ -743,6 +825,13 @@
       "warehouseId": "20000000-0000-0000-0000-000000000001",
       "createdBy": "00000000-0000-0000-0000-000000000001",
       "notes": "অর্ডার: অর্ড-2026০৬০৪-০০২"
+    },
+    {
+      "id": "074d478f-78ce-45a5-bdf5-4c3a18440510",
+      "saleDate": "2026-06-07",
+      "warehouseId": "20000000-0000-0000-0000-000000000001",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "Jayed,noimile, bogura"
     }
   ],
   "salesItems": [
@@ -1045,6 +1134,18 @@
       "currencyId": "a0000000-0000-0000-0000-000000000002",
       "lotIds": [],
       "bottleBreakdown": null
+    },
+    {
+      "id": "2b985cf1-78b4-442f-883a-89e38294e21e",
+      "saleId": "074d478f-78ce-45a5-bdf5-4c3a18440510",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 250,
+      "unitPrice": 36,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "9fa9ab44-f7b9-401c-a3a5-078a7e8dbc50"
+      ],
+      "bottleBreakdown": null
     }
   ],
   "salesItemAllocations": [
@@ -1257,6 +1358,13 @@
       "lotBatchId": "0687c798-5e82-452f-8558-25935e937d7a",
       "quantityAllocated": 335,
       "unitCostAtTime": 92.27272727272727
+    },
+    {
+      "id": "906b7268-fd86-4eff-917f-5154611c0d0a",
+      "salesItemId": "2b985cf1-78b4-442f-883a-89e38294e21e",
+      "lotBatchId": "37c35d88-a2e6-458f-bdd6-b9856cee9a71",
+      "quantityAllocated": 250,
+      "unitCostAtTime": 33.8
     }
   ],
   "inventoryTransfers": [],
@@ -1818,9 +1926,80 @@
       "readByUserIds": [
         "00000000-0000-0000-0000-000000000001"
       ]
+    },
+    {
+      "id": "c0906b06-4303-417b-bf43-5ef7469cc888",
+      "type": "sale_created",
+      "saleId": "074d478f-78ce-45a5-bdf5-4c3a18440510",
+      "title": "নতুন বিক্রয় রেকর্ড",
+      "body": "admin@hs.com · Main Warehouse · 2026-06-07 · Mastard ×250 KG @ BDT 36.00",
+      "createdAt": "2026-06-07T07:53:40.950Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "ebbaee5b-fdf3-47e0-be33-78144a86676b",
+      "type": "order_created",
+      "orderId": "22a0c07b-d3ce-4e55-b8ca-e6c559ef5d30",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৭-০০৩",
+      "body": "Jacky · 01789562341 · Potato ×1500",
+      "createdAt": "2026-06-07T08:39:01.991Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "cf225596-9a5d-4be3-b576-c6e89106cdb5",
+      "type": "order_created",
+      "orderId": "38c01298-bcd5-4c55-a19e-c50a5b57d9ea",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৭-০০৪",
+      "body": "Jacky · 01785693214 · Potato ×1500",
+      "createdAt": "2026-06-07T09:00:24.827Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "creatorRole": "admin"
     }
   ],
   "orders": [
+    {
+      "id": "22a0c07b-d3ce-4e55-b8ca-e6c559ef5d30",
+      "orderNumber": "অর্ড-2026০৬০৭-০০৩",
+      "status": "confirmed",
+      "customerName": "Jacky",
+      "customerPhone": "01789562341",
+      "customerAddress": null,
+      "orderDate": "2026-06-07",
+      "expectedDelivery": "2026-06-19",
+      "deliveredDate": null,
+      "warehouseId": null,
+      "advancePaid": 0,
+      "notes": "Choter bostate diben",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "cancelReason": null
+    },
+    {
+      "id": "38c01298-bcd5-4c55-a19e-c50a5b57d9ea",
+      "orderNumber": "অর্ড-2026০৬০৭-০০৪",
+      "status": "out_for_delivery",
+      "customerName": "Jacky",
+      "customerPhone": "01785693214",
+      "customerAddress": null,
+      "orderDate": "2026-06-07",
+      "expectedDelivery": "2026-06-18",
+      "deliveredDate": null,
+      "warehouseId": null,
+      "advancePaid": 23000,
+      "notes": null,
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "cancelReason": null
+    },
     {
       "id": "b6414849-c292-497c-9924-853b3463c35c",
       "orderNumber": "অর্ড-2026০৬০৪-০০১",
@@ -1870,6 +2049,25 @@
       "quantity": 3000,
       "unitPrice": 150,
       "currencyId": "a0000000-0000-0000-0000-000000000002"
+    },
+    {
+      "id": "84943d78-585d-4554-bf97-94cb291b80cd",
+      "orderId": "22a0c07b-d3ce-4e55-b8ca-e6c559ef5d30",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 1500,
+      "unitPrice": 27,
+      "currencyId": "a0000000-0000-0000-0000-000000000002"
+    },
+    {
+      "id": "79b4ee70-4464-46f3-811b-833255970149",
+      "orderId": "38c01298-bcd5-4c55-a19e-c50a5b57d9ea",
+      "productId": "10000000-0000-0000-0000-000000000006",
+      "quantity": 1500,
+      "unitPrice": 23,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "ed6b1be2-5a73-4dd9-95bf-7391600c1501"
+      ]
     }
   ],
   "orderPayments": [
@@ -1924,9 +2122,40 @@
       "quantity": 3000,
       "consumedAt": "2026-06-04",
       "createdBy": "00000000-0000-0000-0000-000000000001"
+    },
+    {
+      "id": "d792a9ce-7ddc-495b-b8da-cbff59b2d84a",
+      "productionId": "b090d228-c9f8-4700-81ff-4f0a23685ffa",
+      "productionNumber": "উৎপা-০৭-জুন-০০৩",
+      "lotBatchId": "37c35d88-a2e6-458f-bdd6-b9856cee9a71",
+      "quantity": 2500,
+      "consumedAt": "2026-06-07",
+      "createdBy": "00000000-0000-0000-0000-000000000001"
     }
   ],
   "productions": [
+    {
+      "id": "b090d228-c9f8-4700-81ff-4f0a23685ffa",
+      "productionNumber": "উৎপা-০৭-জুন-০০৩",
+      "status": "completed",
+      "orderDate": "2026-06-07",
+      "startDate": "2026-06-07",
+      "completedDate": "2026-06-07",
+      "cancelDate": null,
+      "inputLotBatchId": "37c35d88-a2e6-458f-bdd6-b9856cee9a71",
+      "inputQuantity": 2500,
+      "processingCostPerUnit": 4,
+      "extraCosts": "[{\"label\":\"Transport\",\"amount\":650}]",
+      "outputProductId": "69117488-a131-4351-9450-65caea29732e",
+      "expectedOutputQty": 900,
+      "actualOutputQty": 859,
+      "effectiveCostPerOutputUnit": 110.76833527357392,
+      "outputLotBatchId": "e1f5b1cb-016b-44b4-afab-39e0764c471d",
+      "cancelReason": null,
+      "notes": null,
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "bottlePrices": "{\"1\":6,\"2\":12,\"5\":22.96,\"0.5\":4.89}"
+    },
     {
       "id": "3dcb503f-df1a-4183-87c1-5415a93b0020",
       "productionNumber": "উৎপা-০৪-জুন-০০১",

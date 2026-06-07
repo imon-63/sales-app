@@ -461,7 +461,14 @@ function CompleteDialog({ prod, locale, onDone, onClose }: {
 
   return (
     <View style={cd.wrap}>
-      <ScrollView contentContainerStyle={cd.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}>
+        <ScrollView
+          contentContainerStyle={cd.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
         <View style={cd.card}>
           <Text style={cd.title}>{bn ? '✅ উৎপাদন সম্পন্ন' : '✅ Complete Production'}</Text>
 
@@ -508,14 +515,15 @@ function CompleteDialog({ prod, locale, onDone, onClose }: {
             </Pressable>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const cd = StyleSheet.create({
-  wrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.60)', justifyContent: 'center', paddingHorizontal: 16, zIndex: 99999 },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24 },
+  wrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.60)', paddingHorizontal: 16, zIndex: 99999 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 32 },
   card: { backgroundColor: palette.cardBgPrimary, borderRadius: radii.lg, padding: 18, gap: 12 },
   title: { color: palette.text, fontSize: 18, fontWeight: '900' },
   sub: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
@@ -559,6 +567,31 @@ export function ProductionScreen() {
     filterStatus === 'done' ? p.status === 'completed' :
     p.status === 'cancelled'
   ), [productions, filterStatus]);
+
+  // Group by the relevant date: orderDate for active, completedDate/cancelDate for done/cancelled
+  type DateGroup = { dateKey: string; label: string; items: Production[] };
+  const dateGroups = useMemo((): DateGroup[] => {
+    const map = new Map<string, Production[]>();
+    for (const p of filtered) {
+      const raw = (filterStatus === 'done' ? p.completedDate : filterStatus === 'cancelled' ? p.cancelDate : null) ?? p.orderDate ?? '';
+      const key = raw.slice(0, 10);
+      const arr = map.get(key) ?? [];
+      arr.push(p);
+      map.set(key, arr);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => {
+        let label = key;
+        try {
+          label = new Date(key).toLocaleDateString(
+            locale === 'bn' ? 'bn-BD' : 'en-GB',
+            { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' },
+          );
+        } catch {}
+        return { dateKey: key, label, items };
+      });
+  }, [filtered, filterStatus, locale]);
 
   async function advance(prod: Production, status: string) {
     if (!token) return;
@@ -659,28 +692,39 @@ export function ProductionScreen() {
           <View style={styles.center}><ActivityIndicator color={palette.emerald} size="large" /></View>
         ) : (
           <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: tabPad + 24 }]} showsVerticalScrollIndicator={false}>
-            {filtered.length === 0 ? (
+            {dateGroups.length === 0 ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyIcon}>⚙️</Text>
                 <Text style={styles.emptyTitle}>{bn ? 'কোনো উৎপাদন নেই' : 'No productions'}</Text>
                 <Text style={styles.emptyBody}>{bn ? 'নতুন উৎপাদন তৈরি করতে + চাপুন' : 'Tap + to start a new production'}</Text>
               </View>
             ) : (
-              filtered.map(prod => (
-                <ProductionCard
-                  key={prod.id}
-                  prod={prod}
-                  locale={locale}
-                  money={money}
-                  costMoney={costMoney}
-                  lots={lots}
-                  lotBatches={lotBatches as any}
-                  products={products}
-                  onAdvance={() => advance(prod, 'in_progress')}
-                  onComplete={() => setCompletingProd(prod)}
-                  onCancel={() => cancel(prod)}
-                  onDelete={() => deleteProd(prod)}
-                />
+              dateGroups.map(group => (
+                <View key={group.dateKey} style={{ marginBottom: 6 }}>
+                  {/* Date header */}
+                  <View style={styles.dateHeader}>
+                    <View style={styles.dateGlowDot} />
+                    <Text style={styles.dateLabel}>{group.label}</Text>
+                    <View style={styles.dateLine} />
+                  </View>
+                  {group.items.map((prod, idx) => (
+                    <View key={prod.id} style={idx < group.items.length - 1 ? { marginBottom: 10 } : undefined}>
+                      <ProductionCard
+                        prod={prod}
+                        locale={locale}
+                        money={money}
+                        costMoney={costMoney}
+                        lots={lots}
+                        lotBatches={lotBatches as any}
+                        products={products}
+                        onAdvance={() => advance(prod, 'in_progress')}
+                        onComplete={() => setCompletingProd(prod)}
+                        onCancel={() => cancel(prod)}
+                        onDelete={() => deleteProd(prod)}
+                      />
+                    </View>
+                  ))}
+                </View>
               ))
             )}
           </ScrollView>
@@ -727,7 +771,11 @@ const styles = StyleSheet.create({
   filterBadge: { backgroundColor: palette.cardBgPrimary, borderRadius: 999, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   filterBadgeActive: { backgroundColor: palette.emeraldLight },
   filterBadgeText: { color: palette.text, fontSize: 10, fontWeight: '900' },
-  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 12 },
+  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 0 },
+  dateHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 8, paddingHorizontal: 2 },
+  dateGlowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.emerald, shadowColor: palette.emerald, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  dateLabel: { color: palette.emerald, fontSize: 11, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' as const, textShadowColor: 'rgba(0,168,255,0.5)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 },
+  dateLine: { flex: 1, height: 1, backgroundColor: `${palette.emerald}25`, borderRadius: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { color: palette.textMuted, fontSize: 15, fontWeight: '700' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },

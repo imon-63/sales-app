@@ -54,6 +54,8 @@ function createOrder({ actor, userId, input }) {
       quantity: Number(it.quantity),
       unitPrice: Number(it.unitPrice),
       currencyId: it.currencyId ?? null,
+      lotIds: Array.isArray(it.lotIds) ? it.lotIds.filter(Boolean) : [],
+      lotAllocations: it.lotAllocations ?? null,
     }).write();
   }
 
@@ -95,7 +97,7 @@ function updateOrder({ actor, userId, id, input }) {
   if (Array.isArray(input.items)) {
     db.get('orderItems').remove({ orderId: id }).write();
     for (const it of input.items.filter(it => it?.productId && Number(it.quantity) > 0)) {
-      db.get('orderItems').push({ id: crypto.randomUUID(), orderId: id, productId: it.productId, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice), currencyId: it.currencyId ?? null }).write();
+      db.get('orderItems').push({ id: crypto.randomUUID(), orderId: id, productId: it.productId, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice), currencyId: it.currencyId ?? null, lotIds: Array.isArray(it.lotIds) ? it.lotIds.filter(Boolean) : [], lotAllocations: it.lotAllocations ?? null }).write();
     }
   }
   return db.get('orders').find({ id }).value();
@@ -193,6 +195,9 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
           quantity: oi.quantity,
           unitPrice: oi.unitPrice,
           currencyId: oi.currencyId,
+          // Use lot selections made at processing time (if any)
+          lotIds: Array.isArray(oi.lotIds) && oi.lotIds.length > 0 ? oi.lotIds : undefined,
+          lotAllocations: oi.lotAllocations ?? undefined,
         })),
       },
     });

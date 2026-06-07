@@ -200,6 +200,7 @@ export function PurchaseDetailScreen() {
   // Sell form state
   const [sellQty, setSellQty] = useState('');
   const [sellPrice, setSellPrice] = useState('');
+  const [sellNotes, setSellNotes] = useState('');
   const [busy, setBusy] = useState(false);
 
   // Bottle breakdown — only shown when this lot was produced AND production has ≥1 bottle price
@@ -339,11 +340,13 @@ export function PurchaseDetailScreen() {
         await salesApi.createSale({
           warehouseId: autoWarehouseId,
           saleDate: new Date().toISOString().slice(0, 10),
+          notes: sellNotes.trim() || undefined,
           items: [{ productId: lot.productId, quantity: totalBottleLiters, unitPrice: bottleEffectiveUnitPrice, currencyId: defaultCurrencyId, lotIds: [lot.id], bottleBreakdown: JSON.stringify(bottleBreakdownItems) }],
         }, token);
         dispatch(showToast({ title: t('product.sell.successTitle'), message: t('product.sell.successMsg', { qty: totalBottleLiters, unit: unitLabel }), type: 'success' }));
         setBottleCounts({});
         setOilPricePerLiter('');
+        setSellNotes('');
         await Promise.all([dispatch(fetchSalesDataset()).unwrap(), dispatch(fetchInventoryStock()).unwrap()]);
         setActiveTab('sales');
       } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record sale.'); }
@@ -362,11 +365,13 @@ export function PurchaseDetailScreen() {
       await salesApi.createSale({
         warehouseId: autoWarehouseId,
         saleDate: new Date().toISOString().slice(0, 10),
+        notes: sellNotes.trim() || undefined,
         items: [{ productId: lot.productId, quantity: qty, unitPrice: price, currencyId: defaultCurrencyId, lotIds: [lot.id] }],
       }, token);
       dispatch(showToast({ title: t('product.sell.successTitle'), message: t('product.sell.successMsg', { qty, unit: unitLabel }), type: 'success' }));
       setSellQty('');
       setSellPrice('');
+      setSellNotes('');
       await Promise.all([dispatch(fetchSalesDataset()).unwrap(), dispatch(fetchInventoryStock()).unwrap()]);
       setActiveTab('sales');
     } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record sale.'); }
@@ -454,17 +459,28 @@ export function PurchaseDetailScreen() {
           <td><strong>${money.format(item.rev)}</strong></td>
         </tr>`;
       }).join('');
+
+      // Production consumption row — same data as the on-screen purple row
+      const prodRow = qtyUsedInProduction > 0 ? `<tr style="background:#f3f0ff">
+          <td style="color:#6d3fc2"><strong>⚙️ ${locale === 'bn' ? 'উৎপাদনে ব্যবহৃত' : 'Used in Production'}</strong><br>
+            <span class="ts" style="color:#8b6fc7">${lotProductionConsumptions[0]?.productionNumber ?? (locale === 'bn' ? 'উৎপাদন' : 'Production')}</span></td>
+          <td style="color:#6d3fc2">${qtyUsedInProduction.toLocaleString()} ${unitLabel}</td>
+          <td style="color:#6d3fc2"><strong>${money.format(salesInvTotals.prodRevenue)}</strong></td>
+        </tr>` : '';
+
       const { totalSold, totalQtySold, totalCost, profit, profitPct } = salesInvTotals;
       const profitColor = profit >= 0 ? '#00a86b' : '#cc2200';
       const profitSign = profit >= 0 ? '+' : '';
+      const txCount = filteredSales.length + (qtyUsedInProduction > 0 ? 1 : 0);
 
       html = `<html><head><meta charset="utf-8">${CSS}</head><body>
         <span class="badge">Sales Invoice</span>
         <h1>${product.name}</h1>
-        <p class="sub">Lot: ${lot?.lotNumber ?? '—'} &nbsp;·&nbsp; ${filteredSales.length} transaction${filteredSales.length !== 1 ? 's' : ''}</p>
+        <p class="sub">Lot: ${lot?.lotNumber ?? '—'} &nbsp;·&nbsp; ${txCount} transaction${txCount !== 1 ? 's' : ''}</p>
         <table>
-          <tr><th>Date · Seller</th><th>Quantity</th><th>Revenue</th></tr>
-          ${salesRows || '<tr><td colspan="3" style="text-align:center;color:#999">No sales recorded</td></tr>'}
+          <tr><th>Seller</th><th>Quantity</th><th>Revenue</th></tr>
+          ${salesRows}${prodRow}
+          ${!salesRows && !prodRow ? '<tr><td colspan="3" style="text-align:center;color:#999">No sales recorded</td></tr>' : ''}
           <tr class="total-row">
             <th>Total</th>
             <td>${totalQtySold.toLocaleString()} ${unitLabel}</td>
@@ -744,7 +760,9 @@ export function PurchaseDetailScreen() {
                     <Text style={s.sellContextIcon}>💰</Text>
                     <View>
                       <Text style={s.sellContextLabel}>{locale === 'bn' ? 'ক্রয় মূল্য' : 'Cost Price'}</Text>
-                      <Text style={s.sellContextValue}>{costMoney.format(Number(batch.unitCost))}</Text>
+                      <Text style={s.sellContextValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                        {Number(batch.unitCost).toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-BD', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                      </Text>
                       <Text style={s.sellContextSub}>{locale === 'bn' ? 'প্রতি একক' : 'per unit'}</Text>
                     </View>
                   </View>
@@ -849,6 +867,15 @@ export function PurchaseDetailScreen() {
                         </View>
                       </View>
                     )}
+                    <Text style={[s.fieldLabel, { marginTop: 12 }]}>{locale === 'bn' ? 'কাস্টমার নোট' : 'Customer Notes'} <Text style={{ fontWeight: '500', color: palette.textMuted }}>{locale === 'bn' ? '(ঐচ্ছিক)' : '(optional)'}</Text></Text>
+                    <TextInput
+                      style={[s.input, { minHeight: 44 }]}
+                      value={sellNotes}
+                      onChangeText={setSellNotes}
+                      placeholder={locale === 'bn' ? 'নাম, ঠিকানা, ফোন…' : 'Name, address, phone…'}
+                      placeholderTextColor={palette.textMuted}
+                      multiline
+                    />
                   </GlassCard>
                 ) : (
                   /* ── Regular mode: qty + unit price ── */
@@ -869,6 +896,15 @@ export function PurchaseDetailScreen() {
                         <Text style={s.orderPreviewValue}>{money.format(Number(sellQty) * Number(sellPrice))}</Text>
                       </View>
                     )}
+                    <Text style={[s.fieldLabel, { marginTop: 12 }]}>{locale === 'bn' ? 'কাস্টমার নোট' : 'Customer Notes'} <Text style={{ fontWeight: '500', color: palette.textMuted }}>{locale === 'bn' ? '(ঐচ্ছিক)' : '(optional)'}</Text></Text>
+                    <TextInput
+                      style={[s.input, { minHeight: 44 }]}
+                      value={sellNotes}
+                      onChangeText={setSellNotes}
+                      placeholder={locale === 'bn' ? 'নাম, ঠিকানা, ফোন…' : 'Name, address, phone…'}
+                      placeholderTextColor={palette.textMuted}
+                      multiline
+                    />
                   </GlassCard>
                 )}
 
@@ -1498,11 +1534,12 @@ const s = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    overflow: 'hidden' as const,
   },
   sellContextDivider: { width: 1, backgroundColor: palette.cardBorder, marginVertical: 10 },
   sellContextIcon: { fontSize: 22 },
   sellContextLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 3 },
-  sellContextValue: { color: palette.emerald, fontSize: 20, fontWeight: '900' as const, letterSpacing: -0.4 },
+  sellContextValue: { color: palette.emerald, fontSize: Platform.OS === 'android' ? 17 : 20, fontWeight: '900' as const, letterSpacing: -0.4 },
   sellContextSub: { color: palette.textMuted, fontSize: 10, fontWeight: '700' as const, marginTop: 2 },
 
   invoiceProductRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },

@@ -53,13 +53,33 @@ function createSale({ actor, userId, input }) {
       .filter(b => { const lot = (db.get('lots').value() ?? []).find(l => l.id === b.lotId); return lot?.productId === line.productId && (!line.lotIds?.length || line.lotIds.includes(lot.id)); })
       .sort((a, b) => line.lotIds?.length ? (line.lotIds.indexOf(a.lotId) - line.lotIds.indexOf(b.lotId)) || String(a.acquiredAt).localeCompare(String(b.acquiredAt)) : String(a.acquiredAt).localeCompare(String(b.acquiredAt)));
 
+    // Build per-lot quantity cap from explicit allocations (set at processing time)
+    const lotQtyCap = {}; // lotId → remaining to take from this lot
+    if (line.lotAllocations) {
+      try {
+        const allocs = typeof line.lotAllocations === 'string' ? JSON.parse(line.lotAllocations) : line.lotAllocations;
+        if (Array.isArray(allocs)) {
+          for (const a of allocs) { if (a.lotId && Number(a.quantity) > 0) lotQtyCap[a.lotId] = Number(a.quantity); }
+        }
+      } catch {}
+    }
+    const hasAllocations = Object.keys(lotQtyCap).length > 0;
+
     let rem = line.quantity * getConversionFactor(line.productId, line.unitId);
     for (const batch of candidates) {
       if (rem <= 0) break;
-      const take = Math.min(rem, Number(batch.remainingQuantity));
+      const lot = (db.get('lots').value() ?? []).find(l => l.id === batch.lotId);
+      if (!lot) continue;
+      // If explicit allocation: skip lots not in the cap, and cap how much we take from each
+      if (hasAllocations && lotQtyCap[lot.id] === undefined) continue;
+      const lotCap = hasAllocations ? (lotQtyCap[lot.id] ?? 0) : Infinity;
+      if (lotCap <= 0) continue;
+      const take = Math.min(rem, Number(batch.remainingQuantity), lotCap);
+      if (take <= 0) continue;
       db.get('lotBatches').find({ id: batch.id }).assign({ remainingQuantity: Number(batch.remainingQuantity) - take }).write();
       db.get('salesItemAllocations').push({ id: crypto.randomUUID(), salesItemId: line.id, lotBatchId: batch.id, quantityAllocated: take, unitCostAtTime: Number(batch.unitCost) }).write();
       rem -= take;
+      if (hasAllocations) lotQtyCap[lot.id] = (lotQtyCap[lot.id] ?? 0) - take;
     }
     if (rem > 0) throw new Error(`Insufficient stock in selected lot order for ${products.find(p => p.id === line.productId)?.name || 'product'}`);
   }

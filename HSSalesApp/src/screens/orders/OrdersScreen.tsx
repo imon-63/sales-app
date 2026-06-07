@@ -200,19 +200,21 @@ function OrderCard({
           <View style={oc.expanded}>
             <View style={oc.divider} />
 
-            {/* Items table */}
+            {/* Items table — fixed column widths so header and data always align */}
             <View style={oc.itemsHeader}>
-              <Text style={[oc.itemCol, { flex: 1 }]}>{bn ? 'পণ্য' : 'Product'}</Text>
-              <Text style={oc.itemColR}>{bn ? 'পরিমাণ' : 'Qty'}</Text>
-              <Text style={oc.itemColR}>{bn ? 'মূল্য' : 'Amount'}</Text>
+              <Text style={[oc.itemColH, { flex: 1 }]}>{bn ? 'পণ্য' : 'Product'}</Text>
+              <Text style={[oc.itemColH, oc.colQty]}>{bn ? 'পরিমাণ' : 'Qty'}</Text>
+              <Text style={[oc.itemColH, oc.colRate]}>{bn ? 'একক মূল্য' : 'Rate'}</Text>
+              <Text style={[oc.itemColH, oc.colAmt]}>{bn ? 'মোট' : 'Amount'}</Text>
             </View>
             {items.map(it => {
               const prod = products.find(p => p.id === it.productId);
               return (
                 <View key={it.id} style={oc.itemRow}>
                   <Text style={[oc.itemName, { flex: 1 }]} numberOfLines={1}>{prod?.name ?? '—'}</Text>
-                  <Text style={oc.itemQty}>×{it.quantity.toLocaleString()}</Text>
-                  <Text style={oc.itemPrice}>{money.format(it.quantity * it.unitPrice)}</Text>
+                  <Text style={[oc.itemCell, oc.colQty]}>×{it.quantity.toLocaleString()}</Text>
+                  <Text style={[oc.itemCell, oc.colRate]}>{it.unitPrice.toLocaleString()}</Text>
+                  <Text style={[oc.itemCell, oc.colAmt, { color: palette.emerald }]}>{money.format(it.quantity * it.unitPrice)}</Text>
                 </View>
               );
             })}
@@ -251,7 +253,7 @@ function OrderCard({
             {/* Record Payment — available until fully paid, even after delivery */}
             {!isPaid && order.status !== 'cancelled' && (
               <Pressable onPress={onRecordPayment} style={({ pressed }) => [oc.payBtn, pressed && { opacity: 0.8 }]}>
-                <Text style={oc.payBtnText}>💳 {bn ? 'পেমেন্ট রেকর্ড করুন' : 'Record Payment'}</Text>
+                <Text style={oc.payBtnText} numberOfLines={1} allowFontScaling={false}>💳 {bn ? 'পেমেন্ট রেকর্ড করুন' : 'Record Payment'}</Text>
               </Pressable>
             )}
 
@@ -343,11 +345,16 @@ const oc = StyleSheet.create({
   divider: { height: 1, backgroundColor: palette.cardBorder, marginBottom: 12 },
   itemsHeader: { flexDirection: 'row', paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: palette.cardBorder, marginBottom: 4 },
   itemCol: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' as const, letterSpacing: 0.5 },
-  itemColR: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' as const, letterSpacing: 0.5, minWidth: 60, textAlign: 'right' as const },
+  // Shared column widths — must match between header and data rows
+  colQty:  { width: 46, textAlign: 'right' as const },
+  colRate: { width: 52, textAlign: 'right' as const },
+  colAmt:  { width: 70, textAlign: 'right' as const },
+  itemColH: { color: palette.textMuted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' as const, letterSpacing: 0.3 },
+  itemCell: { color: palette.text, fontSize: 12, fontWeight: '700' },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 8, borderBottomWidth: 1, borderBottomColor: `${palette.cardBorder}60` },
   itemName: { color: palette.textLabel, fontSize: 13, fontWeight: '700' },
-  itemQty: { color: palette.textMuted, fontSize: 12, fontWeight: '700', minWidth: 36, textAlign: 'right' as const },
-  itemPrice: { color: palette.text, fontSize: 13, fontWeight: '900', minWidth: 72, textAlign: 'right' as const },
+  itemQty: { color: palette.textMuted, fontSize: 12, fontWeight: '700', minWidth: 32, textAlign: 'right' as const },
+  itemPrice: { color: palette.text, fontSize: 12, fontWeight: '800', minWidth: 50, textAlign: 'right' as const },
   paySection: { marginTop: 14, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder, overflow: 'hidden' },
   paySectionHeader: { backgroundColor: palette.cardBgElevated, paddingHorizontal: 12, paddingVertical: 7 },
   paySectionTitle: { color: palette.text, fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
@@ -369,7 +376,7 @@ const oc = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  payBtnText: { color: palette.success, fontSize: 13, fontWeight: '900' },
+  payBtnText: { color: palette.success, fontSize: 13, fontWeight: '900', flexShrink: 1 },
   notesBox: { marginTop: 10, padding: 10, backgroundColor: palette.cardBgElevated, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder },
   notesLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' as const, marginBottom: 3 },
   notesText: { color: palette.textLabel, fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
@@ -422,12 +429,7 @@ function NewOrderForm({ products, currencies, stockByProduct, locale, onClose, o
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
   const [busy, setBusy] = useState(false);
 
-  // Show available stock in product labels
-  const productOptions = products.map(p => {
-    const avail = stockByProduct.get(p.id) ?? 0;
-    const suffix = avail > 0 ? ` (${avail.toLocaleString()} available)` : ` (${locale === 'bn' ? 'মজুদ নেই' : 'no stock'})`;
-    return { value: p.id, label: p.name + suffix };
-  });
+  const productOptions = products.map(p => ({ value: p.id, label: p.name }));
   const curId = currencies[0]?.id ?? '';
   const bn = locale === 'bn';
 
@@ -512,18 +514,13 @@ function NewOrderForm({ products, currencies, stockByProduct, locale, onClose, o
 
         <Text style={[nof.label, { marginTop: 18 }]}>{bn ? 'পণ্য তালিকা' : 'Items'}</Text>
         {lines.map((l, i) => {
-          const available = l.productId ? (stockByProduct.get(l.productId) ?? 0) : 0;
-          const ordered = Number(l.quantity) || 0;
-          const overStock = l.productId && ordered > available;
-          const noStock = l.productId && available === 0;
           return (
-          <View key={l.id} style={[nof.lineCard, overStock && { borderColor: palette.rose }]}>
+          <View key={l.id} style={nof.lineCard}>
             <SelectMenu label={bn ? 'পণ্য' : 'Product'} value={l.productId} options={productOptions} onChange={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, productId: v } : x))} />
-            {noStock && <Text style={{ color: palette.rose, fontSize: 11, fontWeight: '800', marginTop: 4 }}>⚠️ {bn ? 'এই পণ্যের মজুদ নেই — ডেলিভারি ব্লক হবে' : 'No stock — delivery will be blocked'}</Text>}
             <View style={nof.lineRow}>
               <View style={{ flex: 1 }}>
-                <Text style={nof.smallLabel}>{bn ? `পরিমাণ (মজুদ: ${available})` : `Qty (avail: ${available})`}</Text>
-                <TextInput value={l.quantity} onChangeText={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, quantity: v } : x))} keyboardType="numeric" style={[nof.smallInput, overStock && { borderColor: palette.rose }]} placeholderTextColor={palette.textMuted} />
+                <Text style={nof.smallLabel}>{bn ? 'পরিমাণ' : 'Qty'}</Text>
+                <TextInput value={l.quantity} onChangeText={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, quantity: v } : x))} keyboardType="numeric" placeholder="1" style={nof.smallInput} placeholderTextColor={palette.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={nof.smallLabel}>{bn ? 'দাম (BDT)' : 'Price (BDT)'}</Text>
@@ -533,7 +530,6 @@ function NewOrderForm({ products, currencies, stockByProduct, locale, onClose, o
                 <Pressable onPress={() => setLines(prev => prev.filter((_, j) => j !== i))} style={nof.removeBtn}><Text style={{ color: palette.rose, fontSize: 16 }}>✕</Text></Pressable>
               )}
             </View>
-            {overStock && <Text style={{ color: palette.rose, fontSize: 11, fontWeight: '700', marginTop: 6 }}>⚠️ {bn ? `চাহিদা (${ordered}) মজুদের (${available}) বেশি` : `Ordered (${ordered}) exceeds stock (${available})`}</Text>}
           </View>
           );
         })}
@@ -707,6 +703,266 @@ function EditOrderForm({ order, existingItems, products, currencies, locale, onC
   );
 }
 
+// ── Processing lot-selection dialog ──────────────────────────────────────────────
+
+type AvailLot = { lot: { id: string; lotNumber: string }; totalRemaining: number };
+
+function ProcessingLotDialog({ items, lots, lotBatches, products, locale, onConfirm, onClose }: {
+  items: OrderItem[];
+  lots: { id: string; productId: string; lotNumber: string }[];
+  lotBatches: { id: string; lotId: string; warehouseId: string; remainingQuantity: number; acquiredAt: string }[];
+  products: { id: string; name: string }[];
+  locale: string;
+  onConfirm: (lotIds: Record<string, string[]>, lotAllocations: Record<string, { lotId: string; quantity: number }[]>) => void;
+  onClose: () => void;
+}) {
+  const bn = locale === 'bn';
+  // { [itemId]: ordered lot IDs }
+  const [selected, setSelected] = React.useState<Record<string, string[]>>(() =>
+    Object.fromEntries(items.map(it => [it.id, it.lotIds ?? []])),
+  );
+  // { [itemId]: { [lotId]: qty string } }
+  const [allocInputs, setAllocInputs] = React.useState<Record<string, Record<string, string>>>({});
+
+  // Build available lots map
+  const availByItem = React.useMemo(() => {
+    const m: Record<string, AvailLot[]> = {};
+    for (const item of items) {
+      const al = lots
+        .filter(l => l.productId === item.productId)
+        .map(l => {
+          const rem = lotBatches.filter(b => b.lotId === l.id).reduce((s, b) => s + Number(b.remainingQuantity), 0);
+          return { lot: l, totalRemaining: rem };
+        })
+        .filter(x => x.totalRemaining > 0)
+        .sort((a, b) => String(b.lot.lotNumber).localeCompare(String(a.lot.lotNumber))); // newest first
+      m[item.id] = al;
+    }
+    return m;
+  }, [items, lots, lotBatches]);
+
+  const toggleLot = (itemId: string, lotId: string, avail: number) => {
+    setSelected(prev => {
+      const cur = prev[itemId] ?? [];
+      const isAdding = !cur.includes(lotId);
+      const next = isAdding ? [...cur, lotId] : cur.filter(l => l !== lotId);
+      // Auto-compute allocations when selection changes
+      if (isAdding) {
+        const item = items.find(it => it.id === itemId)!;
+        autoFillAllocations(itemId, next, item.quantity, avail);
+      }
+      return { ...prev, [itemId]: next };
+    });
+  };
+
+  const swapLots = (itemId: string, i: number, j: number) => {
+    setSelected(prev => {
+      const arr = [...(prev[itemId] ?? [])];
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      // Re-auto-fill after swap
+      const item = items.find(it => it.id === itemId)!;
+      autoFillAfterSwap(itemId, arr, item.quantity, availByItem[itemId] ?? []);
+      return { ...prev, [itemId]: arr };
+    });
+  };
+
+  const autoFillAllocations = (itemId: string, lotIds: string[], needed: number, addedAvail?: number) => {
+    const item = items.find(it => it.id === itemId)!;
+    const al = availByItem[itemId] ?? [];
+    setAllocInputs(prev => {
+      const next: Record<string, string> = { ...prev[itemId] };
+      let rem = needed;
+      for (const lid of lotIds) {
+        const avail = al.find(x => x.lot.id === lid)?.totalRemaining ?? 0;
+        const take = Math.min(rem, avail);
+        next[lid] = String(take);
+        rem -= take;
+        if (rem <= 0) break;
+      }
+      // Zero out removed lots
+      for (const k of Object.keys(next)) {
+        if (!lotIds.includes(k)) delete next[k];
+      }
+      return { ...prev, [itemId]: next };
+    });
+  };
+
+  const autoFillAfterSwap = (itemId: string, lotIds: string[], needed: number, al: AvailLot[]) => {
+    setAllocInputs(prev => {
+      const next: Record<string, string> = {};
+      let rem = needed;
+      for (const lid of lotIds) {
+        const avail = al.find(x => x.lot.id === lid)?.totalRemaining ?? 0;
+        const take = Math.min(rem, avail);
+        next[lid] = String(take);
+        rem -= take;
+        if (rem <= 0) break;
+      }
+      return { ...prev, [itemId]: next };
+    });
+  };
+
+  // Validation per item
+  const validationByItem = React.useMemo(() => {
+    const v: Record<string, { totalSelected: number; allocSum: number; valid: boolean; error?: string }> = {};
+    for (const item of items) {
+      const sel = selected[item.id] ?? [];
+      const al = availByItem[item.id] ?? [];
+      const totalSelected = sel.reduce((s, lid) => s + (al.find(x => x.lot.id === lid)?.totalRemaining ?? 0), 0);
+      const allocs = allocInputs[item.id] ?? {};
+      const allocSum = sel.reduce((s, lid) => s + (Number(allocs[lid]) || 0), 0);
+      let error: string | undefined;
+      if (sel.length === 0) error = bn ? 'কমপক্ষে একটি লট বেছে নিন' : 'Select at least one lot';
+      else if (totalSelected < item.quantity) error = bn ? `মজুদ কম (${totalSelected.toLocaleString()} < ${item.quantity.toLocaleString()})` : `Insufficient: ${totalSelected.toLocaleString()} < ${item.quantity.toLocaleString()} needed`;
+      else if (allocSum !== item.quantity) error = bn ? `বরাদ্দ মিলছে না: ${allocSum} ≠ ${item.quantity}` : `Allocation must equal ${item.quantity} (currently ${allocSum})`;
+      v[item.id] = { totalSelected, allocSum, valid: !error, error };
+    }
+    return v;
+  }, [selected, allocInputs, items, availByItem, bn]);
+
+  const canConfirm = items.every(it => validationByItem[it.id]?.valid);
+
+  return (
+    <View style={pld.wrap}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={pld.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={pld.card}>
+            <Text style={pld.title}>⚙️ {bn ? 'লট বরাদ্দ করুন' : 'Allocate Lots'}</Text>
+            <Text style={pld.hint}>{bn ? 'কোন লট থেকে কতটুকু নেবেন সেট করুন' : 'Set which lots to fulfil each item from and how much'}</Text>
+
+            {items.map(item => {
+              const prod = products.find(p => p.id === item.productId);
+              const avail = availByItem[item.id] ?? [];
+              const sel = selected[item.id] ?? [];
+              const vld = validationByItem[item.id];
+
+              return (
+                <View key={item.id} style={pld.itemSection}>
+                  {/* Item header */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={pld.itemName}>{prod?.name ?? '—'}</Text>
+                    <Text style={[pld.itemQty, { color: vld?.valid ? palette.success : palette.textMuted }]}>
+                      {bn ? 'প্রয়োজন' : 'Need'}: {item.quantity.toLocaleString()}
+                    </Text>
+                  </View>
+
+                  {/* Error message */}
+                  {vld?.error && (
+                    <View style={pld.errorBox}>
+                      <Text style={pld.errorText}>⚠️ {vld.error}</Text>
+                    </View>
+                  )}
+
+                  {/* Lot list */}
+                  {avail.length === 0 ? (
+                    <Text style={{ color: palette.rose, fontSize: 12, fontWeight: '700' }}>
+                      ⚠️ {bn ? 'কোনো লট পাওয়া যায়নি' : 'No lots available'}
+                    </Text>
+                  ) : avail.map(({ lot, totalRemaining }) => {
+                    const isSelected = sel.includes(lot.id);
+                    const allocs = allocInputs[item.id] ?? {};
+
+                    return (
+                      <View key={lot.id} style={[pld.lotRow, isSelected && pld.lotRowSelected]}>
+                        {/* Checkbox */}
+                        <Pressable onPress={() => toggleLot(item.id, lot.id, totalRemaining)} style={[pld.lotCheck, isSelected && pld.lotCheckSelected]}>
+                          {isSelected && <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>✓</Text>}
+                        </Pressable>
+                        {/* Lot info */}
+                        <View style={{ flex: 1 }}>
+                          <Text style={[pld.lotNum, isSelected && { color: palette.emerald }]}>{lot.lotNumber}</Text>
+                          <Text style={pld.lotQty}>{totalRemaining.toLocaleString()} {bn ? 'উপলব্ধ' : 'available'}</Text>
+                        </View>
+                        {/* Allocation input + swap buttons (only when selected) */}
+                        {isSelected && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {/* Swap up/down */}
+                            <View style={{ gap: 2 }}>
+                              {sel.indexOf(lot.id) > 0 && (
+                                <Pressable onPress={() => swapLots(item.id, sel.indexOf(lot.id), sel.indexOf(lot.id) - 1)} hitSlop={6} style={pld.swapBtn}>
+                                  <Text style={pld.swapText}>▲</Text>
+                                </Pressable>
+                              )}
+                              {sel.indexOf(lot.id) < sel.length - 1 && (
+                                <Pressable onPress={() => swapLots(item.id, sel.indexOf(lot.id), sel.indexOf(lot.id) + 1)} hitSlop={6} style={pld.swapBtn}>
+                                  <Text style={pld.swapText}>▼</Text>
+                                </Pressable>
+                              )}
+                            </View>
+                            {/* Qty input */}
+                            <View style={{ alignItems: 'center' }}>
+                              <Text style={{ color: palette.textMuted, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>{bn ? 'নেব' : 'Take'}</Text>
+                              <TextInput
+                                value={allocs[lot.id] ?? ''}
+                                onChangeText={v => setAllocInputs(prev => ({ ...prev, [item.id]: { ...(prev[item.id] ?? {}), [lot.id]: v } }))}
+                                keyboardType="numeric"
+                                style={pld.allocInput}
+                                placeholderTextColor={palette.textMuted}
+                                placeholder="0"
+                              />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+
+            <View style={pld.actions}>
+              <Pressable onPress={onClose} style={pld.cancelBtn}><Text style={pld.cancelText}>{bn ? 'বাতিল' : 'Cancel'}</Text></Pressable>
+              <Pressable
+                onPress={() => {
+                  const lotIds: Record<string, string[]> = {};
+                  const lotAllocs: Record<string, { lotId: string; quantity: number }[]> = {};
+                  for (const item of items) {
+                    const sel = selected[item.id] ?? [];
+                    const allocs = allocInputs[item.id] ?? {};
+                    lotIds[item.id] = sel;
+                    lotAllocs[item.id] = sel.map(lid => ({ lotId: lid, quantity: Number(allocs[lid]) || 0 })).filter(a => a.quantity > 0);
+                  }
+                  onConfirm(lotIds, lotAllocs);
+                }}
+                disabled={!canConfirm}
+                style={[pld.confirmBtn, !canConfirm && { opacity: 0.45 }]}>
+                <Text style={pld.confirmText}>{bn ? 'প্রক্রিয়া শুরু করুন' : 'Move to Processing'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+const pld = StyleSheet.create({
+  wrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 99999 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 16 },
+  card: { backgroundColor: palette.cardBgPrimary, borderRadius: radii.lg, padding: 18, gap: 12 },
+  title: { color: palette.text, fontSize: 18, fontWeight: '900' },
+  hint: { color: palette.textMuted, fontSize: 12, fontWeight: '600', marginTop: -4 },
+  itemSection: { borderTopWidth: 1, borderTopColor: palette.cardBorder, paddingTop: 12, gap: 8 },
+  itemName: { color: palette.text, fontSize: 15, fontWeight: '900' },
+  itemQty: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
+  errorBox: { backgroundColor: `${palette.rose}14`, borderRadius: radii.sm, padding: 8, borderWidth: 1, borderColor: `${palette.rose}35` },
+  errorText: { color: palette.rose, fontSize: 12, fontWeight: '800' },
+  lotRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder, backgroundColor: palette.cardBgElevated },
+  lotRowSelected: { borderColor: `${palette.emerald}60`, backgroundColor: `${palette.emerald}10` },
+  lotCheck: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: palette.textMuted, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  lotCheckSelected: { borderColor: palette.emerald, backgroundColor: palette.emerald },
+  lotNum: { color: palette.text, fontSize: 13, fontWeight: '800' },
+  lotQty: { color: palette.textMuted, fontSize: 11, fontWeight: '600' },
+  swapBtn: { width: 20, height: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.cardBgElevated, borderRadius: 4, borderWidth: 1, borderColor: palette.cardBorder },
+  swapText: { color: palette.textMuted, fontSize: 9, fontWeight: '900' },
+  allocInput: { width: 56, borderWidth: 1, borderColor: palette.emerald, borderRadius: radii.sm, paddingHorizontal: 8, paddingVertical: 6, color: palette.emerald, backgroundColor: `${palette.emerald}10`, fontSize: 13, fontWeight: '900', textAlign: 'center' as const },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder, alignItems: 'center' },
+  cancelText: { color: palette.textMuted, fontWeight: '800' },
+  confirmBtn: { flex: 2, paddingVertical: 12, borderRadius: radii.md, backgroundColor: palette.emerald, alignItems: 'center', shadowColor: palette.emerald, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+  confirmText: { color: palette.onAccent, fontWeight: '900', fontSize: 13 },
+});
+
 // ── Main screen ────────────────────────────────────────────────────────────────
 
 type Filter = 'active' | 'delivered' | 'cancelled';
@@ -719,7 +975,7 @@ export function OrdersScreen() {
   const role = useAppSelector(s => s.auth.user?.role);
   const isAdmin = role === 'admin';
   const { orders, orderItems, orderPayments, status } = useAppSelector(s => s.orders);
-  const { products, currencies } = useAppSelector(s => s.salesData);
+  const { products, currencies, lots, lotBatches } = useAppSelector(s => s.salesData);
   const stockRows = useAppSelector(s => s.inventory.stockRows);
 
   // Aggregate available stock per product across all warehouses
@@ -734,6 +990,7 @@ export function OrdersScreen() {
   const [filter, setFilter] = useState<Filter>('active');
   const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [processingOrder, setProcessingOrder] = useState<Order | null>(null);
   const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
   const [paymentAmt, setPaymentAmt] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
@@ -752,17 +1009,60 @@ export function OrdersScreen() {
     ).sort((a, b) => b.orderDate.localeCompare(a.orderDate));
   }, [orders, filter]);
 
+  type OrderDateGroup = { dateKey: string; label: string; items: Order[] };
+  const orderDateGroups = useMemo((): OrderDateGroup[] => {
+    const map = new Map<string, Order[]>();
+    for (const o of filtered) {
+      const key = ((filter === 'delivered' ? o.deliveredDate : filter === 'cancelled' ? o.orderDate : null) ?? o.orderDate ?? '').slice(0, 10);
+      const arr = map.get(key) ?? [];
+      arr.push(o);
+      map.set(key, arr);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => {
+        let label = key;
+        try {
+          label = new Date(key).toLocaleDateString(
+            locale === 'bn' ? 'bn-BD' : 'en-GB',
+            { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' },
+          );
+        } catch {}
+        return { dateKey: key, label, items };
+      });
+  }, [filtered, filter, locale]);
+
   const counts = useMemo(() => ({
     active: orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
     delivered: orders.filter(o => o.status === 'delivered').length,
     cancelled: orders.filter(o => o.status === 'cancelled').length,
   }), [orders]);
 
-  async function advance(order: Order) {
+  async function advance(
+    order: Order,
+    lotSelections?: Record<string, string[]>,
+    lotAllocMap?: Record<string, { lotId: string; quantity: number }[]>,
+  ) {
     if (!token) return;
     const next = NEXT_STATUS[order.status];
     if (!next) return;
     try {
+      if (lotSelections && Object.keys(lotSelections).length > 0) {
+        const items = orderItems
+          .filter(oi => oi.orderId === order.id)
+          .map(oi => ({
+            productId: oi.productId,
+            quantity: oi.quantity,
+            unitPrice: oi.unitPrice,
+            currencyId: oi.currencyId,
+            lotIds: lotSelections[oi.id] ?? oi.lotIds ?? [],
+            lotAllocations: lotAllocMap?.[oi.id]?.length
+              ? JSON.stringify(lotAllocMap[oi.id])
+              : (oi.lotAllocations ? JSON.stringify(oi.lotAllocations) : undefined),
+          }));
+        await ordersApi.updateOrder(order.id, { items }, token);
+        dispatch(fetchOrders());
+      }
       const updated = await ordersApi.updateOrderStatus(order.id, next, undefined, token);
       dispatch(upsertOrder(updated));
       dispatch(showToast({ title: bn ? 'স্ট্যাটাস পরিবর্তন' : 'Status Updated', message: statusLabel(next, locale), type: 'success' }));
@@ -843,30 +1143,40 @@ export function OrdersScreen() {
           <View style={styles.center}><ActivityIndicator color={palette.emerald} size="large" /></View>
         ) : (
           <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: tabPad + 24 }]} showsVerticalScrollIndicator={false}>
-            {filtered.length === 0 ? (
+            {orderDateGroups.length === 0 ? (
               <View style={styles.empty}>
                 <Text style={styles.emptyIcon}>📋</Text>
                 <Text style={styles.emptyTitle}>{bn ? 'কোনো অর্ডার নেই' : 'No orders'}</Text>
                 <Text style={styles.emptyBody}>{bn ? 'নতুন অর্ডার নিতে + চাপুন' : 'Tap + to create a new order'}</Text>
               </View>
             ) : (
-              filtered.map(order => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  items={orderItems.filter(oi => oi.orderId === order.id)}
-                  payments={orderPayments.filter(p => p.orderId === order.id)}
-                  locale={locale}
-                  money={money}
-                  products={products}
-                  isAdmin={isAdmin}
-                  isOwner={order.createdBy === userId}
-                  onAdvance={() => advance(order)}
-                  onCancel={() => cancelOrder(order)}
-                  onDelete={() => deleteOrder(order)}
-                  onEdit={() => setEditingOrder(order)}
-                  onRecordPayment={() => setPaymentOrder(order)}
-                />
+              orderDateGroups.map(group => (
+                <View key={group.dateKey} style={{ marginBottom: 6 }}>
+                  <View style={styles.dateHeader}>
+                    <View style={styles.dateGlowDot} />
+                    <Text style={styles.dateLabel}>{group.label}</Text>
+                    <View style={styles.dateLine} />
+                  </View>
+                  {group.items.map((order, idx) => (
+                    <View key={order.id} style={idx < group.items.length - 1 ? { marginBottom: 10 } : undefined}>
+                      <OrderCard
+                        order={order}
+                        items={orderItems.filter(oi => oi.orderId === order.id)}
+                        payments={orderPayments.filter(p => p.orderId === order.id)}
+                        locale={locale}
+                        money={money}
+                        products={products}
+                        isAdmin={isAdmin}
+                        isOwner={order.createdBy === userId}
+                        onAdvance={() => NEXT_STATUS[order.status] === 'processing' ? setProcessingOrder(order) : advance(order)}
+                        onCancel={() => cancelOrder(order)}
+                        onDelete={() => deleteOrder(order)}
+                        onEdit={() => setEditingOrder(order)}
+                        onRecordPayment={() => setPaymentOrder(order)}
+                      />
+                    </View>
+                  ))}
+                </View>
               ))
             )}
           </ScrollView>
@@ -886,6 +1196,22 @@ export function OrdersScreen() {
             onCreated={order => { dispatch(upsertOrder(order)); setShowForm(false); dispatch(showToast({ title: bn ? 'অর্ডার তৈরি হয়েছে' : 'Order Created', message: order.orderNumber, type: 'success' })); }}
           />
         </View>
+      )}
+
+      {/* Processing lot selection dialog */}
+      {processingOrder && (
+        <ProcessingLotDialog
+          items={orderItems.filter(oi => oi.orderId === processingOrder.id)}
+          lots={lots}
+          lotBatches={lotBatches as any}
+          products={products}
+          locale={locale}
+          onClose={() => setProcessingOrder(null)}
+          onConfirm={async (lotIds, lotAllocations) => {
+            setProcessingOrder(null);
+            await advance(processingOrder, lotIds, lotAllocations);
+          }}
+        />
       )}
 
       {/* Edit order bottom sheet */}
@@ -912,38 +1238,41 @@ export function OrdersScreen() {
 
       {/* Record Payment dialog */}
       {paymentOrder && (
-        <View style={styles.overlayTop}>
+        <View style={styles.overlayCentered}>
           <Pressable style={styles.overlayBg} onPress={() => { setPaymentOrder(null); setPaymentAmt(''); setPaymentNote(''); }} />
-          <View style={styles.payDialog}>
-            <Text style={styles.payDialogTitle}>{bn ? '💳 পেমেন্ট রেকর্ড' : '💳 Record Payment'}</Text>
-            <Text style={styles.payDialogSub}>{paymentOrder.orderNumber} · {paymentOrder.customerName}</Text>
-            <Text style={styles.payDialogLabel}>{bn ? 'পরিমাণ (BDT) *' : 'Amount (BDT) *'}</Text>
-            <TextInput
-              value={paymentAmt}
-              onChangeText={setPaymentAmt}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={palette.textMuted}
-              style={styles.payDialogInput}
-              autoFocus
-            />
-            <Text style={styles.payDialogLabel}>{bn ? 'নোট (ঐচ্ছিক)' : 'Note (optional)'}</Text>
-            <TextInput
-              value={paymentNote}
-              onChangeText={setPaymentNote}
-              placeholder={bn ? 'যেমন: বকেয়া পেমেন্ট' : 'e.g. partial payment'}
-              placeholderTextColor={palette.textMuted}
-              style={styles.payDialogInput}
-            />
-            <View style={styles.payDialogActions}>
-              <Pressable onPress={() => { setPaymentOrder(null); setPaymentAmt(''); setPaymentNote(''); }} style={styles.payDialogCancel}>
-                <Text style={{ color: palette.textMuted, fontWeight: '800' }}>{bn ? 'বাতিল' : 'Cancel'}</Text>
-              </Pressable>
-              <Pressable onPress={submitPayment} disabled={paymentBusy} style={[styles.payDialogConfirm, paymentBusy && { opacity: 0.5 }]}>
-                {paymentBusy ? <ActivityIndicator color={palette.onAccent} size="small" /> : <Text style={{ color: palette.onAccent, fontWeight: '900' }}>{bn ? 'সংরক্ষণ' : 'Save'}</Text>}
-              </Pressable>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.payDialogKav}>
+            <View style={styles.payDialog}>
+              <Text style={styles.payDialogTitle}>{bn ? '💳 পেমেন্ট রেকর্ড' : '💳 Record Payment'}</Text>
+              <Text style={styles.payDialogSub}>{paymentOrder.orderNumber} · {paymentOrder.customerName}</Text>
+              <Text style={styles.payDialogLabel}>{bn ? 'পরিমাণ (BDT) *' : 'Amount (BDT) *'}</Text>
+              <TextInput
+                value={paymentAmt}
+                onChangeText={setPaymentAmt}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={palette.textMuted}
+                style={styles.payDialogInput}
+              />
+              <Text style={styles.payDialogLabel}>{bn ? 'নোট (ঐচ্ছিক)' : 'Note (optional)'}</Text>
+              <TextInput
+                value={paymentNote}
+                onChangeText={setPaymentNote}
+                placeholder={bn ? 'যেমন: বকেয়া পেমেন্ট' : 'e.g. partial payment'}
+                placeholderTextColor={palette.textMuted}
+                style={styles.payDialogInput}
+              />
+              <View style={styles.payDialogActions}>
+                <Pressable onPress={() => { setPaymentOrder(null); setPaymentAmt(''); setPaymentNote(''); }} style={styles.payDialogCancel}>
+                  <Text style={{ color: palette.textMuted, fontWeight: '800' }}>{bn ? 'বাতিল' : 'Cancel'}</Text>
+                </Pressable>
+                <Pressable onPress={submitPayment} disabled={paymentBusy} style={[styles.payDialogConfirm, paymentBusy && { opacity: 0.5 }]}>
+                  {paymentBusy ? <ActivityIndicator color={palette.onAccent} size="small" /> : <Text style={{ color: palette.onAccent, fontWeight: '900' }}>{bn ? 'সংরক্ষণ' : 'Save'}</Text>}
+                </Pressable>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       )}
     </MeshBackground>
@@ -964,7 +1293,11 @@ const styles = StyleSheet.create({
   filterBadge: { backgroundColor: palette.cardBgPrimary, borderRadius: 999, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   filterBadgeActive: { backgroundColor: palette.emeraldLight },
   filterBadgeText: { color: palette.text, fontSize: 10, fontWeight: '900' },
-  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 12 },
+  scroll: { paddingHorizontal: 16, paddingTop: 4, gap: 0 },
+  dateHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 8, paddingHorizontal: 2 },
+  dateGlowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.emerald, shadowColor: palette.emerald, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  dateLabel: { color: palette.emerald, fontSize: 11, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' as const, textShadowColor: 'rgba(0,168,255,0.5)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6 },
+  dateLine: { flex: 1, height: 1, backgroundColor: `${palette.emerald}25`, borderRadius: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyIcon: { fontSize: 48 },
@@ -973,7 +1306,9 @@ const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-end', zIndex: 99999, elevation: 99 },
   overlayTop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'flex-start', zIndex: 99999, elevation: 99 },
   overlayBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.60)' },
-  payDialog: { backgroundColor: palette.cardBgPrimary, borderBottomLeftRadius: radii.xl, borderBottomRightRadius: radii.xl, padding: 24, paddingTop: 56, gap: 10 },
+  overlayCentered: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', zIndex: 99999, elevation: 99 },
+  payDialogKav: { marginHorizontal: 20 },
+  payDialog: { backgroundColor: palette.cardBgPrimary, borderRadius: radii.xl, padding: 22, gap: 10 },
   payDialogTitle: { color: palette.text, fontSize: 18, fontWeight: '900' },
   payDialogSub: { color: palette.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 4 },
   payDialogLabel: { color: palette.textLabel, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },

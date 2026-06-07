@@ -170,12 +170,14 @@ function PurchaseCard({
                     </Text>
                   </View>
                 )}
-                {warehouse?.name ? (
-                  <Text style={cs.warehouseText} numberOfLines={1}>
-                    {lot.lotNumber || isActiveViewing ? '· ' : ''}{warehouse.name}
-                  </Text>
-                ) : (
-                  <Text style={cs.warehouseText}>{purchaseDate}</Text>
+                {!isActiveViewing && (
+                  warehouse?.name ? (
+                    <Text style={cs.warehouseText}>
+                      {lot.lotNumber ? '· ' : ''}{warehouse.name}
+                    </Text>
+                  ) : (
+                    <Text style={cs.warehouseText}>{purchaseDate}</Text>
+                  )
                 )}
               </View>
             </View>
@@ -311,7 +313,7 @@ const cs = StyleSheet.create({
   },
   pressed: { opacity: 0.86 },
   strip: { width: 5, borderTopLeftRadius: radii.lg, borderBottomLeftRadius: radii.lg },
-  body: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  body: { flex: 1, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
 
   headline: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   headlineLeft: { flex: 1, paddingRight: 10, gap: 4 },
@@ -368,7 +370,7 @@ const cs = StyleSheet.create({
   liveAvatarMore: { backgroundColor: 'rgba(255,59,92,0.25)' },
   liveAvatarMoreText: { color: palette.rose, fontSize: 8, fontWeight: '900' },
   livePillText: { color: palette.rose, fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
-  warehouseText: { color: palette.textMuted, fontSize: 11, fontWeight: '700', flexShrink: 1 },
+  warehouseText: { color: palette.textMuted, fontSize: 11, fontWeight: '700' },
 
   headlineRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   soldBadge: {
@@ -674,20 +676,22 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: palette.emerald,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#2A1F6E',
+    borderWidth: 1.5,
+    borderColor: 'rgba(140,100,255,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: palette.emerald,
-    shadowOpacity: 0.40,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    shadowColor: '#7C5CE8',
+    shadowOpacity: 0.50,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
     flexShrink: 0,
   },
-  avatarText: { color: palette.onAccent, fontSize: 22, fontWeight: '900' },
+  avatarText: { color: '#C5AAFF', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
   headerInfo: { flex: 1 },
   userName: {
     color: palette.text,

@@ -3,7 +3,7 @@ import type { Order, OrderItem, OrderPayment } from '../types/models';
 import { requestGraphql } from './http';
 
 const ORDER_FIELDS = `id orderNumber status customerName customerPhone customerAddress orderDate expectedDelivery deliveredDate warehouseId advancePaid notes createdBy cancelReason`;
-const ITEM_FIELDS = `id orderId productId quantity unitPrice currencyId`;
+const ITEM_FIELDS = `id orderId productId quantity unitPrice currencyId lotIds lotAllocations`;
 const PMT_FIELDS = `id orderId amount notes paidAt recordedBy`;
 
 export async function fetchOrders(token: string, baseUrl = getJsonServerBaseUrl()) {
@@ -14,7 +14,8 @@ export async function fetchOrders(token: string, baseUrl = getJsonServerBaseUrl(
   return data;
 }
 
-export type CreateOrderLine = { productId: string; quantity: number; unitPrice: number; currencyId?: string };
+export type LotAllocation = { lotId: string; quantity: number };
+export type CreateOrderLine = { productId: string; quantity: number; unitPrice: number; currencyId?: string; lotIds?: string[]; lotAllocations?: string };
 export type CreateOrderPayload = {
   customerName: string;
   customerPhone?: string;

@@ -210,4 +210,6 @@ export type OrderItem = {
   quantity: number;
   unitPrice: number;
   currencyId?: string;
+  lotIds?: string[]; // lot IDs selected at processing time (ordered priority)
+  lotAllocations?: { lotId: string; quantity: number }[]; // explicit qty per lot
 };

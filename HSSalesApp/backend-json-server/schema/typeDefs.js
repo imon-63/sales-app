@@ -41,6 +41,8 @@ const typeDefs = `
     quantity: Float!
     unitPrice: Float!
     currencyId: String
+    lotIds: [String]
+    lotAllocations: String
   }
 
   input SaleItemInput { productId: String! quantity: Float! unitPrice: Float! currencyId: String unitId: String lotIds: [String!] bottleBreakdown: String }
@@ -128,7 +130,7 @@ const typeDefs = `
     paidAt: String
   }
 
-  input OrderItemInput { productId: ID! quantity: Float! unitPrice: Float! currencyId: String }
+  input OrderItemInput { productId: ID! quantity: Float! unitPrice: Float! currencyId: String lotIds: [String] lotAllocations: String }
   input CreateOrderInput { customerName: String! customerPhone: String customerAddress: String orderDate: String! expectedDelivery: String warehouseId: String advancePaid: Float notes: String items: [OrderItemInput!]! }
   input UpdateOrderInput { customerName: String customerPhone: String customerAddress: String expectedDelivery: String warehouseId: String advancePaid: Float notes: String items: [OrderItemInput!] }
 
