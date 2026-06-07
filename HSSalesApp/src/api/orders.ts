@@ -2,9 +2,9 @@ import { getJsonServerBaseUrl } from '../config/apiBase';
 import type { Order, OrderItem, OrderPayment } from '../types/models';
 import { requestGraphql } from './http';
 
-const ORDER_FIELDS = `id orderNumber status customerName customerPhone customerAddress orderDate expectedDelivery deliveredDate warehouseId advancePaid notes createdBy cancelReason`;
+const ORDER_FIELDS = `id orderNumber status customerName customerPhone customerAddress orderDate expectedDelivery confirmedDate processingDate outForDeliveryDate deliveredDate warehouseId advancePaid notes createdBy cancelReason stockReserved`;
 const ITEM_FIELDS = `id orderId productId quantity unitPrice currencyId lotIds lotAllocations`;
-const PMT_FIELDS = `id orderId amount notes paidAt recordedBy`;
+const PMT_FIELDS = `id orderId amount notes paidAt recordedBy orderStep`;
 
 export async function fetchOrders(token: string, baseUrl = getJsonServerBaseUrl()) {
   const data = await requestGraphql<{ orders: Order[]; orderItems: OrderItem[]; orderPayments: OrderPayment[] }>({

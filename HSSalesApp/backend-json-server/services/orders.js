@@ -125,17 +125,21 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
 
   const patch = { status };
   const now = new Date().toISOString().slice(0, 10);
-  if (status === 'delivered') patch.deliveredDate = now;
-  if (status === 'cancelled') patch.cancelReason = cancelReason ?? null;
+  if (status === 'confirmed')        patch.confirmedDate = now;
+  if (status === 'processing')       patch.processingDate = now;
+  if (status === 'out_for_delivery') patch.outForDeliveryDate = now;
+  if (status === 'delivered')        patch.deliveredDate = now;
+  if (status === 'cancelled')        patch.cancelReason = cancelReason ?? null;
 
-  // ── Inventory validation at Processing stage ─────────────────────────────
-  // Check total available across ALL warehouses — exact warehouse resolved at delivery.
+  // ── Processing: validate stock + reserve from allocated lots ─────────────
   if (status === 'processing') {
     const orderItems = (db.get('orderItems').value() ?? []).filter(oi => oi.orderId === id);
     if (orderItems.length === 0) throw new Error('প্রক্রিয়া শুরু করা যাবে না: অর্ডারে কোনো পণ্য নেই।');
     const allBatches = db.get('lotBatches').value() ?? [];
     const allLots = db.get('lots').value() ?? [];
     const shortages = [];
+
+    // Check total availability
     for (const oi of orderItems) {
       const available = allBatches
         .filter(b => Number(b.remainingQuantity) > 0)
@@ -147,6 +151,60 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
       }
     }
     if (shortages.length > 0) throw new Error(`মজুদ অপর্যাপ্ত:\n${shortages.join('\n')}`);
+
+    // If lot allocations exist, reserve stock now (deduct from lots) and store batch-level breakdown
+    const hasAnyAllocations = orderItems.some(oi => oi.lotAllocations);
+    if (hasAnyAllocations) {
+      for (const oi of orderItems) {
+        if (!oi.lotAllocations) continue;
+        let allocs;
+        try { allocs = typeof oi.lotAllocations === 'string' ? JSON.parse(oi.lotAllocations) : oi.lotAllocations; } catch { continue; }
+        if (!Array.isArray(allocs)) continue;
+
+        const batchAllocs = []; // [{batchId, lotId, quantity, unitCostAtTime}]
+        for (const alloc of allocs) {
+          if (!alloc.lotId || !Number(alloc.quantity)) continue;
+          const lot = allLots.find(l => l.id === alloc.lotId);
+          if (!lot) continue;
+          // FIFO within this lot's batches
+          const batches = allBatches
+            .filter(b => b.lotId === lot.id && Number(b.remainingQuantity) > 0)
+            .sort((a, b) => String(a.acquiredAt).localeCompare(String(b.acquiredAt)));
+          let rem = Number(alloc.quantity);
+          for (const batch of batches) {
+            if (rem <= 0) break;
+            const take = Math.min(rem, Number(batch.remainingQuantity));
+            db.get('lotBatches').find({ id: batch.id }).assign({ remainingQuantity: Number(batch.remainingQuantity) - take }).write();
+            batchAllocs.push({ batchId: batch.id, lotId: lot.id, quantity: take, unitCostAtTime: Number(batch.unitCost) });
+            rem -= take;
+          }
+        }
+        // Store batch-level allocations so delivery can create correct sale records
+        db.get('orderItems').find({ id: oi.id }).assign({ batchAllocations: JSON.stringify(batchAllocs) }).write();
+      }
+      patch.stockReserved = true;
+    }
+  }
+
+  // ── Cancellation: restore reserved stock if it was deducted at processing ──
+  if (status === 'cancelled' && order.stockReserved) {
+    const orderItems = (db.get('orderItems').value() ?? []).filter(oi => oi.orderId === id);
+    for (const oi of orderItems) {
+      if (!oi.batchAllocations) continue;
+      let batchAllocs;
+      try { batchAllocs = typeof oi.batchAllocations === 'string' ? JSON.parse(oi.batchAllocations) : oi.batchAllocations; } catch { continue; }
+      if (!Array.isArray(batchAllocs)) continue;
+      for (const ba of batchAllocs) {
+        if (!ba.batchId || !Number(ba.quantity)) continue;
+        const batch = db.get('lotBatches').find({ id: ba.batchId }).value();
+        if (batch) {
+          db.get('lotBatches').find({ id: ba.batchId }).assign({
+            remainingQuantity: Number(batch.remainingQuantity) + Number(ba.quantity),
+          }).write();
+        }
+      }
+    }
+    patch.stockReserved = false;
   }
 
   // ── Inventory reconciliation at Delivery ─────────────────────────────────
@@ -155,35 +213,94 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
   if (status === 'delivered') {
     const orderItems = (db.get('orderItems').value() ?? []).filter(oi => oi.orderId === id);
     if (orderItems.length === 0) throw new Error('Delivery blocked: order has no items.');
-    // Resolve best warehouse: prefer order.warehouseId if it has all stock, else pick any with stock
     const allBatches = db.get('lotBatches').value() ?? [];
     const allLots = db.get('lots').value() ?? [];
     const allWarehouses = db.get('warehouses').value() ?? [];
-    // Find warehouse that satisfies all items; fall back to any warehouse with most coverage
+
+    // Check if all items have explicit lot allocations — if so, bypass single-warehouse requirement
+    const allHaveAllocations = orderItems.every(oi => {
+      if (!oi.lotAllocations) return false;
+      try {
+        const a = typeof oi.lotAllocations === 'string' ? JSON.parse(oi.lotAllocations) : oi.lotAllocations;
+        return Array.isArray(a) && a.length > 0;
+      } catch { return false; }
+    });
+
     let resolvedWid = order.warehouseId;
-    if (resolvedWid) {
-      // Verify preferred warehouse has full coverage
-      const hasFull = orderItems.every(oi => {
-        const avail = allBatches.filter(b => b.warehouseId === resolvedWid && Number(b.remainingQuantity) > 0)
+
+    if (order.stockReserved) {
+      // Stock was already deducted at processing — skip availability check entirely.
+      // Just need a valid warehouse ID for the sale record; actual batch data comes from batchAllocations.
+      if (!resolvedWid) {
+        const firstBatch = (() => {
+          for (const oi of orderItems) {
+            if (!oi.batchAllocations) continue;
+            try {
+              const ba = typeof oi.batchAllocations === 'string' ? JSON.parse(oi.batchAllocations) : oi.batchAllocations;
+              if (Array.isArray(ba) && ba[0]?.batchId) {
+                const b = allBatches.find(x => x.id === ba[0].batchId);
+                if (b) return b;
+              }
+            } catch {}
+          }
+          return null;
+        })();
+        resolvedWid = firstBatch?.warehouseId ?? allWarehouses[0]?.id;
+      }
+    } else if (allHaveAllocations) {
+      // Allocations exist but stock wasn't reserved — verify total available across warehouses
+      const shortages = [];
+      for (const oi of orderItems) {
+        const avail = allBatches
+          .filter(b => Number(b.remainingQuantity) > 0)
           .filter(b => { const lot = allLots.find(l => l.id === b.lotId); return lot?.productId === oi.productId; })
           .reduce((s, b) => s + Number(b.remainingQuantity), 0);
-        return avail >= oi.quantity;
-      });
-      if (!hasFull) resolvedWid = null; // fall through to search
-    }
-    if (!resolvedWid) {
-      // Find any warehouse where ALL items are available
-      for (const wh of allWarehouses) {
-        const ok = orderItems.every(oi => {
-          const avail = allBatches.filter(b => b.warehouseId === wh.id && Number(b.remainingQuantity) > 0)
+        if (avail < oi.quantity) {
+          const prod = (db.get('products').value() ?? []).find(p => p.id === oi.productId);
+          shortages.push(`${prod?.name ?? oi.productId}: দরকার ${oi.quantity}, মজুদ ${avail}`);
+        }
+      }
+      if (shortages.length > 0) throw new Error(`মজুদ অপর্যাপ্ত:\n${shortages.join('\n')}`);
+      if (!resolvedWid) {
+        const firstAlloc = (() => {
+          for (const oi of orderItems) {
+            try {
+              const a = typeof oi.lotAllocations === 'string' ? JSON.parse(oi.lotAllocations) : oi.lotAllocations;
+              if (Array.isArray(a) && a[0]?.lotId) return a[0];
+            } catch {}
+          }
+          return null;
+        })();
+        if (firstAlloc) {
+          const batch = allBatches.find(b => b.lotId === firstAlloc.lotId);
+          resolvedWid = batch?.warehouseId;
+        }
+        if (!resolvedWid) resolvedWid = allWarehouses[0]?.id;
+      }
+    } else {
+      // Normal warehouse resolution: find a single warehouse with full coverage
+      if (resolvedWid) {
+        const hasFull = orderItems.every(oi => {
+          const avail = allBatches.filter(b => b.warehouseId === resolvedWid && Number(b.remainingQuantity) > 0)
             .filter(b => { const lot = allLots.find(l => l.id === b.lotId); return lot?.productId === oi.productId; })
             .reduce((s, b) => s + Number(b.remainingQuantity), 0);
           return avail >= oi.quantity;
         });
-        if (ok) { resolvedWid = wh.id; break; }
+        if (!hasFull) resolvedWid = null;
       }
+      if (!resolvedWid) {
+        for (const wh of allWarehouses) {
+          const ok = orderItems.every(oi => {
+            const avail = allBatches.filter(b => b.warehouseId === wh.id && Number(b.remainingQuantity) > 0)
+              .filter(b => { const lot = allLots.find(l => l.id === b.lotId); return lot?.productId === oi.productId; })
+              .reduce((s, b) => s + Number(b.remainingQuantity), 0);
+            return avail >= oi.quantity;
+          });
+          if (ok) { resolvedWid = wh.id; break; }
+        }
+      }
+      if (!resolvedWid) throw new Error('Delivery blocked: insufficient stock across all warehouses.');
     }
-    if (!resolvedWid) throw new Error('Delivery blocked: insufficient stock across all warehouses.');
     createSale({
       actor, userId,
       input: {
@@ -195,9 +312,11 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
           quantity: oi.quantity,
           unitPrice: oi.unitPrice,
           currencyId: oi.currencyId,
-          // Use lot selections made at processing time (if any)
           lotIds: Array.isArray(oi.lotIds) && oi.lotIds.length > 0 ? oi.lotIds : undefined,
           lotAllocations: oi.lotAllocations ?? undefined,
+          // If stock was already deducted at processing, pass batchAllocations so
+          // createSale creates the records without re-deducting
+          batchAllocations: order.stockReserved && oi.batchAllocations ? oi.batchAllocations : undefined,
         })),
       },
     });
@@ -246,6 +365,7 @@ function addOrderPayment({ actor, userId, input }) {
     notes: notes ? String(notes).trim() : null,
     paidAt: paidAt ?? new Date().toISOString().slice(0, 10),
     recordedBy: userId,
+    orderStep: order.status, // record which step the payment was made at
   };
   db.get('orderPayments').push(payment).write();
   return payment;

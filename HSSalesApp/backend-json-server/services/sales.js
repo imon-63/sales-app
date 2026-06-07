@@ -25,7 +25,7 @@ function createSale({ actor, userId, input }) {
       if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price < 0) return null;
       const currencyId = it.currencyId && currencies.some(c => c.id === it.currencyId) ? it.currencyId : defaultCurrencyId;
       const lotIds = Array.isArray(it.lotIds) ? [...new Set(it.lotIds.map(x => String(x || '').trim()).filter(Boolean))] : [];
-      return { id: crypto.randomUUID(), saleId, productId: it.productId, quantity: qty, unitPrice: price, currencyId, unitId: it.unitId, lotIds, bottleBreakdown: it.bottleBreakdown ?? null };
+      return { id: crypto.randomUUID(), saleId, productId: it.productId, quantity: qty, unitPrice: price, currencyId, unitId: it.unitId, lotIds, bottleBreakdown: it.bottleBreakdown ?? null, lotAllocations: it.lotAllocations ?? null, batchAllocations: it.batchAllocations ?? null };
     }).filter(Boolean);
   if (createdItems.length === 0) throw new Error('No valid line items');
 
@@ -48,13 +48,29 @@ function createSale({ actor, userId, input }) {
 
   for (const line of createdItems) {
     db.get('salesItems').push(line).write();
-    const candidates = (db.get('lotBatches').value() ?? [])
-      .filter(b => b.warehouseId === warehouseId && Number(b.remainingQuantity) > 0)
-      .filter(b => { const lot = (db.get('lots').value() ?? []).find(l => l.id === b.lotId); return lot?.productId === line.productId && (!line.lotIds?.length || line.lotIds.includes(lot.id)); })
-      .sort((a, b) => line.lotIds?.length ? (line.lotIds.indexOf(a.lotId) - line.lotIds.indexOf(b.lotId)) || String(a.acquiredAt).localeCompare(String(b.acquiredAt)) : String(a.acquiredAt).localeCompare(String(b.acquiredAt)));
 
-    // Build per-lot quantity cap from explicit allocations (set at processing time)
-    const lotQtyCap = {}; // lotId → remaining to take from this lot
+    // Fast-path: if batchAllocations pre-computed at processing (stock already deducted), just record allocations
+    if (line.batchAllocations) {
+      try {
+        const bas = typeof line.batchAllocations === 'string' ? JSON.parse(line.batchAllocations) : line.batchAllocations;
+        if (Array.isArray(bas) && bas.length > 0) {
+          for (const ba of bas) {
+            if (!ba.batchId || !Number(ba.quantity)) continue;
+            db.get('salesItemAllocations').push({
+              id: crypto.randomUUID(),
+              salesItemId: line.id,
+              lotBatchId: ba.batchId,
+              quantityAllocated: Number(ba.quantity),
+              unitCostAtTime: Number(ba.unitCostAtTime ?? 0),
+            }).write();
+          }
+          continue; // skip normal FIFO allocation for this line
+        }
+      } catch {}
+    }
+
+    // Build lot cap BEFORE candidates so we can skip the warehouse filter when allocations exist
+    const lotQtyCap = {};
     if (line.lotAllocations) {
       try {
         const allocs = typeof line.lotAllocations === 'string' ? JSON.parse(line.lotAllocations) : line.lotAllocations;
@@ -64,6 +80,12 @@ function createSale({ actor, userId, input }) {
       } catch {}
     }
     const hasAllocations = Object.keys(lotQtyCap).length > 0;
+
+    // When explicit allocations are set, skip warehouse filter — lots may span warehouses
+    const candidates = (db.get('lotBatches').value() ?? [])
+      .filter(b => (hasAllocations ? true : b.warehouseId === warehouseId) && Number(b.remainingQuantity) > 0)
+      .filter(b => { const lot = (db.get('lots').value() ?? []).find(l => l.id === b.lotId); return lot?.productId === line.productId && (!line.lotIds?.length || line.lotIds.includes(lot.id)); })
+      .sort((a, b) => line.lotIds?.length ? (line.lotIds.indexOf(a.lotId) - line.lotIds.indexOf(b.lotId)) || String(a.acquiredAt).localeCompare(String(b.acquiredAt)) : String(a.acquiredAt).localeCompare(String(b.acquiredAt)));
 
     let rem = line.quantity * getConversionFactor(line.productId, line.unitId);
     for (const batch of candidates) {

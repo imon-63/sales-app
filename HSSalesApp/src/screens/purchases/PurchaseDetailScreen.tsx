@@ -287,8 +287,16 @@ export function PurchaseDetailScreen() {
       })
       .map((s) => {
         const sItems = salesItems.filter((si) => si.saleId === s.id && si.productId === lot?.productId);
-        const qty = sItems.reduce((a, si) => a + Number(si.quantity), 0);
-        const rev = sItems.reduce((a, si) => a + Number(si.quantity) * Number(si.unitPrice), 0);
+        // Use batch-specific allocation qty so multi-lot orders show the correct portion for THIS batch
+        const qty = sItems.reduce((a, si) => {
+          const alloc = batchAllocations.find(ba => ba.salesItemId === si.id);
+          return a + (alloc ? Number(alloc.quantityAllocated) : Number(si.quantity));
+        }, 0);
+        const rev = sItems.reduce((a, si) => {
+          const alloc = batchAllocations.find(ba => ba.salesItemId === si.id);
+          const q = alloc ? Number(alloc.quantityAllocated) : Number(si.quantity);
+          return a + q * Number(si.unitPrice);
+        }, 0);
         const fullName = users.find((u) => u.id === s.createdBy)?.name ?? s.createdBy;
         const seller = abbreviateName(fullName);
         return { sale: s, qty, rev, seller };

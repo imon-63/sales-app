@@ -182,6 +182,7 @@ export type OrderPayment = {
   notes?: string;
   paidAt: string;
   recordedBy: string;
+  orderStep?: string; // which order step this payment was recorded at
 };
 
 export type OrderStatus = 'draft' | 'confirmed' | 'processing' | 'out_for_delivery' | 'delivered' | 'cancelled';
@@ -196,6 +197,9 @@ export type Order = {
   orderDate: string;
   expectedDelivery?: string;
   deliveredDate?: string;
+  confirmedDate?: string;
+  processingDate?: string;
+  outForDeliveryDate?: string;
   warehouseId?: string;
   advancePaid?: number;
   notes?: string;

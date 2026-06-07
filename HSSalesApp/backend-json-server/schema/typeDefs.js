@@ -32,6 +32,10 @@ const typeDefs = `
     notes: String
     createdBy: String!
     cancelReason: String
+    stockReserved: Boolean
+    confirmedDate: String
+    processingDate: String
+    outForDeliveryDate: String
   }
 
   type OrderItem {
@@ -43,6 +47,7 @@ const typeDefs = `
     currencyId: String
     lotIds: [String]
     lotAllocations: String
+    batchAllocations: String
   }
 
   input SaleItemInput { productId: String! quantity: Float! unitPrice: Float! currencyId: String unitId: String lotIds: [String!] bottleBreakdown: String }
@@ -121,6 +126,7 @@ const typeDefs = `
     notes: String
     paidAt: String!
     recordedBy: String!
+    orderStep: String
   }
 
   input AddOrderPaymentInput {

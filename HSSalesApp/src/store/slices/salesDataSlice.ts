@@ -78,7 +78,7 @@ export const fetchSalesDataset = createAsyncThunk(
         query: `
           query SalesDataset {
             sales { id saleDate warehouseId createdBy notes }
-            salesItems { id saleId productId quantity unitPrice currencyId unitId }
+            salesItems { id saleId productId quantity unitPrice currencyId unitId bottleBreakdown }
             products { id name unitId unit }
             warehouses { id name }
             units { id label globalFactor isWholeNumber }

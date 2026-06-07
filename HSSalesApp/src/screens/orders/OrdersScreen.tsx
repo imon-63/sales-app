@@ -21,6 +21,8 @@ import { MeshBackground } from '../../components/ui/MeshBackground';
 import { SelectMenu } from '../../components/ui/SelectMenu';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchOrders, upsertOrder, removeOrder, addPayment } from '../../store/slices/ordersSlice';
+import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
+import { fetchInventoryStock } from '../../store/slices/inventorySlice';
 import { showToast } from '../../store/slices/uiSlice';
 import { palette, radii } from '../../theme/designSystem';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
@@ -38,7 +40,7 @@ const STATUS_LABEL: Record<OrderStatus, { en: string; bn: string; color: string;
   confirmed:        { en: 'Confirmed',         bn: 'নিশ্চিত',        color: '#60A5FA',         icon: '✅' },
   processing:       { en: 'Processing',        bn: 'প্রস্তুত হচ্ছে', color: '#FFD740',         icon: '⚙️' },
   out_for_delivery: { en: 'Out for Delivery',  bn: 'ডেলিভারি চলছে', color: '#FB923C',         icon: '🚚' },
-  delivered:        { en: 'Delivered',         bn: 'ডেলিভারি সম্পন্ন', color: palette.success, icon: '✔️' },
+  delivered:        { en: 'Delivered',         bn: 'ডেলিভারি সম্পন্ন', color: palette.success, icon: '✔' },
   cancelled:        { en: 'Cancelled',         bn: 'বাতিল',          color: palette.rose,      icon: '❌' },
 };
 
@@ -58,7 +60,14 @@ function statusLabel(status: OrderStatus, locale: string) {
 
 const FLOW_STEPS: OrderStatus[] = ['draft', 'confirmed', 'processing', 'out_for_delivery', 'delivered'];
 
-function StepTracker({ status, locale }: { status: OrderStatus; locale: string }) {
+function StepTracker({
+  status, locale, selectedStep, onStepTap,
+}: {
+  status: OrderStatus;
+  locale: string;
+  selectedStep?: OrderStatus | null;
+  onStepTap?: (step: OrderStatus) => void;
+}) {
   if (status === 'cancelled') return null;
   const currentIdx = FLOW_STEPS.indexOf(status);
   return (
@@ -68,22 +77,28 @@ function StepTracker({ status, locale }: { status: OrderStatus; locale: string }
         const done = idx < currentIdx;
         const active = idx === currentIdx;
         const future = idx > currentIdx;
-        const dotColor = done ? info.color : active ? info.color : 'rgba(255,255,255,0.12)';
+        const tapped = selectedStep === step;
         const lineColor = idx < currentIdx ? STATUS_LABEL[FLOW_STEPS[idx]]?.color ?? palette.textMuted : 'rgba(255,255,255,0.1)';
+        // Use plain ✓ for all checkable states — avoids emoji black-box on Android
+        const iconChar = done || (active && status === 'delivered') ? '✓' : info.icon;
         return (
           <React.Fragment key={step}>
-            <View style={st2.stepCol}>
+            <Pressable
+              onPress={() => onStepTap?.(step)}
+              hitSlop={6}
+              style={st2.stepCol}>
               <View style={[
                 st2.dot,
                 { borderColor: active ? info.color : done ? `${info.color}80` : 'rgba(255,255,255,0.15)', backgroundColor: done ? `${info.color}30` : active ? `${info.color}22` : 'transparent' },
                 active && { shadowColor: info.color, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+                tapped && { borderWidth: 2, borderColor: info.color },
               ]}>
-                <Text style={[st2.dotIcon, future && { opacity: 0.3 }]}>{done ? '✓' : info.icon}</Text>
+                <Text style={[st2.dotIcon, future && { opacity: 0.3 }]} allowFontScaling={false}>{iconChar}</Text>
               </View>
               <Text style={[st2.stepLabel, { color: active ? info.color : done ? `${info.color}90` : 'rgba(255,255,255,0.25)' }, active && { fontWeight: '900' }]} numberOfLines={1}>
                 {locale === 'bn' ? info.bn : info.en}
               </Text>
-            </View>
+            </Pressable>
             {idx < FLOW_STEPS.length - 1 && (
               <View style={[st2.line, { backgroundColor: idx < currentIdx ? `${lineColor}60` : 'rgba(255,255,255,0.07)' }]} />
             )}
@@ -112,6 +127,8 @@ function OrderCard({
   locale,
   money,
   products,
+  lots,
+  lotBatches,
   isAdmin,
   isOwner,
   onAdvance,
@@ -126,6 +143,8 @@ function OrderCard({
   locale: string;
   money: Intl.NumberFormat;
   products: { id: string; name: string }[];
+  lots: { id: string; productId: string; lotNumber: string }[];
+  lotBatches: { id: string; lotId: string; remainingQuantity: number }[];
   isAdmin: boolean;
   isOwner: boolean;
   onAdvance: () => void;
@@ -135,6 +154,7 @@ function OrderCard({
   onRecordPayment: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [selectedStep, setSelectedStep] = useState<OrderStatus | null>(null);
   const st = STATUS_LABEL[order.status];
   const nextStatus = NEXT_STATUS[order.status];
   const canAdvance = !!nextStatus;
@@ -182,8 +202,105 @@ function OrderCard({
           </View>
         </View>
 
-        {/* Step tracker — always visible */}
-        <StepTracker status={order.status} locale={locale} />
+        {/* Step tracker — tappable */}
+        <StepTracker
+          status={order.status}
+          locale={locale}
+          selectedStep={selectedStep}
+          onStepTap={step => setSelectedStep(prev => prev === step ? null : step)}
+        />
+
+        {/* Step info panel — shows step-specific recorded data */}
+        {selectedStep && (() => {
+          const info = STATUS_LABEL[selectedStep];
+          const currentIdx = FLOW_STEPS.indexOf(order.status);
+          const stepIdx = FLOW_STEPS.indexOf(selectedStep);
+          if (stepIdx > currentIdx) return null; // step not yet reached
+
+          const stepDate: Record<OrderStatus, string | undefined> = {
+            draft:            order.orderDate,
+            confirmed:        order.confirmedDate,
+            processing:       order.processingDate,
+            out_for_delivery: order.outForDeliveryDate,
+            delivered:        order.deliveredDate,
+            cancelled:        undefined,
+          };
+          const date = stepDate[selectedStep];
+
+          // Payments made at this specific step
+          const stepPayments = payments.filter(p => p.orderStep === selectedStep);
+
+          return (
+            <View style={[oc.stepPanel, { borderColor: `${info.color}35` }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[oc.stepPanelTitle, { color: info.color }]}>{info.icon} {bn ? info.bn : info.en}</Text>
+                {date && <Text style={[oc.stepPanelText, { color: `${info.color}90` }]}>{date}</Text>}
+              </View>
+
+              {/* Draft — order details at creation */}
+              {selectedStep === 'draft' && (
+                <View style={{ gap: 2, marginTop: 4 }}>
+                  <Text style={oc.stepPanelText}>{bn ? 'কাস্টমার' : 'Customer'}: {order.customerName}</Text>
+                  {order.customerPhone && <Text style={oc.stepPanelText}>📞 {order.customerPhone}</Text>}
+                  {items.map(it => {
+                    const prod = products.find(p => p.id === it.productId);
+                    return <Text key={it.id} style={oc.stepPanelText}>• {prod?.name ?? '—'} ×{it.quantity.toLocaleString()} @ {it.unitPrice.toLocaleString()}</Text>;
+                  })}
+                  {(order.advancePaid ?? 0) > 0 && <Text style={[oc.stepPanelText, { color: palette.success }]}>💳 {bn ? 'বায়না' : 'Advance'}: {money.format(order.advancePaid!)}</Text>}
+                </View>
+              )}
+
+              {selectedStep === 'confirmed' && (
+                <Text style={[oc.stepPanelText, { marginTop: 4 }]}>{bn ? 'অর্ডার নিশ্চিত হয়েছে' : 'Order confirmed'}</Text>
+              )}
+
+              {selectedStep === 'processing' && (
+                <View style={{ gap: 4, marginTop: 4 }}>
+                  {items.some(it => it.lotAllocations) ? items.map(it => {
+                    if (!it.lotAllocations) return null;
+                    let allocs: { lotId: string; quantity: number }[] = [];
+                    try { allocs = typeof it.lotAllocations === 'string' ? JSON.parse(it.lotAllocations) : it.lotAllocations; } catch {}
+                    if (!allocs.length) return null;
+                    const prod = products.find(p => p.id === it.productId);
+                    return (
+                      <View key={it.id}>
+                        <Text style={[oc.stepPanelText, { fontWeight: '800' }]}>{prod?.name ?? '—'}</Text>
+                        {allocs.map((a, i) => {
+                          const lot = lots.find(l => l.id === a.lotId);
+                          return <Text key={i} style={oc.stepPanelText}>• {lot?.lotNumber ?? a.lotId}: {a.quantity.toLocaleString()}</Text>;
+                        })}
+                      </View>
+                    );
+                  }) : <Text style={oc.stepPanelText}>{bn ? 'প্রক্রিয়া শুরু হয়েছে' : 'Processing started'}</Text>}
+                </View>
+              )}
+
+              {selectedStep === 'out_for_delivery' && (
+                <Text style={[oc.stepPanelText, { marginTop: 4 }]}>{bn ? 'ডেলিভারিতে পাঠানো হয়েছে' : 'Dispatched for delivery'}</Text>
+              )}
+
+              {selectedStep === 'delivered' && (
+                <View style={{ gap: 2, marginTop: 4 }}>
+                  <Text style={oc.stepPanelText}>{bn ? 'মোট' : 'Total'}: {money.format(items.reduce((s, it) => s + it.quantity * it.unitPrice, 0))}</Text>
+                  {order.notes && <Text style={oc.stepPanelText}>{bn ? 'নোট' : 'Note'}: {order.notes}</Text>}
+                </View>
+              )}
+
+              {/* Payments recorded at this step */}
+              {stepPayments.length > 0 && (
+                <View style={{ marginTop: 8, gap: 4, borderTopWidth: 1, borderTopColor: `${info.color}25`, paddingTop: 6 }}>
+                  <Text style={[oc.stepPanelText, { fontWeight: '800', color: palette.success }]}>💳 {bn ? 'এই ধাপে পেমেন্ট' : 'Payments at this step'}</Text>
+                  {stepPayments.map(p => (
+                    <View key={p.id} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={oc.stepPanelText}>{p.paidAt}{p.notes ? ` · ${p.notes}` : ''}</Text>
+                      <Text style={[oc.stepPanelText, { color: palette.success, fontWeight: '900' }]}>{money.format(p.amount)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Cancelled reason preview */}
         {order.status === 'cancelled' && order.cancelReason && (
@@ -209,12 +326,49 @@ function OrderCard({
             </View>
             {items.map(it => {
               const prod = products.find(p => p.id === it.productId);
+              // Parse lot allocations for display
+              const allocations = (() => {
+                if (!it.lotIds?.length) return [];
+                // Use explicit allocations if available, else show selected lots
+                const allocs: { lotNumber: string; qty: number }[] = [];
+                if (it.lotAllocations) {
+                  try {
+                    const parsed = typeof it.lotAllocations === 'string' ? JSON.parse(it.lotAllocations) : it.lotAllocations;
+                    if (Array.isArray(parsed)) {
+                      for (const a of parsed) {
+                        const lot = lots.find(l => l.id === a.lotId);
+                        if (lot && a.quantity > 0) allocs.push({ lotNumber: lot.lotNumber, qty: a.quantity });
+                      }
+                    }
+                  } catch {}
+                } else {
+                  for (const lid of it.lotIds) {
+                    const lot = lots.find(l => l.id === lid);
+                    if (lot) allocs.push({ lotNumber: lot.lotNumber, qty: 0 });
+                  }
+                }
+                return allocs;
+              })();
+
               return (
-                <View key={it.id} style={oc.itemRow}>
-                  <Text style={[oc.itemName, { flex: 1 }]} numberOfLines={1}>{prod?.name ?? '—'}</Text>
-                  <Text style={[oc.itemCell, oc.colQty]}>×{it.quantity.toLocaleString()}</Text>
-                  <Text style={[oc.itemCell, oc.colRate]}>{it.unitPrice.toLocaleString()}</Text>
-                  <Text style={[oc.itemCell, oc.colAmt, { color: palette.emerald }]}>{money.format(it.quantity * it.unitPrice)}</Text>
+                <View key={it.id}>
+                  <View style={oc.itemRow}>
+                    <Text style={[oc.itemName, { flex: 1 }]} numberOfLines={1}>{prod?.name ?? '—'}</Text>
+                    <Text style={[oc.itemCell, oc.colQty]}>×{it.quantity.toLocaleString()}</Text>
+                    <Text style={[oc.itemCell, oc.colRate]}>{it.unitPrice.toLocaleString()}</Text>
+                    <Text style={[oc.itemCell, oc.colAmt, { color: palette.emerald }]}>{money.format(it.quantity * it.unitPrice)}</Text>
+                  </View>
+                  {allocations.length > 0 && (
+                    <View style={oc.lotAllocRow}>
+                      {allocations.map((a, i) => (
+                        <View key={i} style={oc.lotAllocChip}>
+                          <Text style={oc.lotAllocText}>
+                            {a.lotNumber}{a.qty > 0 ? `: ${a.qty.toLocaleString()}` : ''}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -264,10 +418,10 @@ function OrderCard({
               </View>
             )}
 
-            {/* Actions — show for non-delivered; cancelled orders still get permanent delete for admin */}
-            {(order.status !== 'delivered') && (
+            {/* Actions — only for active (non-delivered, non-cancelled) orders */}
+            {order.status !== 'delivered' && order.status !== 'cancelled' && (
               <View style={oc.actions}>
-                {order.status !== 'cancelled' && (isAdmin || isOwner) && (
+                {(isAdmin || isOwner) && (
                   <Pressable onPress={onEdit} style={({ pressed }) => [oc.editBtn, pressed && { opacity: 0.8 }]}>
                     <Text style={oc.editBtnText}>✎ {bn ? 'সম্পাদনা' : 'Edit'}</Text>
                   </Pressable>
@@ -277,7 +431,7 @@ function OrderCard({
                     <Text style={oc.cancelBtnText}>{bn ? 'বাতিল' : 'Cancel'}</Text>
                   </Pressable>
                 )}
-                {(canDelete || (order.status === 'cancelled' && isAdmin)) && (
+                {canDelete && (
                   <Pressable onPress={onDelete} style={({ pressed }) => [oc.deleteBtn, pressed && { opacity: 0.8 }]}>
                     <Text style={oc.deleteBtnText}>🗑</Text>
                   </Pressable>
@@ -338,6 +492,9 @@ const oc = StyleSheet.create({
   paidBadge: { backgroundColor: 'rgba(0,214,143,0.15)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginTop: 3, borderWidth: 1, borderColor: 'rgba(0,214,143,0.35)' },
   paidText: { color: palette.success, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' as const },
   dueText: { color: palette.rose, fontSize: 10, fontWeight: '800', marginTop: 3 },
+  stepPanel: { borderWidth: 1, borderRadius: radii.md, padding: 10, marginBottom: 6, backgroundColor: 'rgba(255,255,255,0.04)', gap: 4 },
+  stepPanelTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },
+  stepPanelText: { color: palette.textLabel, fontSize: 12, fontWeight: '600' },
   cancelNote: { color: palette.rose, fontSize: 11, fontWeight: '600', fontStyle: 'italic', marginBottom: 4 },
   expandRow: { alignItems: 'center', paddingTop: 2 },
   expandHint: { color: `${palette.emerald}80`, fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
@@ -387,6 +544,9 @@ const oc = StyleSheet.create({
   cancelBtnText: { color: palette.rose, fontSize: 12, fontWeight: '800' },
   deleteBtn: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder, backgroundColor: palette.cardBgElevated },
   deleteBtnText: { fontSize: 14 },
+  lotAllocRow: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 4, paddingHorizontal: 4, paddingBottom: 6, paddingTop: 2 },
+  lotAllocChip: { backgroundColor: `${palette.violet}18`, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: `${palette.violet}35` },
+  lotAllocText: { color: palette.violet, fontSize: 10, fontWeight: '800' },
   advanceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -741,15 +901,32 @@ function ProcessingLotDialog({ items, lots, lotBatches, products, locale, onConf
     return m;
   }, [items, lots, lotBatches]);
 
-  const toggleLot = (itemId: string, lotId: string, avail: number) => {
+  const toggleLot = (itemId: string, lotId: string) => {
+    const item = items.find(it => it.id === itemId)!;
+    const al = availByItem[itemId] ?? [];
     setSelected(prev => {
       const cur = prev[itemId] ?? [];
       const isAdding = !cur.includes(lotId);
       const next = isAdding ? [...cur, lotId] : cur.filter(l => l !== lotId);
-      // Auto-compute allocations when selection changes
       if (isAdding) {
-        const item = items.find(it => it.id === itemId)!;
-        autoFillAllocations(itemId, next, item.quantity, avail);
+        // Only fill the NEW lot — leave existing inputs untouched
+        setAllocInputs(inputs => {
+          const existing = inputs[itemId] ?? {};
+          const alreadyAllocated = Object.entries(existing)
+            .filter(([k]) => k !== lotId)
+            .reduce((s, [, v]) => s + (Number(v) || 0), 0);
+          const rem = Math.max(0, item.quantity - alreadyAllocated);
+          const avail = al.find(x => x.lot.id === lotId)?.totalRemaining ?? 0;
+          const take = Math.min(rem, avail);
+          return { ...inputs, [itemId]: { ...existing, [lotId]: String(take) } };
+        });
+      } else {
+        // Removing a lot — just remove its input
+        setAllocInputs(inputs => {
+          const next2 = { ...(inputs[itemId] ?? {}) };
+          delete next2[lotId];
+          return { ...inputs, [itemId]: next2 };
+        });
       }
       return { ...prev, [itemId]: next };
     });
@@ -759,47 +936,10 @@ function ProcessingLotDialog({ items, lots, lotBatches, products, locale, onConf
     setSelected(prev => {
       const arr = [...(prev[itemId] ?? [])];
       [arr[i], arr[j]] = [arr[j], arr[i]];
-      // Re-auto-fill after swap
-      const item = items.find(it => it.id === itemId)!;
-      autoFillAfterSwap(itemId, arr, item.quantity, availByItem[itemId] ?? []);
       return { ...prev, [itemId]: arr };
     });
-  };
-
-  const autoFillAllocations = (itemId: string, lotIds: string[], needed: number, addedAvail?: number) => {
-    const item = items.find(it => it.id === itemId)!;
-    const al = availByItem[itemId] ?? [];
-    setAllocInputs(prev => {
-      const next: Record<string, string> = { ...prev[itemId] };
-      let rem = needed;
-      for (const lid of lotIds) {
-        const avail = al.find(x => x.lot.id === lid)?.totalRemaining ?? 0;
-        const take = Math.min(rem, avail);
-        next[lid] = String(take);
-        rem -= take;
-        if (rem <= 0) break;
-      }
-      // Zero out removed lots
-      for (const k of Object.keys(next)) {
-        if (!lotIds.includes(k)) delete next[k];
-      }
-      return { ...prev, [itemId]: next };
-    });
-  };
-
-  const autoFillAfterSwap = (itemId: string, lotIds: string[], needed: number, al: AvailLot[]) => {
-    setAllocInputs(prev => {
-      const next: Record<string, string> = {};
-      let rem = needed;
-      for (const lid of lotIds) {
-        const avail = al.find(x => x.lot.id === lid)?.totalRemaining ?? 0;
-        const take = Math.min(rem, avail);
-        next[lid] = String(take);
-        rem -= take;
-        if (rem <= 0) break;
-      }
-      return { ...prev, [itemId]: next };
-    });
+    // After swap: recompute defaults but only for lots that haven't been manually set yet
+    // (preserve all inputs as-is — user just changed priority order)
   };
 
   // Validation per item
@@ -865,7 +1005,7 @@ function ProcessingLotDialog({ items, lots, lotBatches, products, locale, onConf
                     return (
                       <View key={lot.id} style={[pld.lotRow, isSelected && pld.lotRowSelected]}>
                         {/* Checkbox */}
-                        <Pressable onPress={() => toggleLot(item.id, lot.id, totalRemaining)} style={[pld.lotCheck, isSelected && pld.lotCheckSelected]}>
+                        <Pressable onPress={() => toggleLot(item.id, lot.id)} style={[pld.lotCheck, isSelected && pld.lotCheckSelected]}>
                           {isSelected && <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>✓</Text>}
                         </Pressable>
                         {/* Lot info */}
@@ -959,8 +1099,8 @@ const pld = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder, alignItems: 'center' },
   cancelText: { color: palette.textMuted, fontWeight: '800' },
-  confirmBtn: { flex: 2, paddingVertical: 12, borderRadius: radii.md, backgroundColor: palette.emerald, alignItems: 'center', shadowColor: palette.emerald, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
-  confirmText: { color: palette.onAccent, fontWeight: '900', fontSize: 13 },
+  confirmBtn: { flex: 2, paddingVertical: 12, borderRadius: radii.md, backgroundColor: '#FFD740', alignItems: 'center', shadowColor: '#FFD740', shadowOpacity: 0.55, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+  confirmText: { color: '#1A1200', fontWeight: '900', fontSize: 13 },
 });
 
 // ── Main screen ────────────────────────────────────────────────────────────────
@@ -1066,21 +1206,32 @@ export function OrdersScreen() {
       const updated = await ordersApi.updateOrderStatus(order.id, next, undefined, token);
       dispatch(upsertOrder(updated));
       dispatch(showToast({ title: bn ? 'স্ট্যাটাস পরিবর্তন' : 'Status Updated', message: statusLabel(next, locale), type: 'success' }));
+      // When delivered, a sale is created on the backend — sync it to Redux immediately
+      if (next === 'delivered') {
+        dispatch(fetchSalesDataset());
+        dispatch(fetchInventoryStock());
+      }
     } catch (e: any) { Alert.alert('Error', e?.message); }
   }
 
   function cancelOrder(order: Order) {
-    Alert.prompt(
-      bn ? 'বাতিলের কারণ' : 'Cancel Reason',
-      bn ? 'কারণ লিখুন (ঐচ্ছিক)' : 'Enter reason (optional)',
-      async (reason) => {
-        if (!token) return;
-        try {
-          const updated = await ordersApi.updateOrderStatus(order.id, 'cancelled', reason || undefined, token);
-          dispatch(upsertOrder(updated));
-        } catch (e: any) { Alert.alert('Error', e?.message); }
-      },
-      'plain-text',
+    Alert.alert(
+      bn ? 'অর্ডার বাতিল করবেন?' : 'Cancel this order?',
+      order.orderNumber,
+      [
+        { text: bn ? 'না' : 'No', style: 'cancel' },
+        {
+          text: bn ? 'হ্যাঁ, বাতিল করুন' : 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            if (!token) return;
+            try {
+              const updated = await ordersApi.updateOrderStatus(order.id, 'cancelled', undefined, token);
+              dispatch(upsertOrder(updated));
+            } catch (e: any) { Alert.alert('Error', e?.message); }
+          },
+        },
+      ],
     );
   }
 
@@ -1166,6 +1317,8 @@ export function OrdersScreen() {
                         locale={locale}
                         money={money}
                         products={products}
+                        lots={lots}
+                        lotBatches={lotBatches as any}
                         isAdmin={isAdmin}
                         isOwner={order.createdBy === userId}
                         onAdvance={() => NEXT_STATUS[order.status] === 'processing' ? setProcessingOrder(order) : advance(order)}
