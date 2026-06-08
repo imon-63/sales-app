@@ -77,7 +77,7 @@ export const fetchSalesDataset = createAsyncThunk(
         token: token ?? undefined,
         query: `
           query SalesDataset {
-            sales { id saleDate warehouseId createdBy notes }
+            sales { id saleDate warehouseId createdBy notes orderId status cancelledAt cancelReason }
             salesItems { id saleId productId quantity unitPrice currencyId unitId bottleBreakdown }
             products { id name unitId unit }
             warehouses { id name }

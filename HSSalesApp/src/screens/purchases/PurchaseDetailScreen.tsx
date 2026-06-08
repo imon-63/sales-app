@@ -730,24 +730,34 @@ export function PurchaseDetailScreen() {
                   <Text style={s.emptyBody}>{t('pd.sales.noSalesBody')}</Text>
                 </GlassCard>
               ) : (
-                filteredSales.map((item) => (
-                  <Pressable
-                    key={item.sale.id}
-                    onPress={() => navigation.navigate('SaleDetails', { saleId: item.sale.id, productId: lot?.productId, lotBatchId })}
-                    style={({ pressed }) => [s.saleCard, pressed && { opacity: 0.82 }]}>
-                    <View style={s.saleCardTop}>
-                      <View>
-                        <Text style={s.saleDate}>{item.sale.saleDate}</Text>
-                        <Text style={s.saleSeller}>{item.seller}</Text>
+                filteredSales.map((item) => {
+                  const isCancelledSale = item.sale.status === 'cancelled';
+                  return (
+                    <Pressable
+                      key={item.sale.id}
+                      onPress={() => navigation.navigate('SaleDetails', { saleId: item.sale.id, productId: lot?.productId, lotBatchId })}
+                      style={({ pressed }) => [s.saleCard, isCancelledSale && s.saleCardCancelled, pressed && { opacity: 0.82 }]}>
+                      {isCancelledSale && (
+                        <View style={s.cancelledBadgeRow}>
+                          <View style={s.cancelledBadge}>
+                            <Text style={s.cancelledBadgeText}>বাতিল</Text>
+                          </View>
+                        </View>
+                      )}
+                      <View style={s.saleCardTop}>
+                        <View>
+                          <Text style={[s.saleDate, isCancelledSale && s.cancelledText]}>{item.sale.saleDate}</Text>
+                          <Text style={[s.saleSeller, isCancelledSale && s.cancelledText]}>{item.seller}</Text>
+                        </View>
+                        <View style={s.saleRight}>
+                          <Text style={[s.saleRev, isCancelledSale && s.cancelledRevText]}>{money.format(item.rev)}</Text>
+                          <Text style={[s.saleQty, isCancelledSale && s.cancelledText]}>{item.qty.toLocaleString()} {unitLabel}</Text>
+                          <Text style={s.saleArrow}>›</Text>
+                        </View>
                       </View>
-                      <View style={s.saleRight}>
-                        <Text style={s.saleRev}>{money.format(item.rev)}</Text>
-                        <Text style={s.saleQty}>{item.qty.toLocaleString()} {unitLabel}</Text>
-                        <Text style={s.saleArrow}>›</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                ))
+                    </Pressable>
+                  );
+                })
               )}
             </View>
           )}
@@ -1355,6 +1365,12 @@ const s = StyleSheet.create({
   saleRev: { color: palette.emerald, fontSize: 17, fontWeight: '900' },
   saleQty: { color: palette.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
   saleArrow: { color: palette.emerald, fontSize: 18, fontWeight: '900', marginTop: 4, textAlign: 'right' as const },
+  saleCardCancelled: { borderColor: 'rgba(239,68,68,0.35)', backgroundColor: 'rgba(239,68,68,0.04)' },
+  cancelledBadgeRow: { flexDirection: 'row', marginBottom: 6 },
+  cancelledBadge: { backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  cancelledBadgeText: { color: '#EF4444', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  cancelledText: { color: palette.textMuted, textDecorationLine: 'line-through' as const },
+  cancelledRevText: { color: '#EF4444', fontSize: 17, fontWeight: '900', textDecorationLine: 'line-through' as const },
 
   sellHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   sellHeroIcon: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: 'rgba(0,168,255,0.14)', borderWidth: 1, borderColor: 'rgba(0,168,255,0.28)', alignItems: 'center', justifyContent: 'center' },

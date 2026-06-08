@@ -42,6 +42,10 @@ export type Sale = {
   warehouseId: string;
   createdBy: string;
   notes?: string;
+  orderId?: string;
+  status?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
 };
 
 export type BottleBreakdownItem = {
@@ -182,7 +186,8 @@ export type OrderPayment = {
   notes?: string;
   paidAt: string;
   recordedBy: string;
-  orderStep?: string; // which order step this payment was recorded at
+  orderStep?: string;
+  type?: string; // 'payment' (default) | 'refund'
 };
 
 export type OrderStatus = 'draft' | 'confirmed' | 'processing' | 'out_for_delivery' | 'delivered' | 'cancelled';

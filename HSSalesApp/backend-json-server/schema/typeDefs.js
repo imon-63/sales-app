@@ -7,7 +7,7 @@ const typeDefs = `
   type Currency { id: ID! code: String! }
   type Product { id: ID! name: String! unitId: String! unit: String }
   type Warehouse { id: ID! name: String! }
-  type Sale { id: ID! saleDate: String! warehouseId: String! createdBy: String! notes: String }
+  type Sale { id: ID! saleDate: String! warehouseId: String! createdBy: String! notes: String orderId: String status: String cancelledAt: String cancelReason: String }
   type SalesItem { id: ID! saleId: String! productId: String! quantity: Float! unitPrice: Float! currencyId: String unitId: String bottleBreakdown: String }
   type AdminNotification { id: ID! type: String! saleId: String lotId: String productId: String orderId: String title: String! body: String! createdAt: String! actorUserId: String! unread: Boolean }
   type Lot { id: ID! productId: String! lotNumber: String! }
@@ -127,6 +127,7 @@ const typeDefs = `
     paidAt: String!
     recordedBy: String!
     orderStep: String
+    type: String
   }
 
   input AddOrderPaymentInput {
@@ -134,6 +135,7 @@ const typeDefs = `
     amount: Float!
     notes: String
     paidAt: String
+    type: String
   }
 
   input OrderItemInput { productId: ID! quantity: Float! unitPrice: Float! currencyId: String lotIds: [String] lotAllocations: String }

@@ -211,6 +211,20 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
     patch.stockReserved = false;
   }
 
+  // ── If cancelling, mark any linked sales as cancelled (edge-case / test cleanup) ─
+  if (status === 'cancelled') {
+    ensureCollection('sales', []);
+    const linkedSales = (db.get('sales').value() ?? []).filter(s => s.orderId === id);
+    const nowISO = new Date().toISOString().slice(0, 10);
+    for (const ls of linkedSales) {
+      db.get('sales').find({ id: ls.id }).assign({
+        status: 'cancelled',
+        cancelledAt: nowISO,
+        cancelReason: cancelReason ?? 'অর্ডার বাতিল করা হয়েছে',
+      }).write();
+    }
+  }
+
   // ── Inventory reconciliation at Delivery ─────────────────────────────────
   // Use the warehouse that actually has stock for each product (FIFO across warehouses).
   // Done BEFORE writing status so a stock failure keeps the order in its current state.
@@ -310,6 +324,7 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
       input: {
         warehouseId: resolvedWid,
         saleDate: now,
+        orderId: id,
         notes: `অর্ডার: ${order.orderNumber}`,
         items: orderItems.map(oi => ({
           productId: oi.productId,
@@ -353,11 +368,13 @@ function listOrders({ actor }) {
 
 function addOrderPayment({ actor, userId, input }) {
   if (!actor) throw new Error('Unauthorized');
-  const { orderId, amount, notes, paidAt } = input || {};
+  const { orderId, amount, notes, paidAt, type } = input || {};
   const order = db.get('orders').find({ id: orderId }).value();
   if (!order) throw new Error('Order not found');
   if (actor.role !== 'admin' && order.createdBy !== userId) throw new Error('Forbidden');
-  if (order.status === 'cancelled') throw new Error('Cannot record payment on a cancelled order');
+  // Cancelled orders only accept refund payments; active/delivered orders only accept regular payments
+  if (order.status === 'cancelled' && type !== 'refund') throw new Error('Cannot record payment on a cancelled order');
+  if (order.status !== 'cancelled' && type === 'refund') throw new Error('Refund can only be recorded on cancelled orders');
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Valid amount required');
 
@@ -369,7 +386,8 @@ function addOrderPayment({ actor, userId, input }) {
     notes: notes ? String(notes).trim() : null,
     paidAt: paidAt ?? new Date().toISOString().slice(0, 10),
     recordedBy: userId,
-    orderStep: order.status, // record which step the payment was made at
+    orderStep: order.status,
+    type: type ?? 'payment',
   };
   db.get('orderPayments').push(payment).write();
   return payment;

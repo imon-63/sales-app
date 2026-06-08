@@ -353,7 +353,26 @@ export function SaleDetails() {
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingBottom: tabBottomPad + 40 }]}
           showsVerticalScrollIndicator={false}>
-          
+
+          {sale.status === 'cancelled' && (
+            <View style={styles.cancelBanner}>
+              <View style={styles.cancelBannerTop}>
+                <View style={styles.cancelBannerBadge}>
+                  <Text style={styles.cancelBannerBadgeText}>বাতিল বিক্রয়</Text>
+                </View>
+                {!!sale.cancelledAt && (
+                  <Text style={styles.cancelBannerDate}>{sale.cancelledAt}</Text>
+                )}
+              </View>
+              {!!sale.cancelReason && (
+                <Text style={styles.cancelBannerReason}>{sale.cancelReason}</Text>
+              )}
+              <Text style={styles.cancelBannerNote}>
+                এই বিক্রয়টি অর্ডার বাতিলের কারণে নিষ্ক্রিয় হয়েছে। ইনভেন্টরি পূর্বাবস্থায় ফিরিয়ে দেওয়া হয়েছে।
+              </Text>
+            </View>
+          )}
+
           {isAdmin ? (
             <GlassCard style={styles.leftEdgeRoundCard} accentColor={palette.emeraldDeep}>
               <Pressable
@@ -681,6 +700,20 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: palette.text, fontWeight: '900', fontSize: 15 },
   backBtn: { margin: 20, padding: 16, backgroundColor: palette.emerald, borderRadius: radii.md, alignItems: 'center' },
   backBtnText: { color: palette.onAccent, fontWeight: '900' },
+  cancelBanner: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    borderRadius: radii.lg,
+    padding: 16,
+    marginBottom: 4,
+  },
+  cancelBannerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  cancelBannerBadge: { backgroundColor: 'rgba(239,68,68,0.2)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.5)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  cancelBannerBadgeText: { color: '#EF4444', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  cancelBannerDate: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
+  cancelBannerReason: { color: '#EF4444', fontSize: 14, fontWeight: '800', marginBottom: 8 },
+  cancelBannerNote: { color: palette.textMuted, fontSize: 12, fontWeight: '600', lineHeight: 18 },
   fulfillmentBox: {
     marginTop: 14,
     paddingTop: 12,

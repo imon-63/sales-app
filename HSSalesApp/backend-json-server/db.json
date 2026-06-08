@@ -157,7 +157,7 @@
       "baseUnitCost": 31,
       "notes": "bc:31|ec:5000|From rangpur, Abdul basit",
       "originalQuantity": 15000,
-      "remainingQuantity": 11000
+      "remainingQuantity": 10000
     },
     {
       "id": "eed2369a-39f4-409f-8cb9-b04eca1f2ea2",
@@ -190,7 +190,7 @@
       "baseUnitCost": 111.02564102564101,
       "notes": "উৎপাদন: উৎপা-০৭-জুন-০০১",
       "originalQuantity": 1300,
-      "remainingQuantity": 560.5
+      "remainingQuantity": 500.5
     }
   ],
   "purchases": [
@@ -290,6 +290,15 @@
       "warehouseId": "20000000-0000-0000-0000-000000000000",
       "createdBy": "00000000-0000-0000-0000-000000000002",
       "notes": "অর্ডার: অর্ড-2026০৬০৭-০০৩"
+    },
+    {
+      "id": "fe812b04-3174-4d1d-99d0-eee84e390501",
+      "saleDate": "2026-06-08",
+      "warehouseId": "20000000-0000-0000-0000-000000000000",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "notes": "অর্ডার: অর্ড-2026০৬০৮-০০৪",
+      "orderId": "1124acd5-2737-43a3-8281-db4c3b527bb5",
+      "status": "active"
     }
   ],
   "salesItems": [
@@ -391,6 +400,34 @@
       "bottleBreakdown": null,
       "lotAllocations": "[{\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":50}]",
       "batchAllocations": "[{\"batchId\":\"eb89ae9f-ce5c-4ab0-b23e-89ec674b192b\",\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":50,\"unitCostAtTime\":111.02564102564101}]"
+    },
+    {
+      "id": "0fa95ef8-5381-4db1-bd7b-eac831d1d07f",
+      "saleId": "fe812b04-3174-4d1d-99d0-eee84e390501",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 60,
+      "unitPrice": 220,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "c29426d2-18a5-438a-9126-b07eafa870f9"
+      ],
+      "bottleBreakdown": null,
+      "lotAllocations": "[{\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":60}]",
+      "batchAllocations": "[{\"batchId\":\"eb89ae9f-ce5c-4ab0-b23e-89ec674b192b\",\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":60,\"unitCostAtTime\":111.02564102564101}]"
+    },
+    {
+      "id": "77bc5b0a-20ab-45dd-a21d-6d35a48bb9c2",
+      "saleId": "fe812b04-3174-4d1d-99d0-eee84e390501",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 1000,
+      "unitPrice": 35,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "d37a727a-bbf6-4bb3-9ead-663a9e35bc28"
+      ],
+      "bottleBreakdown": null,
+      "lotAllocations": "[{\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000}]",
+      "batchAllocations": "[{\"batchId\":\"5572a7e5-ad84-4804-84df-47a371ece275\",\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000,\"unitCostAtTime\":31.333333333333332}]"
     }
   ],
   "salesItemAllocations": [
@@ -456,6 +493,20 @@
       "lotBatchId": "eb89ae9f-ce5c-4ab0-b23e-89ec674b192b",
       "quantityAllocated": 50,
       "unitCostAtTime": 111.02564102564101
+    },
+    {
+      "id": "16e6339e-7cca-4488-8be9-b7a6087fb58e",
+      "salesItemId": "0fa95ef8-5381-4db1-bd7b-eac831d1d07f",
+      "lotBatchId": "eb89ae9f-ce5c-4ab0-b23e-89ec674b192b",
+      "quantityAllocated": 60,
+      "unitCostAtTime": 111.02564102564101
+    },
+    {
+      "id": "c78b654e-7551-441a-b499-f66557e71734",
+      "salesItemId": "77bc5b0a-20ab-45dd-a21d-6d35a48bb9c2",
+      "lotBatchId": "5572a7e5-ad84-4804-84df-47a371ece275",
+      "quantityAllocated": 1000,
+      "unitCostAtTime": 31.333333333333332
     }
   ],
   "inventoryTransfers": [],
@@ -558,7 +609,8 @@
       "createdAt": "2026-06-07T14:06:45.114Z",
       "actorUserId": "00000000-0000-0000-0000-000000000002",
       "readByUserIds": [
-        "00000000-0000-0000-0000-000000000001"
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002"
       ],
       "creatorRole": "sales"
     },
@@ -573,9 +625,88 @@
       "readByUserIds": [
         "00000000-0000-0000-0000-000000000001"
       ]
+    },
+    {
+      "id": "79b45a53-4866-4549-a17f-8038661c0d68",
+      "type": "order_created",
+      "orderId": "1124acd5-2737-43a3-8281-db4c3b527bb5",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৮-০০৪",
+      "body": "Rabbil · 01745-369852 · Mustard Oil ×60, Mustard ×1000",
+      "createdAt": "2026-06-08T07:04:58.302Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000002",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "creatorRole": "sales"
+    },
+    {
+      "id": "1d8408ac-af10-44e0-91ed-5464a19fede2",
+      "type": "sale_created",
+      "saleId": "fe812b04-3174-4d1d-99d0-eee84e390501",
+      "title": "নতুন বিক্রয় রেকর্ড",
+      "body": "admin@hs.com · Direct · 2026-06-08 · Mustard Oil ×60 LITER @ BDT 220.00 · Mustard ×1000 KG @ BDT 35.00",
+      "createdAt": "2026-06-08T07:17:10.938Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "id": "9ec81a5f-6a86-44d4-be50-fb9b52f9b891",
+      "type": "order_created",
+      "orderId": "30c151ce-570b-435b-942b-86f5574afb2f",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৮-০০৫",
+      "body": "Jobayed · 01865-453423 · Mustard Oil ×100, Mustard ×1000",
+      "createdAt": "2026-06-08T07:20:18.602Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000002"
+      ],
+      "creatorRole": "admin"
     }
   ],
   "orders": [
+    {
+      "id": "1124acd5-2737-43a3-8281-db4c3b527bb5",
+      "orderNumber": "অর্ড-2026০৬০৮-০০৪",
+      "status": "delivered",
+      "customerName": "Rabbil",
+      "customerPhone": "01745-369852",
+      "customerAddress": null,
+      "orderDate": "2026-06-08",
+      "expectedDelivery": "2026-06-11",
+      "deliveredDate": "2026-06-08",
+      "warehouseId": null,
+      "advancePaid": 2000,
+      "notes": null,
+      "createdBy": "00000000-0000-0000-0000-000000000002",
+      "cancelReason": null,
+      "confirmedDate": "2026-06-08",
+      "processingDate": "2026-06-08",
+      "stockReserved": true,
+      "outForDeliveryDate": "2026-06-08"
+    },
+    {
+      "id": "30c151ce-570b-435b-942b-86f5574afb2f",
+      "orderNumber": "অর্ড-2026০৬০৮-০০৫",
+      "status": "cancelled",
+      "customerName": "Jobayed",
+      "customerPhone": "01865-453423",
+      "customerAddress": null,
+      "orderDate": "2026-06-08",
+      "expectedDelivery": "2026-06-18",
+      "deliveredDate": null,
+      "warehouseId": null,
+      "advancePaid": 1000,
+      "notes": "Packaged",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "cancelReason": null,
+      "confirmedDate": "2026-06-08",
+      "processingDate": "2026-06-08",
+      "stockReserved": false,
+      "outForDeliveryDate": "2026-06-08"
+    },
     {
       "id": "e4bf0689-acae-4bbb-8972-e932bf43f2f0",
       "orderNumber": "অর্ড-2026০৬০৭-০০১",
@@ -691,6 +822,58 @@
       ],
       "lotAllocations": "[{\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":50}]",
       "batchAllocations": "[{\"batchId\":\"eb89ae9f-ce5c-4ab0-b23e-89ec674b192b\",\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":50,\"unitCostAtTime\":111.02564102564101}]"
+    },
+    {
+      "id": "cd08baf0-126c-4ee0-bfc5-758b7bd364c5",
+      "orderId": "1124acd5-2737-43a3-8281-db4c3b527bb5",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 60,
+      "unitPrice": 220,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "c29426d2-18a5-438a-9126-b07eafa870f9"
+      ],
+      "lotAllocations": "[{\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":60}]",
+      "batchAllocations": "[{\"batchId\":\"eb89ae9f-ce5c-4ab0-b23e-89ec674b192b\",\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":60,\"unitCostAtTime\":111.02564102564101}]"
+    },
+    {
+      "id": "a543af38-9b55-46ea-bc0c-6208dc7d94c6",
+      "orderId": "1124acd5-2737-43a3-8281-db4c3b527bb5",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 1000,
+      "unitPrice": 35,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "d37a727a-bbf6-4bb3-9ead-663a9e35bc28"
+      ],
+      "lotAllocations": "[{\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000}]",
+      "batchAllocations": "[{\"batchId\":\"5572a7e5-ad84-4804-84df-47a371ece275\",\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000,\"unitCostAtTime\":31.333333333333332}]"
+    },
+    {
+      "id": "b44f0a03-3415-4633-a4d9-0171a2211f43",
+      "orderId": "30c151ce-570b-435b-942b-86f5574afb2f",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 100,
+      "unitPrice": 220,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "c29426d2-18a5-438a-9126-b07eafa870f9"
+      ],
+      "lotAllocations": "[{\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":100}]",
+      "batchAllocations": "[{\"batchId\":\"eb89ae9f-ce5c-4ab0-b23e-89ec674b192b\",\"lotId\":\"c29426d2-18a5-438a-9126-b07eafa870f9\",\"quantity\":100,\"unitCostAtTime\":111.02564102564101}]"
+    },
+    {
+      "id": "375d03f0-480c-4844-bf10-87c9c4b34252",
+      "orderId": "30c151ce-570b-435b-942b-86f5574afb2f",
+      "productId": "10000000-0000-0000-0000-000000000005",
+      "quantity": 1000,
+      "unitPrice": 36,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [
+        "d37a727a-bbf6-4bb3-9ead-663a9e35bc28"
+      ],
+      "lotAllocations": "[{\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000}]",
+      "batchAllocations": "[{\"batchId\":\"5572a7e5-ad84-4804-84df-47a371ece275\",\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000,\"unitCostAtTime\":31.333333333333332}]"
     }
   ],
   "orderPayments": [
@@ -756,6 +939,16 @@
       "paidAt": "2026-06-07",
       "recordedBy": "00000000-0000-0000-0000-000000000002",
       "orderStep": "out_for_delivery"
+    },
+    {
+      "id": "4484c268-7a84-4ecb-8358-f45b19f70fc1",
+      "orderId": "30c151ce-570b-435b-942b-86f5574afb2f",
+      "amount": 1000,
+      "notes": "Cash returned",
+      "paidAt": "2026-06-08",
+      "recordedBy": "00000000-0000-0000-0000-000000000001",
+      "orderStep": "cancelled",
+      "type": "refund"
     }
   ],
   "productionConsumptions": [

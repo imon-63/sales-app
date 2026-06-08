@@ -136,6 +136,7 @@ function OrderCard({
   onDelete,
   onEdit,
   onRecordPayment,
+  onRecordRefund,
 }: {
   order: Order;
   items: OrderItem[];
@@ -152,6 +153,7 @@ function OrderCard({
   onDelete: () => void;
   onEdit: () => void;
   onRecordPayment: () => void;
+  onRecordRefund: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [selectedStep, setSelectedStep] = useState<OrderStatus | null>(null);
@@ -161,9 +163,15 @@ function OrderCard({
   const canCancel = !['delivered', 'cancelled'].includes(order.status) && (isAdmin || isOwner);
   const canDelete = !['delivered'].includes(order.status) && (isAdmin || isOwner);
   const total = items.reduce((a, it) => a + it.quantity * it.unitPrice, 0);
-  const totalPaid = (order.advancePaid ?? 0) + payments.reduce((a, p) => a + p.amount, 0);
+  const regularPayments = payments.filter(p => p.type !== 'refund');
+  const refundPayments = payments.filter(p => p.type === 'refund');
+  const totalCollected = (order.advancePaid ?? 0) + regularPayments.reduce((a, p) => a + p.amount, 0);
+  const totalPaid = totalCollected; // alias kept for non-cancelled path
+  const totalRefunded = refundPayments.reduce((a, p) => a + p.amount, 0);
   const balance = total - totalPaid;
   const isPaid = total > 0 && balance <= 0;
+  const outstandingRefund = Math.max(0, totalCollected - totalRefunded);
+  const isCancelled = order.status === 'cancelled';
   const nextSt = nextStatus ? STATUS_LABEL[nextStatus] : null;
   const bn = locale === 'bn';
 
@@ -388,26 +396,71 @@ function OrderCard({
                   <Text style={[oc.payVal, { color: palette.success }]}>– {money.format(order.advancePaid!)}</Text>
                 </View>
               )}
-              {payments.map(p => (
+              {regularPayments.map(p => (
                 <View key={p.id} style={oc.payRow}>
                   <Text style={oc.payLabel}>💳 {p.paidAt}{p.notes ? ` · ${p.notes}` : ''}</Text>
                   <Text style={[oc.payVal, { color: palette.success }]}>– {money.format(p.amount)}</Text>
                 </View>
               ))}
-              <View style={[oc.payRow, oc.payTotal, { borderColor: isPaid ? `${palette.success}40` : `${palette.rose}40`, backgroundColor: isPaid ? `${palette.success}08` : `${palette.rose}08` }]}>
-                <Text style={[oc.payLabel, { fontWeight: '900', color: isPaid ? palette.success : palette.rose }]}>
-                  {bn ? (isPaid ? '✓ সম্পূর্ণ পরিশোধিত' : 'বাকি') : (isPaid ? '✓ Fully Paid' : 'Balance Due')}
-                </Text>
-                <Text style={[oc.payVal, { color: isPaid ? palette.success : palette.rose, fontSize: 15, fontWeight: '900' }]}>
-                  {isPaid ? '—' : money.format(balance)}
-                </Text>
-              </View>
+              {!isCancelled && (
+                <View style={[oc.payRow, oc.payTotal, { borderColor: isPaid ? `${palette.success}40` : `${palette.rose}40`, backgroundColor: isPaid ? `${palette.success}08` : `${palette.rose}08` }]}>
+                  <Text style={[oc.payLabel, { fontWeight: '900', color: isPaid ? palette.success : palette.rose }]}>
+                    {bn ? (isPaid ? '✓ সম্পূর্ণ পরিশোধিত' : 'বাকি') : (isPaid ? '✓ Fully Paid' : 'Balance Due')}
+                  </Text>
+                  <Text style={[oc.payVal, { color: isPaid ? palette.success : palette.rose, fontSize: 15, fontWeight: '900' }]}>
+                    {isPaid ? '—' : money.format(balance)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Refund reconciliation — only for cancelled orders with collected payments */}
+              {isCancelled && totalCollected > 0 && (
+                <>
+                  <View style={[oc.payRow, oc.payTotal, { borderColor: `${palette.rose}30`, backgroundColor: `${palette.rose}06`, marginTop: 6 }]}>
+                    <Text style={[oc.payLabel, { fontWeight: '900', color: palette.textMuted }]}>
+                      {bn ? 'মোট সংগৃহীত' : 'Total Collected'}
+                    </Text>
+                    <Text style={[oc.payVal, { color: palette.text, fontWeight: '900' }]}>{money.format(totalCollected)}</Text>
+                  </View>
+                  {refundPayments.length > 0 && (
+                    <>
+                      <Text style={[oc.paySectionTitle, { fontSize: 10, marginTop: 10, marginBottom: 4 }]}>💸 {bn ? 'রিফান্ড' : 'Refunds'}</Text>
+                      {refundPayments.map(p => (
+                        <View key={p.id} style={oc.payRow}>
+                          <Text style={oc.payLabel}>💸 {p.paidAt}{p.notes ? ` · ${p.notes}` : ''}</Text>
+                          <Text style={[oc.payVal, { color: palette.rose }]}>+ {money.format(p.amount)}</Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                  <View style={[oc.payRow, oc.payTotal, {
+                    borderColor: outstandingRefund <= 0 ? `${palette.success}40` : `${palette.rose}40`,
+                    backgroundColor: outstandingRefund <= 0 ? `${palette.success}08` : `${palette.rose}08`,
+                  }]}>
+                    <Text style={[oc.payLabel, { fontWeight: '900', color: outstandingRefund <= 0 ? palette.success : palette.rose }]}>
+                      {outstandingRefund <= 0
+                        ? (bn ? '✓ রিফান্ড সম্পন্ন' : '✓ Fully Refunded')
+                        : (bn ? 'বকেয়া রিফান্ড' : 'Outstanding Refund')}
+                    </Text>
+                    <Text style={[oc.payVal, { color: outstandingRefund <= 0 ? palette.success : palette.rose, fontSize: 15, fontWeight: '900' }]}>
+                      {outstandingRefund <= 0 ? '—' : money.format(outstandingRefund)}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
 
-            {/* Record Payment — available until fully paid, even after delivery */}
-            {!isPaid && order.status !== 'cancelled' && (
+            {/* Record Payment — active/delivered orders only */}
+            {!isPaid && !isCancelled && (
               <Pressable onPress={onRecordPayment} style={({ pressed }) => [oc.payBtn, pressed && { opacity: 0.8 }]}>
                 <Text style={oc.payBtnText} numberOfLines={1} allowFontScaling={false}>💳 {bn ? 'পেমেন্ট রেকর্ড করুন' : 'Record Payment'}</Text>
+              </Pressable>
+            )}
+
+            {/* Record Refund — cancelled orders with outstanding refund */}
+            {isCancelled && outstandingRefund > 0 && (
+              <Pressable onPress={onRecordRefund} style={({ pressed }) => [oc.refundBtn, pressed && { opacity: 0.8 }]}>
+                <Text style={oc.refundBtnText} numberOfLines={1} allowFontScaling={false}>💸 {bn ? `রিফান্ড রেকর্ড করুন · ${money.format(outstandingRefund)}` : `Record Refund · ${money.format(outstandingRefund)}`}</Text>
               </Pressable>
             )}
 
@@ -563,6 +616,18 @@ const oc = StyleSheet.create({
   advanceBtnIcon: { fontSize: 16 },
   advanceBtnText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.2 },
   advanceBtnArrow: { color: 'rgba(255,255,255,0.7)', fontSize: 20, fontWeight: '900' },
+  refundBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(239,68,68,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+  },
+  refundBtnText: { color: '#EF4444', fontSize: 14, fontWeight: '900', letterSpacing: 0.2 },
 });
 
 // ── New order form ─────────────────────────────────────────────────────────────
@@ -1135,6 +1200,10 @@ export function OrdersScreen() {
   const [paymentAmt, setPaymentAmt] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [refundOrder, setRefundOrder] = useState<Order | null>(null);
+  const [refundAmt, setRefundAmt] = useState('');
+  const [refundNote, setRefundNote] = useState('');
+  const [refundBusy, setRefundBusy] = useState(false);
   const bn = locale === 'bn';
 
   const money = useMemo(() => new Intl.NumberFormat(bn ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }), [bn]);
@@ -1260,6 +1329,20 @@ export function OrdersScreen() {
     finally { setPaymentBusy(false); }
   }
 
+  async function submitRefund() {
+    if (!token || !refundOrder) return;
+    const amt = Number(refundAmt);
+    if (!amt || amt <= 0) { Alert.alert(bn ? 'ত্রুটি' : 'Error', bn ? 'সঠিক পরিমাণ দিন' : 'Enter valid amount'); return; }
+    setRefundBusy(true);
+    try {
+      const payment = await ordersApi.addOrderPayment({ orderId: refundOrder.id, amount: amt, notes: refundNote.trim() || undefined, type: 'refund' }, token);
+      dispatch(addPayment(payment));
+      setRefundOrder(null); setRefundAmt(''); setRefundNote('');
+      dispatch(showToast({ title: bn ? 'রিফান্ড রেকর্ড হয়েছে' : 'Refund Recorded', message: `${money.format(amt)}`, type: 'success' }));
+    } catch (e: any) { Alert.alert('Error', e?.message); }
+    finally { setRefundBusy(false); }
+  }
+
   const FilterTab = ({ tab, label, count }: { tab: Filter; label: string; count: number }) => (
     <Pressable onPress={() => setFilter(tab)} style={[styles.filterTab, filter === tab && styles.filterTabActive]}>
       <Text style={[styles.filterLabel, filter === tab && styles.filterLabelActive]}>{label}</Text>
@@ -1326,6 +1409,13 @@ export function OrdersScreen() {
                         onDelete={() => deleteOrder(order)}
                         onEdit={() => setEditingOrder(order)}
                         onRecordPayment={() => setPaymentOrder(order)}
+                        onRecordRefund={() => {
+                          const pmts = orderPayments.filter(p => p.orderId === order.id);
+                          const collected = (order.advancePaid ?? 0) + pmts.filter(p => p.type !== 'refund').reduce((a, p) => a + p.amount, 0);
+                          const refunded = pmts.filter(p => p.type === 'refund').reduce((a, p) => a + p.amount, 0);
+                          setRefundAmt(String(Math.max(0, collected - refunded)));
+                          setRefundOrder(order);
+                        }}
                       />
                     </View>
                   ))}
@@ -1422,6 +1512,46 @@ export function OrdersScreen() {
                 </Pressable>
                 <Pressable onPress={submitPayment} disabled={paymentBusy} style={[styles.payDialogConfirm, paymentBusy && { opacity: 0.5 }]}>
                   {paymentBusy ? <ActivityIndicator color={palette.onAccent} size="small" /> : <Text style={{ color: palette.onAccent, fontWeight: '900' }}>{bn ? 'সংরক্ষণ' : 'Save'}</Text>}
+                </Pressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      )}
+
+      {/* Refund modal — for cancelled orders */}
+      {refundOrder && (
+        <View style={styles.overlayCentered}>
+          <Pressable style={styles.overlayBg} onPress={() => { setRefundOrder(null); setRefundAmt(''); setRefundNote(''); }} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.payDialogKav}>
+            <View style={[styles.payDialog, { borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }]}>
+              <Text style={[styles.payDialogTitle, { color: '#EF4444' }]}>💸 {bn ? 'রিফান্ড রেকর্ড' : 'Record Refund'}</Text>
+              <Text style={styles.payDialogSub}>{refundOrder.orderNumber} · {refundOrder.customerName}</Text>
+              <Text style={styles.payDialogLabel}>{bn ? 'রিফান্ড পরিমাণ (BDT) *' : 'Refund Amount (BDT) *'}</Text>
+              <TextInput
+                value={refundAmt}
+                onChangeText={setRefundAmt}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={palette.textMuted}
+                style={styles.payDialogInput}
+              />
+              <Text style={styles.payDialogLabel}>{bn ? 'নোট (ঐচ্ছিক)' : 'Note (optional)'}</Text>
+              <TextInput
+                value={refundNote}
+                onChangeText={setRefundNote}
+                placeholder={bn ? 'যেমন: নগদ ফেরত' : 'e.g. cash returned'}
+                placeholderTextColor={palette.textMuted}
+                style={styles.payDialogInput}
+              />
+              <View style={styles.payDialogActions}>
+                <Pressable onPress={() => { setRefundOrder(null); setRefundAmt(''); setRefundNote(''); }} style={styles.payDialogCancel}>
+                  <Text style={{ color: palette.textMuted, fontWeight: '800' }}>{bn ? 'বাতিল' : 'Cancel'}</Text>
+                </Pressable>
+                <Pressable onPress={submitRefund} disabled={refundBusy} style={[styles.payDialogConfirm, { backgroundColor: '#EF4444', shadowColor: '#EF4444' }, refundBusy && { opacity: 0.5 }]}>
+                  {refundBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '900' }}>{bn ? 'রিফান্ড দিন' : 'Refund'}</Text>}
                 </Pressable>
               </View>
             </View>

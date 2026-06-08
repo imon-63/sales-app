@@ -511,32 +511,42 @@ export function ProductDetailScreen() {
                   </Pressable>
                 </GlassCard>
               ) : (
-                enrichedSales.map((item, i) => (
-                  <GlassCard key={i} style={styles.saleHistoryCard}>
-                    <View style={styles.saleHistoryTop}>
-                      <View>
-                        <Text style={styles.saleHistoryDate}>{item.sale.saleDate}</Text>
-                        <View style={styles.saleHistoryMeta}>
-                          <View style={styles.whChip}>
-                            <Text style={styles.whChipText}>{item.wh}</Text>
+                enrichedSales.map((item, i) => {
+                  const isCancelledSale = item.sale.status === 'cancelled';
+                  return (
+                    <GlassCard key={i} style={[styles.saleHistoryCard, isCancelledSale && styles.saleHistoryCardCancelled]}>
+                      {isCancelledSale && (
+                        <View style={styles.saleCancelledBadgeRow}>
+                          <View style={styles.saleCancelledBadge}>
+                            <Text style={styles.saleCancelledBadgeText}>বাতিল</Text>
                           </View>
-                          <Text style={styles.saleHistorySeller}>{item.seller}</Text>
+                        </View>
+                      )}
+                      <View style={styles.saleHistoryTop}>
+                        <View>
+                          <Text style={[styles.saleHistoryDate, isCancelledSale && styles.saleHistoryCancelledText]}>{item.sale.saleDate}</Text>
+                          <View style={styles.saleHistoryMeta}>
+                            <View style={styles.whChip}>
+                              <Text style={styles.whChipText}>{item.wh}</Text>
+                            </View>
+                            <Text style={[styles.saleHistorySeller, isCancelledSale && styles.saleHistoryCancelledText]}>{item.seller}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.saleHistoryNums}>
+                          <Text style={[styles.saleHistoryRev, isCancelledSale && styles.saleHistoryCancelledRev]}>{money.format(item.rev)}</Text>
+                          <Text style={[styles.saleHistoryQty, isCancelledSale && styles.saleHistoryCancelledText]}>
+                            {item.qty.toLocaleString()} {unitLabel}
+                          </Text>
                         </View>
                       </View>
-                      <View style={styles.saleHistoryNums}>
-                        <Text style={styles.saleHistoryRev}>{money.format(item.rev)}</Text>
-                        <Text style={styles.saleHistoryQty}>
-                          {item.qty.toLocaleString()} {unitLabel}
+                      {item.sale.notes ? (
+                        <Text style={styles.saleHistoryNote} numberOfLines={1}>
+                          {item.sale.notes}
                         </Text>
-                      </View>
-                    </View>
-                    {item.sale.notes ? (
-                      <Text style={styles.saleHistoryNote} numberOfLines={1}>
-                        {item.sale.notes}
-                      </Text>
-                    ) : null}
-                  </GlassCard>
-                ))
+                      ) : null}
+                    </GlassCard>
+                  );
+                })
               )}
             </View>
           )}
@@ -1202,6 +1212,12 @@ const styles = StyleSheet.create({
   },
   saleHistoryQty: { color: palette.textMuted, fontSize: 12, fontWeight: '700', marginTop: 3 },
   saleHistoryNote: { color: palette.textMuted, fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
+  saleHistoryCardCancelled: { borderColor: 'rgba(239,68,68,0.35)', backgroundColor: 'rgba(239,68,68,0.04)' },
+  saleCancelledBadgeRow: { flexDirection: 'row' as const, marginBottom: 6 },
+  saleCancelledBadge: { backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  saleCancelledBadgeText: { color: '#EF4444', fontSize: 11, fontWeight: '900' as const, letterSpacing: 0.5 },
+  saleHistoryCancelledText: { color: palette.textMuted, textDecorationLine: 'line-through' as const },
+  saleHistoryCancelledRev: { color: '#EF4444', fontSize: 15, fontWeight: '900' as const, textDecorationLine: 'line-through' as const },
 
   // Stock Tab
   stockHeroCard: {

@@ -7,7 +7,7 @@ const { getConversionFactor } = require('./inventory');
 
 function createSale({ actor, userId, input }) {
   if (!actor || (actor.role !== 'sales' && actor.role !== 'admin')) throw new Error('Forbidden');
-  const { warehouseId, notes, items, saleDate } = input || {};
+  const { warehouseId, notes, items, saleDate, orderId } = input || {};
   if (!warehouseId || !Array.isArray(items) || items.length === 0) throw new Error('Missing warehouseId or items');
   const warehouses = db.get('warehouses').value() ?? [];
   if (!warehouses.some(w => w.id === warehouseId)) throw new Error('Unknown warehouse');
@@ -42,7 +42,7 @@ function createSale({ actor, userId, input }) {
     if (needed > avail) { const p = products.find(x => x.id === line.productId); throw new Error(`Insufficient stock for ${p?.name || 'product'}. Available: ${avail}, Needed: ${needed}`); }
   }
 
-  const sale = { id: saleId, saleDate: dateStr, warehouseId, createdBy: userId, notes: notes != null ? String(notes) : '' };
+  const sale = { id: saleId, saleDate: dateStr, warehouseId, createdBy: userId, notes: notes != null ? String(notes) : '', orderId: orderId ?? null, status: 'active' };
   db.get('sales').push(sale).write();
   ensureCollection('salesItemAllocations', []);
 
