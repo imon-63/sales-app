@@ -18,6 +18,7 @@ const { parseBearerUserIdFromHeader, findUserById } = require('./helpers');
 const typeDefs = require('./schema/typeDefs');
 const resolvers = require('./resolvers/index');
 const { liveWsServer } = require('./live');
+const kafkaProducer = require('./kafka/producer');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
@@ -67,4 +68,9 @@ app.use(router);
 httpServer.listen(PORT, () => {
   console.log(`Backend running at http://localhost:${PORT}/graphql`);
   console.log(`Live WebSocket at  ws://localhost:${PORT}/live`);
+  // Connect to Kafka asynchronously — the server starts immediately regardless
+  kafkaProducer.connect();
 });
+
+process.on('SIGTERM', async () => { await kafkaProducer.disconnect(); process.exit(0); });
+process.on('SIGINT',  async () => { await kafkaProducer.disconnect(); process.exit(0); });

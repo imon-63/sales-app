@@ -1,0 +1,131 @@
+# ── HS Sales — Full stack with Apache Kafka ───────────────────────────────────
+#
+#  Services:
+#    zookeeper    Kafka coordination (port 2181 internal only)
+#    kafka        Kafka broker      (port 9092 → host, 29092 internal)
+#    kafka-ui     Kafka UI          (port 8080 → http://localhost:8080)
+#    backend      JSON-server API   (port 3001 → http://localhost:3001)
+#    db-streamer  DB change poller  (no exposed port — writes to ./data/db-changes.jsonl)
+#
+#  Usage:
+#    docker compose up --build
+#
+#  Topics (auto-created):
+#    hs-sales-orders      Business events: order.created / status-changed / payment.added
+#    hs-sales-db-changes  Full db.json snapshots + per-collection diffs on every write
+#
+#  Sink file:
+#    ./data/db-changes.jsonl  — append-only JSONL, one record per DB change
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Zookeeper ──────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    hostname: zookeeper
+    container_name: hs-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    # bash /dev/tcp — pure bash, no nc/netcat dependency required
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':>/dev/tcp/localhost/2181' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ── Kafka broker ───────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: kafka
+    container_name: hs-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT is for inter-container comms; PLAINTEXT_HOST is for host access
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: 30000
+    # kafka-topics --list actually connects to the broker and exercises the API
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 45s
+
+  # ── Kafka UI (Provectus) — browse topics, messages, consumer groups ────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    hostname: kafka-ui
+    container_name: hs-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: hs-sales-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_READONLY: "false"
+
+  # ── HS Sales backend (JSON-server + GraphQL) ───────────────────────────────
+  backend:
+    build:
+      context: ./backend-json-server
+      dockerfile: Dockerfile
+    hostname: backend
+    container_name: hs-backend
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      # Bind-mount db.json so data persists on the host and the streamer can read it
+      - ./backend-json-server/db.json:/app/db.json
+
+  # ── DB Streamer — watches db.json and streams changes to Kafka + sink file ─
+  db-streamer:
+    build:
+      context: ./kafka-streamer
+      dockerfile: Dockerfile
+    hostname: db-streamer
+    container_name: hs-db-streamer
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      DB_FILE: /data/db.json
+      SINK_FILE: /sink/db-changes.jsonl
+      POLL_INTERVAL_MS: 500
+    volumes:
+      # Read-only view of the same db.json the backend writes to
+      - ./backend-json-server/db.json:/data/db.json:ro
+      # Sink file lands in ./data/ on the host
+      - ./data:/sink

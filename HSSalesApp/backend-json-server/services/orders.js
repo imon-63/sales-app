@@ -4,6 +4,7 @@ const { db } = require('../db');
 const { ensureCollection, findUserById } = require('../helpers');
 const { createSale } = require('./sales');
 const { persistNotification } = require('./notifications');
+const kafka = require('../kafka/producer');
 
 const BD = '০১২৩৪৫৬৭৮৯';
 function bNum(n, pad = 2) { return String(n).padStart(pad, '0').split('').map(d => BD[Number(d)]).join(''); }
@@ -46,6 +47,17 @@ function createOrder({ actor, userId, input }) {
     cancelReason: null,
   };
   db.get('orders').push(order).write();
+
+  kafka.publish('hs-sales-orders', orderId, {
+    event: 'order.created',
+    orderId,
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    total: validItems.reduce((s, it) => s + Number(it.quantity) * Number(it.unitPrice), 0),
+    itemCount: validItems.length,
+    createdBy: userId,
+  });
 
   for (const it of validItems) {
     db.get('orderItems').push({
@@ -344,6 +356,17 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
   // Only write the status after all side-effects succeed
   db.get('orders').find({ id }).assign(patch).write();
 
+  // Publish status-change event (fire-and-forget)
+  kafka.publish('hs-sales-orders', id, {
+    event: status === 'cancelled' ? 'order.cancelled' : 'order.status-changed',
+    orderId: id,
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    previousStatus: order.status,
+    status,
+    ...(status === 'cancelled' ? { cancelReason: cancelReason ?? null } : {}),
+  });
+
   return db.get('orders').find({ id }).value();
 }
 
@@ -390,6 +413,17 @@ function addOrderPayment({ actor, userId, input }) {
     type: type ?? 'payment',
   };
   db.get('orderPayments').push(payment).write();
+
+  kafka.publish('hs-sales-orders', orderId, {
+    event: type === 'refund' ? 'payment.refunded' : 'payment.added',
+    paymentId: payment.id,
+    orderId,
+    amount: amt,
+    type: payment.type,
+    paidAt: payment.paidAt,
+    orderStatus: order.status,
+  });
+
   return payment;
 }
 

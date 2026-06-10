@@ -661,7 +661,21 @@
       "createdAt": "2026-06-08T07:20:18.602Z",
       "actorUserId": "00000000-0000-0000-0000-000000000001",
       "readByUserIds": [
-        "00000000-0000-0000-0000-000000000002"
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "creatorRole": "admin"
+    },
+    {
+      "id": "f725a407-4d39-48a2-910a-1f65910914b4",
+      "type": "order_created",
+      "orderId": "c0362a40-2101-4e84-b92d-031dd7885016",
+      "title": "নতুন অর্ডার — অর্ড-2026০৬০৮-০০৬",
+      "body": "kafka test order · 01956-675432 · Mustard Oil ×120",
+      "createdAt": "2026-06-08T08:48:30.734Z",
+      "actorUserId": "00000000-0000-0000-0000-000000000001",
+      "readByUserIds": [
+        "00000000-0000-0000-0000-000000000001"
       ],
       "creatorRole": "admin"
     }
@@ -706,6 +720,22 @@
       "processingDate": "2026-06-08",
       "stockReserved": false,
       "outForDeliveryDate": "2026-06-08"
+    },
+    {
+      "id": "c0362a40-2101-4e84-b92d-031dd7885016",
+      "orderNumber": "অর্ড-2026০৬০৮-০০৬",
+      "status": "draft",
+      "customerName": "kafka test order",
+      "customerPhone": "01956-675432",
+      "customerAddress": null,
+      "orderDate": "2026-06-08",
+      "expectedDelivery": "2026-06-18",
+      "deliveredDate": null,
+      "warehouseId": null,
+      "advancePaid": 2000,
+      "notes": "Kafka",
+      "createdBy": "00000000-0000-0000-0000-000000000001",
+      "cancelReason": null
     },
     {
       "id": "e4bf0689-acae-4bbb-8972-e932bf43f2f0",
@@ -874,6 +904,16 @@
       ],
       "lotAllocations": "[{\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000}]",
       "batchAllocations": "[{\"batchId\":\"5572a7e5-ad84-4804-84df-47a371ece275\",\"lotId\":\"d37a727a-bbf6-4bb3-9ead-663a9e35bc28\",\"quantity\":1000,\"unitCostAtTime\":31.333333333333332}]"
+    },
+    {
+      "id": "0c255834-db97-4474-98aa-edde665a6b2e",
+      "orderId": "c0362a40-2101-4e84-b92d-031dd7885016",
+      "productId": "69117488-a131-4351-9450-65caea29732e",
+      "quantity": 120,
+      "unitPrice": 220,
+      "currencyId": "a0000000-0000-0000-0000-000000000002",
+      "lotIds": [],
+      "lotAllocations": null
     }
   ],
   "orderPayments": [
