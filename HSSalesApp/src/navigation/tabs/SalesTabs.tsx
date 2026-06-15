@@ -7,8 +7,7 @@ import { StyleSheet, Text } from 'react-native';
 
 import { SalesDashboardScreen } from '../../screens/dashboard/SalesDashboardScreen';
 import { AccountScreen } from '../../screens/account/AccountScreen';
-import { LogSaleScreen } from '../../screens/sales/LogSaleScreen';
-import { ReceiveStockScreen } from '../../screens/inventory/ReceiveStockScreen';
+import { SalesHubScreen } from '../../screens/sales/SalesHubScreen';
 import { OrdersScreen } from '../../screens/orders/OrdersScreen';
 import { useT } from '../../i18n/useT';
 import { palette } from '../../theme/designSystem';
@@ -18,7 +17,6 @@ export type SalesTabParamList = {
   SalesHome: undefined;
   SalesOrders: undefined;
   SalesLog: undefined;
-  SalesPurchase: undefined;
   SalesAccount: undefined;
 };
 
@@ -73,21 +71,11 @@ export function SalesTabs() {
       />
       <Tab.Screen
         name="SalesLog"
-        component={LogSaleScreen}
+        component={SalesHubScreen}
         options={{
           title: t('tabs.sales.log'),
           tabBarIcon: ({ color }) => (
             <Text style={[styles.icon, { color }]} allowFontScaling={false}>💰</Text>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="SalesPurchase"
-        component={ReceiveStockScreen}
-        options={{
-          title: t('tabs.sales.purchase'),
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.icon, { color }]} allowFontScaling={false}>📦</Text>
           ),
         }}
       />

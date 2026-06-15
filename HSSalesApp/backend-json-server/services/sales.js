@@ -7,7 +7,8 @@ const { getConversionFactor } = require('./inventory');
 
 function createSale({ actor, userId, input }) {
   if (!actor || (actor.role !== 'sales' && actor.role !== 'admin')) throw new Error('Forbidden');
-  const { warehouseId, notes, items, saleDate, orderId } = input || {};
+  const { warehouseId, notes, items, saleDate, orderId, extraCost: rawExtraCost } = input || {};
+  const extraCost = Number(rawExtraCost) > 0 ? Number(rawExtraCost) : 0;
   if (!warehouseId || !Array.isArray(items) || items.length === 0) throw new Error('Missing warehouseId or items');
   const warehouses = db.get('warehouses').value() ?? [];
   if (!warehouses.some(w => w.id === warehouseId)) throw new Error('Unknown warehouse');
@@ -42,8 +43,18 @@ function createSale({ actor, userId, input }) {
     if (needed > avail) { const p = products.find(x => x.id === line.productId); throw new Error(`Insufficient stock for ${p?.name || 'product'}. Available: ${avail}, Needed: ${needed}`); }
   }
 
-  const sale = { id: saleId, saleDate: dateStr, warehouseId, createdBy: userId, notes: notes != null ? String(notes) : '', orderId: orderId ?? null, status: 'active' };
+  const totalAmount = createdItems.reduce((s, li) => s + li.quantity * li.unitPrice, 0);
+  const paidAmt = Number(input.paidAmount) || 0;
+  const paymentStatus = paidAmt >= totalAmount ? 'paid' : paidAmt > 0 ? 'partial' : 'due';
+  const sale = { id: saleId, saleDate: dateStr, warehouseId, createdBy: userId, notes: notes != null ? String(notes) : '', orderId: orderId ?? null, status: 'active', totalAmount, paidAmount: paidAmt, paymentStatus, extraCost: extraCost || null };
   db.get('sales').push(sale).write();
+
+  if (paidAmt > 0) {
+    ensureCollection('salePayments', []);
+    const collector = db.get('users').find({ id: userId }).value();
+    db.get('salePayments').push({ id: crypto.randomUUID(), saleId, amount: paidAmt, collectedBy: userId, collectedByName: collector?.name || actor.email || '', paidAt: dateStr, notes: '' }).write();
+  }
+
   ensureCollection('salesItemAllocations', []);
 
   for (const line of createdItems) {
@@ -138,4 +149,66 @@ function createSale({ actor, userId, input }) {
   return { sale, items: createdItems };
 }
 
-module.exports = { createSale };
+function addSalePayment({ actor, userId, input }) {
+  if (!actor || (actor.role !== 'sales' && actor.role !== 'admin')) throw new Error('Forbidden');
+  const { saleId, amount, notes, paidAt } = input || {};
+  if (!saleId || !Number.isFinite(Number(amount)) || Number(amount) <= 0) throw new Error('Invalid input');
+  const sale = db.get('sales').find({ id: saleId }).value();
+  if (!sale) throw new Error('Sale not found');
+  if (actor.role !== 'admin' && sale.createdBy !== userId) throw new Error('Forbidden');
+  const collector = db.get('users').find({ id: userId }).value();
+  const dateStr = typeof paidAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(paidAt) ? paidAt : new Date().toISOString().slice(0, 10);
+  ensureCollection('salePayments', []);
+
+  // Lazy backfill: if this is the first salePayment on an order-linked sale,
+  // seed a record for what was already paid at the order stage so paidAmount stays correct
+  const existingSpCount = (db.get('salePayments').filter({ saleId }).value() ?? []).length;
+  if (existingSpCount === 0 && sale.orderId) {
+    const linkedOrder = db.get('orders').find({ id: sale.orderId }).value();
+    if (linkedOrder) {
+      ensureCollection('orderPayments', []);
+      const orderPmts = (db.get('orderPayments').value() ?? []).filter(p => p.orderId === sale.orderId && p.type !== 'refund');
+      const legacyPaid = (linkedOrder.advancePaid ?? 0) + orderPmts.reduce((s, p) => s + Number(p.amount), 0);
+      if (legacyPaid > 0) {
+        db.get('salePayments').push({
+          id: crypto.randomUUID(),
+          saleId,
+          amount: legacyPaid,
+          collectedBy: userId,
+          collectedByName: collector?.name || actor.email || '',
+          paidAt: linkedOrder.deliveredDate ?? dateStr,
+          notes: 'Order payment (synced)',
+        }).write();
+      }
+    }
+  }
+
+  const payment = { id: crypto.randomUUID(), saleId, amount: Number(amount), collectedBy: userId, collectedByName: collector?.name || actor.email || '', paidAt: dateStr, notes: notes || '' };
+  db.get('salePayments').push(payment).write();
+  const newPaidAmount = (db.get('salePayments').filter({ saleId }).value() ?? []).reduce((s, p) => s + Number(p.amount), 0);
+  const totalAmount = Number(sale.totalAmount) || 0;
+  const paymentStatus = newPaidAmount >= totalAmount ? 'paid' : newPaidAmount > 0 ? 'partial' : 'due';
+  db.get('sales').find({ id: saleId }).assign({ paidAmount: newPaidAmount, paymentStatus }).write();
+
+  // Sync: if this sale came from an order, propagate payment back to orderPayments
+  if (sale.orderId) {
+    const order = db.get('orders').find({ id: sale.orderId }).value();
+    if (order) {
+      ensureCollection('orderPayments', []);
+      db.get('orderPayments').push({
+        id: crypto.randomUUID(),
+        orderId: sale.orderId,
+        amount: Number(amount),
+        notes: notes || '',
+        paidAt: dateStr,
+        recordedBy: userId,
+        orderStep: 'delivered',
+        type: 'payment',
+      }).write();
+    }
+  }
+
+  return payment;
+}
+
+module.exports = { createSale, addSalePayment };

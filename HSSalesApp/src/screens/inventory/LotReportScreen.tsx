@@ -135,7 +135,7 @@ export function LotReportScreen() {
     return rows.sort((a, b) => b.date.localeCompare(a.date));
   }, [allocations, salesItems, sales]);
 
-  const fmt = (n: number) => `BDT ${Math.round(n).toLocaleString()}`;
+  const fmt = (n: number) => `৳${Math.round(n).toLocaleString()}`;
 
   if (!lot) {
     return (
@@ -334,7 +334,7 @@ export function LotReportScreen() {
                       <Text style={styles.shTotal}>{fmt(sh.subtotal)}</Text>
                     </View>
                     <Text style={styles.shDetail}>
-                      {sh.qty.toLocaleString()} units @ BDT {sh.price.toLocaleString()}
+                      {sh.qty.toLocaleString()} units @ ৳{sh.price.toLocaleString()}
                     </Text>
                     <View style={styles.inlineProfit}>
                       <Text style={styles.inlineProfitLabel}>Contribution:</Text>

@@ -6,13 +6,14 @@ function toBengali(n: number, pad = 2): string {
 }
 
 /**
- * Generates a short, meaningful Bengali lot number.
- * Example: ব্যাচ-০৫-জুন-০৪২
+ * Generates a Bengali lot number with year.
+ * Example: লট-০৫-জুন-২৬-০৪২
  */
 export function generateBengaliLotNumber(): string {
   const now = new Date();
   const day = toBengali(now.getDate());
   const month = BN_MONTHS[now.getMonth()];
+  const year2 = toBengali(now.getFullYear() % 100);
   const seq = toBengali(Math.floor(Math.random() * 999) + 1, 3);
-  return `ব্যাচ-${day}-${month}-${seq}`;
+  return `লট-${day}-${month}-${year2}-${seq}`;
 }

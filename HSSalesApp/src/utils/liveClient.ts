@@ -1,13 +1,11 @@
 import { getWebSocketUrl } from '../config/apiBase';
-import { Vibration } from 'react-native';
 import { store } from '../store';
 import {
   addNotification,
   markNotificationReadLocal,
   setActiveViews,
 } from '../store/slices/notificationsSlice';
-import { fetchOrders, upsertOrder } from '../store/slices/ordersSlice';
-import { showToast } from '../store/slices/uiSlice';
+import { fetchOrders } from '../store/slices/ordersSlice';
 import type { User } from '../types/models';
 
 class LiveClient {
@@ -102,17 +100,6 @@ class LiveClient {
 
         if (notif?.type === 'order_created') {
           store.dispatch(fetchOrders());
-          const currentUserId = appState.auth?.user?.id;
-          const isCreator = notif.actorUserId && notif.actorUserId === currentUserId;
-          if (!isCreator) {
-            const locale = appState.ui?.locale ?? 'en';
-            Vibration.vibrate([0, 120, 80, 180]);
-            store.dispatch(showToast({
-              title: locale === 'bn' ? 'নতুন অর্ডার 📋' : 'New Order 📋',
-              message: notif.title ?? notif.body ?? '',
-              type: 'info',
-            }));
-          }
         }
         break;
       }

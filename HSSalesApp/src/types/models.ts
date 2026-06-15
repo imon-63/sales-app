@@ -46,6 +46,20 @@ export type Sale = {
   status?: string;
   cancelledAt?: string;
   cancelReason?: string;
+  paidAmount?: number;
+  totalAmount?: number;
+  paymentStatus?: 'paid' | 'partial' | 'due';
+  extraCost?: number;
+};
+
+export type SalePayment = {
+  id: string;
+  saleId: string;
+  amount: number;
+  collectedBy: string;
+  collectedByName?: string;
+  paidAt: string;
+  notes?: string;
 };
 
 export type BottleBreakdownItem = {
@@ -114,6 +128,17 @@ export type LotBatch = {
   notes?: string;
   originalQuantity: number;
   remainingQuantity: number;
+};
+
+export type LotPurchaseLog = {
+  id: string;
+  lotId: string;
+  acquiredAt: string;
+  quantity: number;
+  baseUnitCost: number;
+  extraCost?: number;
+  effectiveUnitCost: number;
+  notes?: string;
 };
 
 export type SalesItemAllocation = {

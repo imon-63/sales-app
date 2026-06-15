@@ -24,6 +24,7 @@ import { MeshBackground } from '../../components/ui/MeshBackground';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchInventoryStock } from '../../store/slices/inventorySlice';
 import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
+import { useNavigation } from '@react-navigation/native';
 import { useAppSideMenu } from '../../navigation/useAppSideMenu';
 import { palette, radii } from '../../theme/designSystem';
 import { showToast } from '../../store/slices/uiSlice';
@@ -57,6 +58,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export function ReceiveStockScreen() {
+  const navigation = useNavigation();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const { menuModal, openMenu } = useAppSideMenu();
@@ -183,11 +185,7 @@ export function ReceiveStockScreen() {
         message: 'Purchase recorded. Stock room reflects new lots.',
         type: 'success'
       }));
-      setWarehouseId('');
-      const freshLine = newLine();
-      setLines([freshLine]);
-      setExpandedLines(new Set([freshLine.id]));
-      setPurchaseDate(new Date().toISOString().slice(0, 10));
+      navigation.goBack();
     } catch (e: any) {
       dispatch(showToast({
         title: 'Could not receive',
@@ -296,19 +294,6 @@ export function ReceiveStockScreen() {
                         placeholder="Select product"
                       />
 
-                      <Text style={[styles.label, styles.labelSpaced]}>Lot Number</Text>
-                      <TextInput
-                        value={ln.lotNumber}
-                        onChangeText={(t) =>
-                          setLines((prev) =>
-                            prev.map((x) => (x.id === ln.id ? { ...x, lotNumber: t } : x)),
-                          )
-                        }
-                        placeholder="e.g. WH-AUG-01"
-                        placeholderTextColor={palette.textMuted}
-                        style={styles.input}
-                      />
-
                       <View style={styles.qtyUnitRow}>
                         <View style={styles.qtyCol}>
                           <Text style={[styles.label, styles.labelSpaced]}>Quantity</Text>
@@ -346,7 +331,7 @@ export function ReceiveStockScreen() {
                         </View>
                       </View>
                       <Text style={[styles.label, styles.labelSpaced]}>
-                        Cost per {units.find(u => u.id === (products.find(p => p.id === ln.productId)?.unitId))?.label || 'base unit'} (BDT)
+                        Cost per {units.find(u => u.id === (products.find(p => p.id === ln.productId)?.unitId))?.label || 'base unit'} (৳)
                       </Text>
                       <TextInput
                         value={ln.unitCost}
@@ -362,7 +347,7 @@ export function ReceiveStockScreen() {
                       />
 
                       <Text style={[styles.label, styles.labelSpaced]}>
-                        Extra Cost (BDT) — transport, loading, etc.
+                        Extra Cost (৳) — transport, loading, etc.
                       </Text>
                       <TextInput
                         value={ln.extraCost}
@@ -403,13 +388,13 @@ export function ReceiveStockScreen() {
                         return (
                           <View style={styles.lineSummary}>
                             <Text style={styles.lineSummaryText}>
-                              Base: BDT {baseTot.toLocaleString()}
-                              {extra > 0 ? `  +  Extra: BDT ${extra.toLocaleString()}` : ''}
+                              Base: ৳{baseTot.toLocaleString()}
+                              {extra > 0 ? `  +  Extra: ৳${extra.toLocaleString()}` : ''}
                               {'\n'}
-                              Total: <Text style={styles.lineSummaryVal}>BDT {total.toLocaleString()}</Text>
+                              Total: <Text style={styles.lineSummaryVal}>৳{total.toLocaleString()}</Text>
                             </Text>
                             <Text style={styles.lineSummaryNote}>
-                              Effective unit cost: BDT {effectiveUnit.toFixed(2)} per {baseUnitLabel}
+                              Effective unit cost: ৳{effectiveUnit.toFixed(2)} per {baseUnitLabel}
                             </Text>
                           </View>
                         );

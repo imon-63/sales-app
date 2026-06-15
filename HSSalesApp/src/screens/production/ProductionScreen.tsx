@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
+import { makeMoney } from '../../utils/formatMoney';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { SelectMenu } from '../../components/ui/SelectMenu';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -102,7 +103,7 @@ function ProductionCard({
   prod, locale, money, costMoney, lots, lotBatches, products,
   onAdvance, onComplete, onCancel, onDelete,
 }: {
-  prod: Production; locale: string; money: Intl.NumberFormat; costMoney: Intl.NumberFormat;
+  prod: Production; locale: string; money: { format: (n: number) => string }; costMoney: { format: (n: number) => string };
   lots: { id: string; productId: string; lotNumber: string }[];
   lotBatches: { id: string; lotId: string; unitCost: number; remainingQuantity: number }[];
   products: { id: string; name: string }[];
@@ -377,7 +378,7 @@ function NewProductionForm({ lots, lotBatches, products, locale, onClose, onCrea
         {lbl(bn ? `পরিমাণ * (পাওয়া যাচ্ছে: ${available.toLocaleString()})` : `Quantity * (available: ${available.toLocaleString()})`)}
         <TextInput value={inputQty} onChangeText={setInputQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} style={nf.input} />
 
-        {lbl(bn ? 'মাড়াই/প্রক্রিয়া খরচ/একক (BDT)' : 'Processing cost/unit (BDT)')}
+        {lbl(bn ? 'মাড়াই/প্রক্রিয়া খরচ/একক (৳)' : 'Processing cost/unit (৳)')}
         <TextInput value={processingCost} onChangeText={setProcessingCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} style={nf.input} />
 
         <View style={nf.extraSection}>
@@ -557,8 +558,8 @@ export function ProductionScreen() {
   const [completingProd, setCompletingProd] = useState<Production | null>(null);
   const [filterStatus, setFilterStatus] = useState<'active' | 'done' | 'cancelled'>('active');
 
-  const money = useMemo(() => new Intl.NumberFormat(bn ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }), [bn]);
-  const costMoney = useMemo(() => new Intl.NumberFormat(bn ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', minimumFractionDigits: 2, maximumFractionDigits: 3 }), [bn]);
+  const money = useMemo(() => makeMoney(locale), [locale]);
+  const costMoney = useMemo(() => makeMoney(locale, 2, 2), [locale]);
 
   useFocusEffect(useCallback(() => { dispatch(fetchProductions()); }, [dispatch]));
 

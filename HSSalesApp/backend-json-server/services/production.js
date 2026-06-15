@@ -11,7 +11,8 @@ function bengaliProductionNumber() {
   const now = new Date();
   ensureCollection('productions', []);
   const count = (db.get('productions').value() ?? []).length + 1;
-  return `উৎপা-${bNum(now.getDate())}-${BN_MONTHS[now.getMonth()]}-${bNum(count, 3)}`;
+  const year2 = bNum(now.getFullYear() % 100);
+  return `উৎপা-${bNum(now.getDate())}-${BN_MONTHS[now.getMonth()]}-${year2}-${bNum(count, 3)}`;
 }
 
 // ── Create production order ────────────────────────────────────────────────────

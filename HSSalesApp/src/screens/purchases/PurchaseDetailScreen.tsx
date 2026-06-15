@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import RNPrint from 'react-native-print';
 import { Calendar } from 'react-native-calendars';
 import type { MarkedDates } from 'react-native-calendars/src/types';
 
+import { makeMoney } from '../../utils/formatMoney';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { SelectMenu } from '../../components/ui/SelectMenu';
@@ -33,7 +35,7 @@ import * as salesApi from '../../api/sales';
 import * as inventoryApi from '../../api/inventory';
 import { useT } from '../../i18n/useT';
 import { unitLabelForProduct } from '../../utils/sales';
-import { generateBengaliLotNumber } from '../../utils/lotNumber';
+import { generateBengaliLotNumber as _generateBengaliLotNumber } from '../../utils/lotNumber'; // kept for future use
 import { liveClient } from '../../utils/liveClient';
 import { PulseDot } from '../../components/ui/PulseDot';
 import * as productionApi from '../../api/production';
@@ -58,6 +60,17 @@ const calendarTheme = {
 };
 
 /** "Hasan Akbor Afzol" → "HA Afzol" — initials of all words except last, then full last word */
+function parsePurchaseNotes(notes?: string | null): { baseCost?: number; extraCost?: number } {
+  if (!notes) return {};
+  const result: { baseCost?: number; extraCost?: number } = {};
+  for (const part of notes.split('|')) {
+    const [k, v] = part.split(':');
+    if (k?.trim() === 'bc' && v) result.baseCost = Number(v);
+    if (k?.trim() === 'ec' && v) result.extraCost = Number(v);
+  }
+  return result;
+}
+
 function abbreviateName(name: string): string {
   const words = name.trim().split(/\s+/);
   if (words.length <= 1) return name;
@@ -92,7 +105,7 @@ export function PurchaseDetailScreen() {
   // Production consumptions — read from Redux so old + new productions both show
   const { productions } = useAppSelector((s) => s.production);
 
-  const { products, sales, salesItems, warehouses, units, currencies, users, lots, lotBatches, salesItemAllocations } =
+  const { products, sales, salesItems, warehouses, units, currencies, users, lots, lotBatches, lotPurchaseLogs, salesItemAllocations } =
     useAppSelector((s) => s.salesData);
 
   const batch = useMemo(() => lotBatches.find((b) => b.id === lotBatchId), [lotBatches, lotBatchId]);
@@ -115,15 +128,9 @@ export function PurchaseDetailScreen() {
     [productions, lotBatchId],
   );
 
-  const money = useMemo(
-    () => new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }),
-    [locale],
-  );
+  const money = useMemo(() => makeMoney(locale), [locale]);
 
-  const costMoney = useMemo(
-    () => new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', minimumFractionDigits: 0, maximumFractionDigits: 3 }),
-    [locale],
-  );
+  const costMoney = useMemo(() => makeMoney(locale, 2, 2), [locale]);
 
   const originalQty = Number(batch?.originalQuantity ?? 0);
   const remainingQty = Number(batch?.remainingQuantity ?? 0);
@@ -249,17 +256,22 @@ export function PurchaseDetailScreen() {
   const bottleEffectiveUnitPrice = totalBottleLiters > 0 ? bottleGrandTotal / totalBottleLiters : 0;
   const bottleOverflow = isBottleMode && totalBottleLiters > remainingQty + 0.001;
 
-  // Buy form state
-  const [buyWarehouseId, setBuyWarehouseId] = useState(''); // empty = Direct
+  // Buy form state — adds a new tranche to the current lot (same warehouse, no lot-number needed)
+  const [buyDate, setBuyDate] = useState('');
   const [buyQty, setBuyQty] = useState('');
   const [buyUnitCost, setBuyUnitCost] = useState('');
   const [buyExtraCost, setBuyExtraCost] = useState('');
-  const [buyLotNumber, setBuyLotNumber] = useState('');
   const [buyBusy, setBuyBusy] = useState(false);
 
-  // Resolved warehouse for buy: user selection → Direct → first warehouse
-  const resolvedBuyWarehouseId = buyWarehouseId || directWarehouseId;
-  const resolvedBuyWarehouseName = warehouses.find((w) => w.id === resolvedBuyWarehouseId)?.name ?? 'Direct';
+  // Optional up-front payment when logging a sale
+  const [sellExtraCost, setSellExtraCost] = useState('');
+  const [sellPaidNow, setSellPaidNow] = useState('');
+
+  // Payment collection modal (for Sales tab cards)
+  const [payingForSaleId, setPayingForSaleId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payNotes, setPayNotes] = useState('');
+  const [payBusy, setPayBusy] = useState(false);
 
   // Sales tab filters
   const [salesPersonFilter, setSalesPersonFilter] = useState('ALL');
@@ -338,6 +350,28 @@ export function PurchaseDetailScreen() {
     return m;
   }, [sales, batchSaleIds, selectedDate]);
 
+  // All purchase tranches for this lot (sorted chronologically)
+  // Purchase history logs for this lot (one entry per purchase, used in Buy tab history)
+  const purchaseLogs = useMemo(
+    () => lot ? lotPurchaseLogs.filter(l => l.lotId === lot.id).sort((a, b2) => String(a.acquiredAt).localeCompare(String(b2.acquiredAt))) : [],
+    [lotPurchaseLogs, lot],
+  );
+  const lotTotalQty = useMemo(() => purchaseLogs.reduce((s, l) => s + Number(l.quantity), 0), [purchaseLogs]);
+  const lotTotalCost = useMemo(() => purchaseLogs.reduce((s, l) => s + Number(l.quantity) * Number(l.effectiveUnitCost), 0), [purchaseLogs]);
+  const weightedAvgCost = useMemo(
+    () => lotTotalQty > 0 ? lotTotalCost / lotTotalQty : Number(batch?.unitCost ?? 0),
+    [lotTotalQty, lotTotalCost, batch],
+  );
+
+  // Total payments collected per sale
+  const paidBySaleId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of sales) {
+      map.set(s.id, Number(s.paidAmount) || 0);
+    }
+    return map;
+  }, [sales]);
+
   async function handleSell() {
     if (!token || !lot?.productId) return;
     const defaultCurrencyId = currencies[0]?.id ?? '';
@@ -357,11 +391,15 @@ export function PurchaseDetailScreen() {
           saleDate: new Date().toISOString().slice(0, 10),
           notes: sellNotes.trim() || undefined,
           items: [{ productId: lot.productId, quantity: totalBottleLiters, unitPrice: bottleEffectiveUnitPrice, currencyId: defaultCurrencyId, lotIds: [lot.id], bottleBreakdown: JSON.stringify(bottleBreakdownItems) }],
+          paidAmount: Number(sellPaidNow) > 0 ? Number(sellPaidNow) : undefined,
+          extraCost: Number(sellExtraCost) > 0 ? Number(sellExtraCost) : undefined,
         }, token);
         dispatch(showToast({ title: t('product.sell.successTitle'), message: t('product.sell.successMsg', { qty: totalBottleLiters, unit: unitLabel }), type: 'success' }));
         setBottleCounts({});
         setOilPricePerLiter('');
         setSellNotes('');
+        setSellPaidNow('');
+        setSellExtraCost('');
         // Re-sync bottle costs from production defaults after clearing
         setBottleCosts(Object.fromEntries(
           Object.entries(productionBottlePrices).map(([k, v]) => [k, String(v)])
@@ -386,11 +424,15 @@ export function PurchaseDetailScreen() {
         saleDate: new Date().toISOString().slice(0, 10),
         notes: sellNotes.trim() || undefined,
         items: [{ productId: lot.productId, quantity: qty, unitPrice: price, currencyId: defaultCurrencyId, lotIds: [lot.id] }],
+        paidAmount: Number(sellPaidNow) > 0 ? Number(sellPaidNow) : undefined,
+        extraCost: Number(sellExtraCost) > 0 ? Number(sellExtraCost) : undefined,
       }, token);
       dispatch(showToast({ title: t('product.sell.successTitle'), message: t('product.sell.successMsg', { qty, unit: unitLabel }), type: 'success' }));
       setSellQty('');
       setSellPrice('');
       setSellNotes('');
+      setSellPaidNow('');
+      setSellExtraCost('');
       await Promise.all([dispatch(fetchSalesDataset()).unwrap(), dispatch(fetchInventoryStock()).unwrap()]);
       setActiveTab('sales');
     } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record sale.'); }
@@ -398,33 +440,40 @@ export function PurchaseDetailScreen() {
   }
 
   async function handleBuy() {
-    if (!token || !lot?.productId) return;
+    if (!token || !lot) return;
     const qty = Number(buyQty);
     const cost = Number(buyUnitCost);
     const extra = Number(buyExtraCost) || 0;
     if (!qty || qty <= 0) { Alert.alert(t('product.buy.qty'), t('product.buy.errQty')); return; }
     if (!cost || cost <= 0) { Alert.alert(t('product.buy.unitCost'), t('product.buy.errCost')); return; }
-    // Effective landed cost per unit = (base_total + extra) / qty
-    const effectiveUnitCost = (qty * cost + extra) / qty;
-    // Auto-generate a Bengali lot number if user left the field blank
-    const resolvedLotNumber = buyLotNumber.trim() || generateBengaliLotNumber();
     setBuyBusy(true);
     try {
-      await inventoryApi.createPurchase({
-        warehouseId: resolvedBuyWarehouseId,
-        purchaseDate: new Date().toISOString().slice(0, 10),
-        notes: [
-          `bc:${cost}`,
-          extra > 0 ? `ec:${extra}` : null,
-        ].filter(Boolean).join('|') || undefined,
-        items: [{ productId: lot.productId, quantity: qty, unitCost: effectiveUnitCost, baseUnitCost: cost, lotNumber: resolvedLotNumber }],
+      await inventoryApi.addLotTranche({
+        lotId: lot.id,
+        quantity: qty,
+        baseUnitCost: cost,
+        extraCost: extra || undefined,
+        acquiredAt: buyDate.trim() || undefined,
       }, token);
-      dispatch(showToast({ title: t('product.buy.successTitle'), message: t('product.buy.successMsg', { qty, unit: unitLabel, warehouse: resolvedBuyWarehouseName }), type: 'success' }));
-      setBuyQty(''); setBuyUnitCost(''); setBuyExtraCost(''); setBuyLotNumber(''); setBuyWarehouseId('');
+      dispatch(showToast({ title: t('product.buy.successTitle'), message: t('product.buy.successMsg', { qty, unit: unitLabel, warehouse: warehouse?.name ?? 'Direct' }), type: 'success' }));
+      setBuyQty(''); setBuyUnitCost(''); setBuyExtraCost(''); setBuyDate('');
       await Promise.all([dispatch(fetchSalesDataset()).unwrap(), dispatch(fetchInventoryStock()).unwrap()]);
-      setActiveTab('sales');
     } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record purchase.'); }
     finally { setBuyBusy(false); }
+  }
+
+  async function handleAddPayment() {
+    if (!token || !payingForSaleId) return;
+    const amt = Number(payAmount);
+    if (!amt || amt <= 0) { Alert.alert(locale === 'bn' ? 'পেমেন্ট' : 'Payment', locale === 'bn' ? 'সঠিক পরিমাণ দিন' : 'Enter a valid amount'); return; }
+    setPayBusy(true);
+    try {
+      await salesApi.addSalePayment({ saleId: payingForSaleId, amount: amt, notes: payNotes.trim() || undefined }, token);
+      dispatch(showToast({ title: locale === 'bn' ? 'পেমেন্ট' : 'Payment', message: `${money.format(amt)} ${locale === 'bn' ? 'সংগ্রহ হয়েছে' : 'collected'}`, type: 'success' }));
+      setPayingForSaleId(null); setPayAmount(''); setPayNotes('');
+      await dispatch(fetchSalesDataset()).unwrap();
+    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed to record payment.'); }
+    finally { setPayBusy(false); }
   }
 
   async function handlePrint(type: 'purchase' | 'sales') {
@@ -583,7 +632,9 @@ export function PurchaseDetailScreen() {
           style={s.scroll}
           contentContainerStyle={[s.scrollInner, { paddingBottom: insets.bottom + 48 }]}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets>
 
           {/* ── OVERVIEW ── */}
           {activeTab === 'overview' && (
@@ -755,6 +806,35 @@ export function PurchaseDetailScreen() {
                           <Text style={s.saleArrow}>›</Text>
                         </View>
                       </View>
+                      {!isCancelledSale && (() => {
+                        const totalSaleRev = Number(item.sale.totalAmount) || item.rev;
+                        const totalPaid = paidBySaleId.get(item.sale.id) ?? 0;
+                        const paid = totalSaleRev > 0 ? totalPaid * (item.rev / totalSaleRev) : 0;
+                        const due = item.rev - paid;
+                        return (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                            {paid > 0 && (
+                              <View style={s.salePaidBadge}>
+                                <Text style={[s.saleBadgeText, { color: palette.emerald }]}>✓ {money.format(paid)}</Text>
+                              </View>
+                            )}
+                            {due > 0.01 && (
+                              <View style={s.saleDueBadge}>
+                                <Text style={[s.saleBadgeText, { color: '#FBbF24' }]}>{locale === 'bn' ? 'বাকি' : 'Due'} {money.format(due)}</Text>
+                              </View>
+                            )}
+                            {due > 0.01 && (
+                              <Pressable
+                                onPress={(e) => { e.stopPropagation?.(); setPayingForSaleId(item.sale.id); }}
+                                style={s.addPayChip}
+                                hitSlop={8}
+                              >
+                                <Text style={s.addPayChipText}>+ {locale === 'bn' ? 'পেমেন্ট' : 'Collect'}</Text>
+                              </Pressable>
+                            )}
+                          </View>
+                        );
+                      })()}
                     </Pressable>
                   );
                 })
@@ -790,7 +870,7 @@ export function PurchaseDetailScreen() {
                     <View>
                       <Text style={s.sellContextLabel}>{locale === 'bn' ? 'ক্রয় মূল্য' : 'Cost Price'}</Text>
                       <Text style={s.sellContextValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                        {Number(batch.unitCost).toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-BD', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                        {Number(batch.unitCost).toLocaleString(locale === 'bn' ? 'bn-BD' : 'en-BD', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}
                       </Text>
                       <Text style={s.sellContextSub}>{locale === 'bn' ? 'প্রতি একক' : 'per unit'}</Text>
                     </View>
@@ -828,7 +908,7 @@ export function PurchaseDetailScreen() {
                     />
 
                     <View style={{ marginTop: 14 }}>
-                      {BOTTLE_SIZES.filter(s2 => productionBottlePrices[String(s2)] != null).map(size => {
+                      {BOTTLE_SIZES.map(size => {
                         const key = String(size);
                         const count = Number(bottleCounts[key]) || 0;
                         const bc = Number(bottleCosts[key]) || 0;
@@ -899,18 +979,61 @@ export function PurchaseDetailScreen() {
                         </View>
                       </View>
                     )}
-                    <Text style={[s.fieldLabel, { marginTop: 12 }]}>{locale === 'bn' ? 'কাস্টমার নোট' : 'Customer Notes'} <Text style={{ fontWeight: '500', color: palette.textMuted }}>{locale === 'bn' ? '(ঐচ্ছিক)' : '(optional)'}</Text></Text>
-                    <TextInput
-                      style={[s.input, { minHeight: 44 }]}
-                      value={sellNotes}
-                      onChangeText={setSellNotes}
-                      placeholder={locale === 'bn' ? 'নাম, ঠিকানা, ফোন…' : 'Name, address, phone…'}
-                      placeholderTextColor={palette.textMuted}
-                      multiline
-                    />
+                    <View style={s.formRow}>
+                      <View style={s.formHalf}>
+                        <Text style={s.fieldLabel}>{locale === 'bn' ? 'অতিরিক্ত খরচ' : 'Extra Cost'} <Text style={s.optionalInline}>opt.</Text></Text>
+                        <TextInput style={s.input} value={sellExtraCost} onChangeText={setSellExtraCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                      </View>
+                      <View style={s.formHalf}>
+                        <Text style={s.fieldLabel}>{locale === 'bn' ? 'পেমেন্ট' : 'Paid Now'} <Text style={s.optionalInline}>opt.</Text></Text>
+                        <TextInput style={s.input} value={sellPaidNow} onChangeText={setSellPaidNow} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                      </View>
+                    </View>
+                    {(() => {
+                      const rev = bottleEffectiveUnitPrice * totalBottleLiters;
+                      const extra = Number(sellExtraCost) || 0;
+                      const cogs = totalBottleLiters * weightedAvgCost;
+                      const net = rev - cogs - extra;
+                      const paid = Number(sellPaidNow) || 0;
+                      const due = rev - paid;
+                      if (rev <= 0) return null;
+                      return (
+                        <View style={s.sellSummaryStrip}>
+                          <View style={s.sellSummaryRow}>
+                            <View style={s.sellSummaryItem}>
+                              <Text style={s.sellSummaryLabel}>{locale === 'bn' ? 'রাজস্ব' : 'Revenue'}</Text>
+                              <Text style={s.sellSummaryVal}>{money.format(rev)}</Text>
+                            </View>
+                            {extra > 0 && (
+                              <View style={s.sellSummaryItem}>
+                                <Text style={s.sellSummaryLabel}>{locale === 'bn' ? 'অতিরিক্ত' : 'Extra'}</Text>
+                                <Text style={[s.sellSummaryVal, { color: '#FBBF24' }]}>− {money.format(extra)}</Text>
+                              </View>
+                            )}
+                            {cogs > 0 && (
+                              <View style={s.sellSummaryItem}>
+                                <Text style={s.sellSummaryLabel}>{locale === 'bn' ? 'নিট' : 'Net P/L'}</Text>
+                                <Text style={[s.sellSummaryVal, { color: net >= 0 ? palette.emerald : '#F87171', fontWeight: '900' as const }]}>
+                                  {net >= 0 ? '+' : ''}{money.format(net)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {paid > 0 && (
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                              <View style={s.salePaidBadge}><Text style={[s.saleBadgeText, { color: palette.emerald }]}>✓ {money.format(paid)}</Text></View>
+                              {due > 0.01 && <View style={s.saleDueBadge}><Text style={[s.saleBadgeText, { color: '#FBBF24' }]}>{locale === 'bn' ? 'বাকি' : 'Due'} {money.format(due)}</Text></View>}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })()}
+                    <View style={s.cardSectionDivider} />
+                    <Text style={s.fieldLabel}>{locale === 'bn' ? 'নোট' : 'Notes'} <Text style={s.optionalInline}>opt.</Text></Text>
+                    <TextInput style={[s.input, { minHeight: 40 }]} value={sellNotes} onChangeText={setSellNotes} placeholder={locale === 'bn' ? 'নাম, ঠিকানা, ফোন…' : 'Name, address, phone…'} placeholderTextColor={palette.textMuted} multiline />
                   </GlassCard>
                 ) : (
-                  /* ── Regular mode: qty + unit price ── */
+                  /* ── Regular mode ── */
                   <GlassCard style={s.card}>
                     <View style={s.formRow}>
                       <View style={s.formHalf}>
@@ -922,21 +1045,58 @@ export function PurchaseDetailScreen() {
                         <TextInput style={s.input} value={sellPrice} onChangeText={setSellPrice} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
                       </View>
                     </View>
-                    {Number(sellQty) > 0 && Number(sellPrice) > 0 && (
-                      <View style={s.orderPreview}>
-                        <Text style={s.orderPreviewLabel}>{t('product.sell.orderTotal')}</Text>
-                        <Text style={s.orderPreviewValue}>{money.format(Number(sellQty) * Number(sellPrice))}</Text>
+                    <View style={s.formRow}>
+                      <View style={s.formHalf}>
+                        <Text style={s.fieldLabel}>{locale === 'bn' ? 'অতিরিক্ত খরচ' : 'Extra Cost'} <Text style={s.optionalInline}>opt.</Text></Text>
+                        <TextInput style={s.input} value={sellExtraCost} onChangeText={setSellExtraCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
                       </View>
-                    )}
-                    <Text style={[s.fieldLabel, { marginTop: 12 }]}>{locale === 'bn' ? 'কাস্টমার নোট' : 'Customer Notes'} <Text style={{ fontWeight: '500', color: palette.textMuted }}>{locale === 'bn' ? '(ঐচ্ছিক)' : '(optional)'}</Text></Text>
-                    <TextInput
-                      style={[s.input, { minHeight: 44 }]}
-                      value={sellNotes}
-                      onChangeText={setSellNotes}
-                      placeholder={locale === 'bn' ? 'নাম, ঠিকানা, ফোন…' : 'Name, address, phone…'}
-                      placeholderTextColor={palette.textMuted}
-                      multiline
-                    />
+                      <View style={s.formHalf}>
+                        <Text style={s.fieldLabel}>{locale === 'bn' ? 'পেমেন্ট' : 'Paid Now'} <Text style={s.optionalInline}>opt.</Text></Text>
+                        <TextInput style={s.input} value={sellPaidNow} onChangeText={setSellPaidNow} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                      </View>
+                    </View>
+                    {(() => {
+                      const rev = Number(sellQty) * Number(sellPrice);
+                      const extra = Number(sellExtraCost) || 0;
+                      const cogs = Number(sellQty) * weightedAvgCost;
+                      const net = rev - cogs - extra;
+                      const paid = Number(sellPaidNow) || 0;
+                      const due = rev - paid;
+                      if (rev <= 0) return null;
+                      return (
+                        <View style={s.sellSummaryStrip}>
+                          <View style={s.sellSummaryRow}>
+                            <View style={s.sellSummaryItem}>
+                              <Text style={s.sellSummaryLabel}>{locale === 'bn' ? 'রাজস্ব' : 'Revenue'}</Text>
+                              <Text style={s.sellSummaryVal}>{money.format(rev)}</Text>
+                            </View>
+                            {extra > 0 && (
+                              <View style={s.sellSummaryItem}>
+                                <Text style={s.sellSummaryLabel}>{locale === 'bn' ? 'অতিরিক্ত' : 'Extra'}</Text>
+                                <Text style={[s.sellSummaryVal, { color: '#FBBF24' }]}>− {money.format(extra)}</Text>
+                              </View>
+                            )}
+                            {cogs > 0 && (
+                              <View style={s.sellSummaryItem}>
+                                <Text style={s.sellSummaryLabel}>{locale === 'bn' ? 'নিট' : 'Net P/L'}</Text>
+                                <Text style={[s.sellSummaryVal, { color: net >= 0 ? palette.emerald : '#F87171', fontWeight: '900' as const }]}>
+                                  {net >= 0 ? '+' : ''}{money.format(net)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {paid > 0 && (
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                              <View style={s.salePaidBadge}><Text style={[s.saleBadgeText, { color: palette.emerald }]}>✓ {money.format(paid)}</Text></View>
+                              {due > 0.01 && <View style={s.saleDueBadge}><Text style={[s.saleBadgeText, { color: '#FBBF24' }]}>{locale === 'bn' ? 'বাকি' : 'Due'} {money.format(due)}</Text></View>}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })()}
+                    <View style={s.cardSectionDivider} />
+                    <Text style={s.fieldLabel}>{locale === 'bn' ? 'নোট' : 'Notes'} <Text style={s.optionalInline}>opt.</Text></Text>
+                    <TextInput style={[s.input, { minHeight: 40 }]} value={sellNotes} onChangeText={setSellNotes} placeholder={locale === 'bn' ? 'নাম, ঠিকানা, ফোন…' : 'Name, address, phone…'} placeholderTextColor={palette.textMuted} multiline />
                   </GlassCard>
                 )}
 
@@ -947,64 +1107,117 @@ export function PurchaseDetailScreen() {
             </KeyboardAvoidingView>
           )}
 
-          {/* ── BUY ── */}
+          {/* ── BUY (multi-tranche) ── */}
           {activeTab === 'buy' && (
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-              <View style={s.tabContent}>
-                <GlassCard style={[s.card, { paddingTop: 10 }]}>
-                  <SelectMenu
-                    label={locale === 'bn' ? 'গুদাম' : 'Warehouse'}
-                    value={buyWarehouseId}
-                    options={[
-                      { value: '', label: locale === 'bn' ? 'Direct (ডিফল্ট)' : 'Direct (default)' },
-                      ...warehouseOptions.filter((w) => w.label.toLowerCase() !== 'direct'),
-                    ]}
-                    onChange={setBuyWarehouseId}
-                  />
+            <View style={s.tabContent}>
 
-                  <View style={[s.formRow, { marginTop: 14 }]}>
-                    <View style={s.formHalf}>
-                      <Text style={s.fieldLabel}>{t('product.buy.qty')}</Text>
-                      <TextInput style={s.input} value={buyQty} onChangeText={setBuyQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
-                    </View>
-                    <View style={s.formHalf}>
-                      <Text style={s.fieldLabel}>{t('product.buy.unitCost')}</Text>
-                      <TextInput style={s.input} value={buyUnitCost} onChangeText={setBuyUnitCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
-                    </View>
-                  </View>
-
-                  <Text style={[s.fieldLabel, { marginTop: 14 }]}>{t('product.buy.extraCost')}</Text>
-                  <Text style={s.extraCostHint}>{t('product.buy.extraCostHint')}</Text>
-                  <TextInput style={s.input} value={buyExtraCost} onChangeText={setBuyExtraCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
-
-                  <Text style={[s.fieldLabel, { marginTop: 14 }]}>{t('product.buy.lotNumber')} <Text style={s.optionalInline}>{t('product.buy.optional')}</Text></Text>
-                  <TextInput style={s.input} value={buyLotNumber} onChangeText={setBuyLotNumber} placeholder="e.g. LOT-2026-001" placeholderTextColor={palette.textMuted} autoCapitalize="characters" />
-
-                  {/* Cost breakdown */}
-                  {Number(buyQty) > 0 && Number(buyUnitCost) > 0 && (() => {
-                    const qty = Number(buyQty);
-                    const cost = Number(buyUnitCost);
-                    const extra = Number(buyExtraCost) || 0;
-                    const baseTot = qty * cost;
-                    const totalLanded = baseTot + extra;
-                    const effectiveUnit = totalLanded / qty;
-                    return (
-                      <View style={s.costBreakdown}>
-                        <CostRow label={t('product.buy.baseCost')} value={money.format(baseTot)} />
-                        {extra > 0 && <CostRow label={t('product.buy.extraCost')} value={`+ ${money.format(extra)}`} muted />}
-                        <View style={s.costBreakdownDivider} />
-                        <CostRow label={t('product.buy.totalLanded')} value={money.format(totalLanded)} />
-                        <CostRow label={t('product.buy.effectiveUnitCost')} value={costMoney.format(effectiveUnit)} accent />
-                      </View>
-                    );
-                  })()}
-                </GlassCard>
-
-                <Pressable onPress={handleBuy} disabled={buyBusy} style={({ pressed }) => [s.actionBtn, { backgroundColor: palette.violet, shadowColor: palette.violet }, pressed && { opacity: 0.85 }, buyBusy && { opacity: 0.5 }]}>
-                  {buyBusy ? <ActivityIndicator color={palette.onAccent} /> : <Text style={s.actionBtnText}>{t('product.buy.submit')}</Text>}
-                </Pressable>
+              {/* Lot identity banner */}
+              <View style={s.lotBanner}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.lotBannerLabel}>{locale === 'bn' ? 'লট' : 'Lot'}</Text>
+                  <Text style={s.lotBannerNum}>{lot.lotNumber}</Text>
+                </View>
+                <View style={s.lotBannerRight}>
+                  <Text style={s.lotBannerWh}>📦 {warehouse?.name ?? '—'}</Text>
+                  <Text style={s.lotBannerTrancheCount}>
+                    {purchaseLogs.length} {locale === 'bn' ? 'ক্রয়' : `tranche${purchaseLogs.length !== 1 ? 's' : ''}`}
+                  </Text>
+                </View>
               </View>
-            </KeyboardAvoidingView>
+
+              {/* Single card: history + form together */}
+              <GlassCard style={[s.card, { paddingVertical: 12 }]}>
+
+                {/* Purchase history */}
+                {purchaseLogs.length > 0 && (
+                  <>
+                    <Text style={s.trancheListHeader}>
+                      {locale === 'bn' ? 'ক্রয় ইতিহাস' : 'Purchase History'}
+                    </Text>
+                    {purchaseLogs.map((log, i) => {
+                      const qty = Number(log.quantity);
+                      const extra = Number(log.extraCost) || 0;
+                      return (
+                        <View key={log.id} style={[s.trancheRow, i > 0 && s.trancheRowBorder]}>
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Text style={s.trancheDate}>{log.acquiredAt || '—'}</Text>
+                            <Text style={s.trancheMeta}>
+                              {qty.toLocaleString()} {unitLabel}
+                              {`  ·  ${locale === 'bn' ? 'ভিত্তি' : 'base'}: ${costMoney.format(Number(log.baseUnitCost))}`}
+                              {extra > 0 ? `  ·  ${locale === 'bn' ? 'অতিরিক্ত' : 'extra'}: ${money.format(extra)}` : ''}
+                            </Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                            <Text style={s.trancheEff}>{costMoney.format(Number(log.effectiveUnitCost))}</Text>
+                            <Text style={s.trancheEffSub}>{locale === 'bn' ? 'কার্যকর মূল্য' : 'eff. cost'}</Text>
+                            <Text style={s.trancheTotal}>{money.format(qty * Number(log.effectiveUnitCost))}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                    {purchaseLogs.length > 1 && (
+                      <View style={s.weightedAvgBar}>
+                        <View style={s.weightedAvgCell}>
+                          <Text style={s.weightedAvgLabel}>{locale === 'bn' ? 'মোট পরিমাণ' : 'Total Qty'}</Text>
+                          <Text style={s.weightedAvgVal}>{lotTotalQty.toLocaleString()} {unitLabel}</Text>
+                        </View>
+                        <View style={s.weightedAvgCell}>
+                          <Text style={s.weightedAvgLabel}>{locale === 'bn' ? 'গড় মূল্য' : 'Avg Cost'}</Text>
+                          <Text style={[s.weightedAvgVal, { color: palette.violet }]}>{costMoney.format(weightedAvgCost)}</Text>
+                        </View>
+                        <View style={s.weightedAvgCell}>
+                          <Text style={s.weightedAvgLabel}>{locale === 'bn' ? 'মোট ব্যয়' : 'Total Cost'}</Text>
+                          <Text style={s.weightedAvgVal}>{money.format(lotTotalCost)}</Text>
+                        </View>
+                      </View>
+                    )}
+                    <View style={s.cardSectionDivider} />
+                  </>
+                )}
+
+                {/* Add new tranche form */}
+                <Text style={s.trancheListHeader}>
+                  {locale === 'bn' ? 'নতুন ক্রয় যোগ করুন' : 'Add Purchase Tranche'}
+                </Text>
+
+                <View style={s.formRow}>
+                  <View style={s.formHalf}>
+                    <Text style={s.fieldLabel}>{t('product.buy.qty')}</Text>
+                    <TextInput style={s.input} value={buyQty} onChangeText={setBuyQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                  </View>
+                  <View style={s.formHalf}>
+                    <Text style={s.fieldLabel}>{t('product.buy.unitCost')}</Text>
+                    <TextInput style={s.input} value={buyUnitCost} onChangeText={setBuyUnitCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+                  </View>
+                </View>
+
+                <Text style={[s.fieldLabel, { marginTop: 14 }]}>{t('product.buy.extraCost')}</Text>
+                <Text style={s.extraCostHint}>{t('product.buy.extraCostHint')}</Text>
+                <TextInput style={s.input} value={buyExtraCost} onChangeText={setBuyExtraCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} selectTextOnFocus />
+
+                {Number(buyQty) > 0 && Number(buyUnitCost) > 0 && (() => {
+                  const qty = Number(buyQty);
+                  const cost = Number(buyUnitCost);
+                  const extra = Number(buyExtraCost) || 0;
+                  const baseTot = qty * cost;
+                  const totalLanded = baseTot + extra;
+                  const effectiveUnit = totalLanded / qty;
+                  return (
+                    <View style={s.costBreakdown}>
+                      <CostRow label={t('product.buy.baseCost')} value={money.format(baseTot)} />
+                      {extra > 0 && <CostRow label={t('product.buy.extraCost')} value={`+ ${money.format(extra)}`} muted />}
+                      <View style={s.costBreakdownDivider} />
+                      <CostRow label={t('product.buy.totalLanded')} value={money.format(totalLanded)} />
+                      <CostRow label={t('product.buy.effectiveUnitCost')} value={costMoney.format(effectiveUnit)} accent />
+                    </View>
+                  );
+                })()}
+              </GlassCard>
+
+              <Pressable onPress={handleBuy} disabled={buyBusy} style={({ pressed }) => [s.actionBtn, { backgroundColor: palette.violet, shadowColor: palette.violet }, pressed && { opacity: 0.85 }, buyBusy && { opacity: 0.5 }]}>
+                {buyBusy ? <ActivityIndicator color={palette.onAccent} /> : <Text style={s.actionBtnText}>{t('product.buy.submit')}</Text>}
+              </Pressable>
+            </View>
           )}
 
           {/* ── INVOICE ── */}
@@ -1193,6 +1406,67 @@ export function PurchaseDetailScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      {/* ── Payment collection modal ── */}
+      <Modal
+        visible={payingForSaleId !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPayingForSaleId(null)}
+      >
+        <Pressable style={s.payModalOverlay} onPress={() => setPayingForSaleId(null)}>
+          <Pressable style={s.payModalSheet} onPress={() => {}}>
+            <Text style={s.payModalTitle}>{locale === 'bn' ? 'পেমেন্ট সংগ্রহ' : 'Collect Payment'}</Text>
+            {payingForSaleId && (() => {
+              const saleRev = (() => {
+                const si = salesItems.filter(i => i.saleId === payingForSaleId);
+                return si.reduce((s2, i) => s2 + Number(i.quantity) * Number(i.unitPrice), 0);
+              })();
+              const paid = paidBySaleId.get(payingForSaleId) ?? 0;
+              const due = saleRev - paid;
+              return (
+                <Text style={s.payModalSub}>
+                  {locale === 'bn' ? 'বিক্রয়' : 'Sale'}: {money.format(saleRev)}
+                  {'  ·  '}{locale === 'bn' ? 'পরিশোধিত' : 'Paid'}: {money.format(paid)}
+                  {'  ·  '}{locale === 'bn' ? 'বাকি' : 'Due'}: {money.format(due)}
+                </Text>
+              );
+            })()}
+            <Text style={s.fieldLabel}>{locale === 'bn' ? 'পরিমাণ' : 'Amount'}</Text>
+            <TextInput
+              style={s.input}
+              value={payAmount}
+              onChangeText={setPayAmount}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={palette.textMuted}
+              selectTextOnFocus
+              autoFocus
+            />
+            <Text style={[s.fieldLabel, { marginTop: 4 }]}>
+              {locale === 'bn' ? 'নোট' : 'Notes'}{' '}
+              <Text style={s.optionalInline}>{locale === 'bn' ? '(ঐচ্ছিক)' : '(optional)'}</Text>
+            </Text>
+            <TextInput
+              style={s.input}
+              value={payNotes}
+              onChangeText={setPayNotes}
+              placeholder={locale === 'bn' ? 'কোনো মন্তব্য…' : 'Any note…'}
+              placeholderTextColor={palette.textMuted}
+            />
+            <Pressable
+              onPress={handleAddPayment}
+              disabled={payBusy}
+              style={({ pressed }) => [s.actionBtn, { backgroundColor: palette.emerald, shadowColor: palette.emerald }, pressed && { opacity: 0.85 }, payBusy && { opacity: 0.5 }]}
+            >
+              {payBusy
+                ? <ActivityIndicator color={palette.onAccent} />
+                : <Text style={s.actionBtnText}>{locale === 'bn' ? 'সংগ্রহ করুন' : 'Confirm'}</Text>
+              }
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </MeshBackground>
   );
 }
@@ -1328,7 +1602,7 @@ const s = StyleSheet.create({
   tabContent: { gap: 14 },
 
   heroCard: { padding: 18, gap: 4, backgroundColor: palette.cardBgPrimary, borderWidth: 1, borderColor: palette.cardBorderAccent },
-  card: { padding: 18, gap: 12, backgroundColor: palette.cardBg, borderWidth: 1, borderColor: palette.cardBorder },
+  card: { padding: 12, gap: 8, backgroundColor: palette.cardBg, borderWidth: 1, borderColor: palette.cardBorder },
 
   totalCostRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: palette.cardBorder },
   totalCostLabel: { color: palette.textMuted, fontSize: 13, fontWeight: '700' },
@@ -1638,4 +1912,148 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,59,92,0.28)',
   },
   clearDateChipText: { color: palette.rose, fontSize: 12, fontWeight: '800' },
+
+  /* ── lot banner ── */
+  lotBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139,92,246,0.13)',
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.28)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  lotBannerLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  lotBannerNum: { color: palette.violet, fontSize: 15, fontWeight: '800', marginTop: 2 },
+  lotBannerRight: { alignItems: 'flex-end', gap: 3 },
+  lotBannerWh: { color: palette.text, fontSize: 13, fontWeight: '600' },
+  lotBannerTrancheCount: { color: palette.textMuted, fontSize: 11, fontWeight: '500' },
+
+  /* ── tranche list ── */
+  trancheListHeader: { color: palette.text, fontSize: 13, fontWeight: '800', letterSpacing: 0.5, marginBottom: 10 },
+  trancheRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 10, gap: 8 },
+  trancheRowBorder: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' },
+  trancheRowCurrent: { backgroundColor: 'rgba(139,92,246,0.06)', borderRadius: radii.md, paddingHorizontal: 6, marginHorizontal: -6 },
+  trancheDate: { color: palette.text, fontSize: 12, fontWeight: '700' },
+  trancheMeta: { color: palette.textMuted, fontSize: 11, marginTop: 1 },
+  trancheEff: { color: palette.emerald, fontSize: 13, fontWeight: '800' },
+  trancheEffSub: { color: palette.textMuted, fontSize: 10 },
+  trancheTotal: { color: palette.textMuted, fontSize: 11, fontWeight: '600' },
+
+  /* ── weighted average footer ── */
+  weightedAvgBar: {
+    flexDirection: 'row',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.10)',
+  },
+  weightedAvgCell: { flex: 1, alignItems: 'center', gap: 3 },
+  weightedAvgLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
+  weightedAvgVal: { color: palette.text, fontSize: 13, fontWeight: '800' },
+
+  /* ── payment modal ── */
+  payModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  payModalSheet: {
+    backgroundColor: palette.night,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    padding: 24,
+    paddingBottom: 40,
+    gap: 14,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  payModalTitle: { color: palette.text, fontSize: 17, fontWeight: '800', marginBottom: 2 },
+  payModalSub: { color: palette.textMuted, fontSize: 13 },
+
+  /* ── sale card badges ── */
+  salePaidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.3)',
+    alignSelf: 'flex-start',
+  },
+  saleDueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(251,191,36,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.3)',
+    alignSelf: 'flex-start',
+  },
+  saleBadgeText: { fontSize: 11, fontWeight: '700' },
+  addPayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(139,92,246,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.35)',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  addPayChipText: { color: palette.violet, fontSize: 11, fontWeight: '700' },
+  cardSectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 12 },
+
+  /* ── buy history collapsible ── */
+  buyHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  buyHistorySummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 1,
+  },
+  buyHistoryStat: { alignItems: 'flex-end', gap: 1 },
+  buyHistoryStatVal: { color: palette.text, fontSize: 12, fontWeight: '800' },
+  buyHistoryStatLbl: { color: palette.textMuted, fontSize: 9, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  buyHistoryStatSep: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.1)' },
+  buyHistoryChevron: { color: palette.textMuted, fontSize: 11, marginLeft: 4 },
+  buyHistoryBody: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  buyHistoryDetailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  buyHistoryDetailLabel: { color: palette.textMuted, fontSize: 12, fontWeight: '600' },
+  buyHistoryDetailVal: { color: palette.text, fontSize: 12, fontWeight: '700' },
+  sellSummaryStrip: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 10,
+  },
+  sellSummaryRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const },
+  sellSummaryItem: { alignItems: 'center' as const },
+  sellSummaryLabel: { fontSize: 10, fontWeight: '600' as const, color: palette.textMuted, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 2 },
+  sellSummaryVal: { fontSize: 13, fontWeight: '800' as const, color: palette.text },
 });

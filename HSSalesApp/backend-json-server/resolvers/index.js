@@ -4,8 +4,8 @@ const { db } = require('../db');
 const { parseBearerUserId, findUserById, publicUser, getAuthFromContext, ensureCollection } = require('../helpers');
 const { createTopicAsyncIterator, NOTIFICATION_CREATED_TOPIC } = require('../events');
 const { withUnreadForUser, listAdminNotifications, markNotificationRead, persistNotification } = require('../services/notifications');
-const { getInventoryStockRows, createPurchase, createInventoryTransfer } = require('../services/inventory');
-const { createSale } = require('../services/sales');
+const { getInventoryStockRows, createPurchase, addLotTranche, createInventoryTransfer } = require('../services/inventory');
+const { createSale, addSalePayment } = require('../services/sales');
 const { createSalesUser } = require('../services/users');
 const { createUnit, updateUnit, deleteUnit, createCurrency, updateCurrency, deleteCurrency, createWarehouse, updateWarehouse, deleteWarehouse, createProduct, updateProduct, deleteProduct } = require('../services/catalog');
 const { createOrder, updateOrder, updateOrderStatus, deleteOrder, listOrders, addOrderPayment, listPaymentsForOrder } = require('../services/orders');
@@ -26,12 +26,29 @@ const resolvers = {
     currencies: () => db.get('currencies').value() ?? [],
     products: () => db.get('products').value() ?? [],
     warehouses: () => db.get('warehouses').value() ?? [],
-    sales: () => db.get('sales').value() ?? [],
+    sales: () => {
+      const allSales = db.get('sales').value() ?? [];
+      ensureCollection('orderPayments', []);
+      const allOrders = db.get('orders').value() ?? [];
+      const allOrderPayments = db.get('orderPayments').value() ?? [];
+      return allSales.map(sale => {
+        if (!sale.orderId) return sale;
+        const order = allOrders.find(o => o.id === sale.orderId);
+        if (!order) return sale;
+        const orderPaid = (order.advancePaid ?? 0) + allOrderPayments.filter(p => p.orderId === sale.orderId && p.type !== 'refund').reduce((s, p) => s + Number(p.amount), 0);
+        const effectivePaid = Math.max(Number(sale.paidAmount) || 0, orderPaid);
+        if (effectivePaid === (Number(sale.paidAmount) || 0)) return sale;
+        const totalAmount = Number(sale.totalAmount) || 0;
+        const paymentStatus = effectivePaid >= totalAmount ? 'paid' : effectivePaid > 0 ? 'partial' : 'due';
+        return { ...sale, paidAmount: effectivePaid, paymentStatus };
+      });
+    },
     salesItems: () => db.get('salesItems').value() ?? [],
     notifications: (_p, _a, ctx) => { const { userId } = getAuthFromContext(ctx); return listAdminNotifications(userId); },
     inventoryStock: (_p, _a, ctx) => { getAuthFromContext(ctx); return getInventoryStockRows(); },
     lots: () => db.get('lots').value() ?? [],
     lotBatches: () => db.get('lotBatches').value() ?? [],
+    lotPurchaseLogs: () => { ensureCollection('lotPurchaseLogs', []); return db.get('lotPurchaseLogs').value() ?? []; },
     salesItemAllocations: () => db.get('salesItemAllocations').value() ?? [],
     inventoryTransfers: () => db.get('inventoryTransfers').value() ?? [],
     inventoryTransferLines: () => db.get('inventoryTransferLines').value() ?? [],
@@ -45,6 +62,14 @@ const resolvers = {
       const orderIds = new Set(orders.map(o => o.id));
       ensureCollection('orderPayments', []);
       return (db.get('orderPayments').value() ?? []).filter(p => orderIds.has(p.orderId));
+    },
+    salePayments: (_p, { saleId }, ctx) => {
+      const { actor, userId } = getAuthFromContext(ctx);
+      ensureCollection('salePayments', []);
+      const all = db.get('salePayments').value() ?? [];
+      if (actor.role === 'admin') return saleId ? all.filter(p => p.saleId === saleId) : all;
+      const mySaleIds = new Set((db.get('sales').value() ?? []).filter(s => s.createdBy === userId).map(s => s.id));
+      return (saleId ? all.filter(p => p.saleId === saleId) : all).filter(p => mySaleIds.has(p.saleId));
     },
     productions: (_p, _a, ctx) => { const { actor } = getAuthFromContext(ctx); return listProductions({ actor }); },
     productionConsumptionsForLot: (_p, { lotId }, ctx) => { getAuthFromContext(ctx); return listConsumptionsForLot({ lotId }); },
@@ -68,6 +93,7 @@ const resolvers = {
     updateWarehouse: (_p, { id, name }, ctx) => { const { actor } = getAuthFromContext(ctx); return updateWarehouse({ actor, id, name }); },
     deleteWarehouse: (_p, { id }, ctx) => { const { actor } = getAuthFromContext(ctx); return deleteWarehouse({ actor, id }); },
     createPurchase: (_p, { input }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return createPurchase({ actor, userId, input }); },
+    addLotTranche: (_p, { input }, ctx) => { const { actor } = getAuthFromContext(ctx); return addLotTranche({ actor, input }); },
     createInventoryTransfer: (_p, { input }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return createInventoryTransfer({ actor, userId, input }); },
     createNotification: (_p, { input }) => {
       const row = { id: crypto.randomUUID(), type: input.type, saleId: input.saleId, lotId: input.lotId, productId: input.productId, title: input.title, body: input.body, createdAt: new Date().toISOString(), actorUserId: input.actorUserId, readByUserIds: Array.isArray(input.readByUserIds) ? input.readByUserIds : [] };
@@ -78,6 +104,7 @@ const resolvers = {
     updateOrderStatus: (_p, { id, status, cancelReason }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return updateOrderStatus({ actor, userId, id, status, cancelReason }); },
     deleteOrder: (_p, { id }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return deleteOrder({ actor, userId, id }); },
     addOrderPayment: (_p, { input }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return addOrderPayment({ actor, userId, input }); },
+    addSalePayment: (_p, { input }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return addSalePayment({ actor, userId, input }); },
     createProduction: (_p, { input }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return createProduction({ actor, userId, input }); },
     updateProduction: (_p, { id, input }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return updateProduction({ actor, userId, id, input }); },
     updateProductionStatus: (_p, { id, status, actualOutputQty, cancelReason, bottlePrices }, ctx) => { const { actor, userId } = getAuthFromContext(ctx); return updateProductionStatus({ actor, userId, id, status, actualOutputQty, cancelReason, bottlePrices }); },

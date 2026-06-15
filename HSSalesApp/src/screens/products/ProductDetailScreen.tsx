@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { makeMoney } from '../../utils/formatMoney';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { SelectMenu } from '../../components/ui/SelectMenu';
@@ -78,15 +79,7 @@ export function ProductDetailScreen() {
     [product, units],
   );
 
-  const money = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', {
-        style: 'currency',
-        currency: 'BDT',
-        maximumFractionDigits: 0,
-      }),
-    [locale],
-  );
+  const money = useMemo(() => makeMoney(locale), [locale]);
 
   const productSalesItems = useMemo(
     () => salesItems.filter((si) => si.productId === productId),
@@ -622,11 +615,7 @@ export function ProductDetailScreen() {
                             <Text style={styles.lotQty}>{lot.qty.toLocaleString()}</Text>
                             {lot.cost > 0 && (
                               <Text style={styles.lotCost}>
-                                {new Intl.NumberFormat('en-BD', {
-                                  style: 'currency',
-                                  currency: 'BDT',
-                                  maximumFractionDigits: 0,
-                                }).format(lot.cost)}/unit
+                                {makeMoney('en').format(lot.cost)}/unit
                               </Text>
                             )}
                           </View>
@@ -711,11 +700,7 @@ export function ProductDetailScreen() {
                     <View style={styles.orderPreview}>
                       <Text style={styles.orderPreviewLabel}>{t('product.sell.orderTotal')}</Text>
                       <Text style={styles.orderPreviewValue}>
-                        {new Intl.NumberFormat('en-BD', {
-                          style: 'currency',
-                          currency: 'BDT',
-                          maximumFractionDigits: 0,
-                        }).format(Number(sellQty) * Number(sellPrice))}
+                        {makeMoney('en').format(Number(sellQty) * Number(sellPrice))}
                       </Text>
                     </View>
                   )}
@@ -815,16 +800,12 @@ export function ProductDetailScreen() {
                         <Text style={styles.orderPreviewLabel}>{t('product.buy.totalCost')}</Text>
                         <Text style={styles.buyCostHint}>
                           {Number(buyQty).toLocaleString()} {unitLabel} × {
-                            new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(Number(buyUnitCost))
+                            makeMoney('en').format(Number(buyUnitCost))
                           }
                         </Text>
                       </View>
                       <Text style={[styles.orderPreviewValue, { color: palette.violet }]}>
-                        {new Intl.NumberFormat('en-BD', {
-                          style: 'currency',
-                          currency: 'BDT',
-                          maximumFractionDigits: 0,
-                        }).format(Number(buyQty) * Number(buyUnitCost))}
+                        {makeMoney('en').format(Number(buyQty) * Number(buyUnitCost))}
                       </Text>
                     </View>
                   )}

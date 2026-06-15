@@ -141,6 +141,39 @@ export async function createPurchase(
   return data.createPurchase;
 }
 
+export type AddLotTrancheInput = {
+  lotId: string;
+  quantity: number;
+  baseUnitCost: number;
+  extraCost?: number;
+  acquiredAt?: string;
+  notes?: string;
+};
+
+export async function addLotTranche(
+  payload: AddLotTrancheInput,
+  token: string,
+  baseUrl = getJsonServerBaseUrl(),
+) {
+  const data = await requestGraphql<
+    { addLotTranche: { ok: boolean; purchaseId: string } },
+    { input: AddLotTrancheInput }
+  >({
+    baseUrl,
+    token,
+    query: `
+      mutation AddLotTranche($input: AddLotTrancheInput!) {
+        addLotTranche(input: $input) {
+          ok
+          purchaseId
+        }
+      }
+    `,
+    variables: { input: payload },
+  });
+  return data.addLotTranche;
+}
+
 export async function createTransfer(
   payload: CreateTransferRequest,
   token: string,

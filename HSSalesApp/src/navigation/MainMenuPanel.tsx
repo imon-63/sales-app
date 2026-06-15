@@ -10,7 +10,7 @@ import { palette } from '../theme/designSystem';
 
 import type { MainStackParamList } from './mainStackTypes';
 
-type MenuScreenKey = 'Work' | 'StockRoom' | 'ReceiveStock' | 'TransferStock';
+type MenuScreenKey = 'Work';
 
 type NavItem = {
   key: string;
@@ -22,21 +22,6 @@ type NavItem = {
 
 const items: NavItem[] = [
   { key: 'work', labelKey: 'menu.home', icon: '⌂', screen: 'Work' },
-  { key: 'stock', labelKey: 'menu.stock', icon: '▦', screen: 'StockRoom' },
-  {
-    key: 'receive',
-    labelKey: 'menu.purchase',
-    icon: '↓',
-    screen: 'ReceiveStock',
-    adminOnly: true,
-  },
-  {
-    key: 'transfer',
-    labelKey: 'menu.move',
-    icon: '↔',
-    screen: 'TransferStock',
-    adminOnly: true,
-  },
 ];
 
 type Props = {

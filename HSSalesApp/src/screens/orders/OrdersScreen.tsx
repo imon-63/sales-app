@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { Calendar } from 'react-native-calendars';
+import { makeMoney } from '../../utils/formatMoney';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { SelectMenu } from '../../components/ui/SelectMenu';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -142,7 +143,7 @@ function OrderCard({
   items: OrderItem[];
   payments: OrderPayment[];
   locale: string;
-  money: Intl.NumberFormat;
+  money: { format: (n: number) => string };
   products: { id: string; name: string }[];
   lots: { id: string; productId: string; lotNumber: string }[];
   lotBatches: { id: string; lotId: string; remainingQuantity: number }[];
@@ -732,7 +733,7 @@ function NewOrderForm({ products, currencies, stockByProduct, locale, onClose, o
             style={{ borderRadius: radii.md, overflow: 'hidden', marginTop: 6 }}
           />
         )}
-        {lbl(bn ? 'বায়না (BDT)' : 'Advance Paid (BDT)')}
+        {lbl(bn ? 'বায়না (৳)' : 'Advance Paid (৳)')}
         {inp(advancePaid, setAdvancePaid, '0', { keyboardType: 'numeric' })}
         {lbl(bn ? 'নোট' : 'Notes')}
         {inp(notes, setNotes, '...')}
@@ -748,7 +749,7 @@ function NewOrderForm({ products, currencies, stockByProduct, locale, onClose, o
                 <TextInput value={l.quantity} onChangeText={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, quantity: v } : x))} keyboardType="numeric" placeholder="1" style={nof.smallInput} placeholderTextColor={palette.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={nof.smallLabel}>{bn ? 'দাম (BDT)' : 'Price (BDT)'}</Text>
+                <Text style={nof.smallLabel}>{bn ? 'দাম (৳)' : 'Price (৳)'}</Text>
                 <TextInput value={l.unitPrice} onChangeText={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} keyboardType="numeric" placeholder="0" style={nof.smallInput} placeholderTextColor={palette.textMuted} />
               </View>
               {lines.length > 1 && (
@@ -821,7 +822,7 @@ function EditOrderForm({ order, existingItems, products, currencies, locale, onC
 
   // Live total so user can see impact of unit price changes immediately
   const liveTotal = lines.reduce((a, l) => a + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0);
-  const money = new Intl.NumberFormat(bn ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 });
+  const money = makeMoney(locale);
 
   const productOptions = products.map(p => ({ value: p.id, label: p.name }));
 
@@ -879,7 +880,7 @@ function EditOrderForm({ order, existingItems, products, currencies, locale, onC
           />
         )}
 
-        <Text style={nof.label}>{bn ? 'বায়না (BDT)' : 'Advance Paid (BDT)'}</Text>
+        <Text style={nof.label}>{bn ? 'বায়না (৳)' : 'Advance Paid (৳)'}</Text>
         <TextInput value={advancePaid} onChangeText={setAdvancePaid} placeholder="0" placeholderTextColor={palette.textMuted} style={nof.input} keyboardType="numeric" />
 
         <Text style={nof.label}>{bn ? 'নোট' : 'Notes'}</Text>
@@ -895,7 +896,7 @@ function EditOrderForm({ order, existingItems, products, currencies, locale, onC
                 <TextInput value={l.quantity} onChangeText={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, quantity: v } : x))} keyboardType="numeric" placeholder="1" style={nof.smallInput} placeholderTextColor={palette.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={nof.smallLabel}>{bn ? 'দাম (BDT)' : 'Price (BDT)'}</Text>
+                <Text style={nof.smallLabel}>{bn ? 'দাম (৳)' : 'Price (৳)'}</Text>
                 <TextInput value={l.unitPrice} onChangeText={v => setLines(prev => prev.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} keyboardType="numeric" placeholder="0" style={nof.smallInput} placeholderTextColor={palette.textMuted} />
               </View>
               {lines.length > 1 && (
@@ -1032,8 +1033,7 @@ function ProcessingLotDialog({ items, lots, lotBatches, products, locale, onConf
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={pld.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={pld.card}>
-            <Text style={pld.title}>⚙️ {bn ? 'লট বরাদ্দ করুন' : 'Allocate Lots'}</Text>
-            <Text style={pld.hint}>{bn ? 'কোন লট থেকে কতটুকু নেবেন সেট করুন' : 'Set which lots to fulfil each item from and how much'}</Text>
+            <Text style={pld.title}>{bn ? 'পণ্য নির্বাচন করুন' : 'Select Products'}</Text>
 
             {items.map(item => {
               const prod = products.find(p => p.id === item.productId);
@@ -1206,7 +1206,7 @@ export function OrdersScreen() {
   const [refundBusy, setRefundBusy] = useState(false);
   const bn = locale === 'bn';
 
-  const money = useMemo(() => new Intl.NumberFormat(bn ? 'bn-BD' : 'en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }), [bn]);
+  const money = useMemo(() => makeMoney(locale), [locale]);
 
   useFocusEffect(useCallback(() => { dispatch(fetchOrders()); }, [dispatch]));
 
@@ -1489,7 +1489,7 @@ export function OrdersScreen() {
             <View style={styles.payDialog}>
               <Text style={styles.payDialogTitle}>{bn ? '💳 পেমেন্ট রেকর্ড' : '💳 Record Payment'}</Text>
               <Text style={styles.payDialogSub}>{paymentOrder.orderNumber} · {paymentOrder.customerName}</Text>
-              <Text style={styles.payDialogLabel}>{bn ? 'পরিমাণ (BDT) *' : 'Amount (BDT) *'}</Text>
+              <Text style={styles.payDialogLabel}>{bn ? 'পরিমাণ (৳) *' : 'Amount (৳) *'}</Text>
               <TextInput
                 value={paymentAmt}
                 onChangeText={setPaymentAmt}
@@ -1529,7 +1529,7 @@ export function OrdersScreen() {
             <View style={[styles.payDialog, { borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }]}>
               <Text style={[styles.payDialogTitle, { color: '#EF4444' }]}>💸 {bn ? 'রিফান্ড রেকর্ড' : 'Record Refund'}</Text>
               <Text style={styles.payDialogSub}>{refundOrder.orderNumber} · {refundOrder.customerName}</Text>
-              <Text style={styles.payDialogLabel}>{bn ? 'রিফান্ড পরিমাণ (BDT) *' : 'Refund Amount (BDT) *'}</Text>
+              <Text style={styles.payDialogLabel}>{bn ? 'রিফান্ড পরিমাণ (৳) *' : 'Refund Amount (৳) *'}</Text>
               <TextInput
                 value={refundAmt}
                 onChangeText={setRefundAmt}
