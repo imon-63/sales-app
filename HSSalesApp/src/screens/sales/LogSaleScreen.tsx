@@ -73,6 +73,8 @@ export function LogSaleScreen() {
     new Date().toISOString().slice(0, 10),
   );
   const [notes, setNotes] = useState('');
+  const [extraCost, setExtraCost] = useState('');
+  const [paidNow, setPaidNow] = useState('');
   const [lines, setLines] = useState<LineDraft[]>(() =>
     defaultCurrency ? [newLine('', defaultCurrency)] : [],
   );
@@ -336,6 +338,8 @@ export function LogSaleScreen() {
           warehouseId,
           saleDate: /^\d{4}-\d{2}-\d{2}$/.test(saleDate) ? saleDate : undefined,
           notes: notes.trim() || undefined,
+          extraCost: Number(extraCost) > 0 ? Number(extraCost) : undefined,
+          paidAmount: Number(paidNow) > 0 ? Number(paidNow) : undefined,
           items: lines.map((ln) => ({
             productId: ln.productId,
             quantity: Number(ln.quantity),
@@ -356,6 +360,8 @@ export function LogSaleScreen() {
       }));
       setWarehouseId('');
       setNotes('');
+      setExtraCost('');
+      setPaidNow('');
       const cid = currencies[0]?.id ?? '';
       setLines(cid ? [newLine('', cid)] : []);
       setCollapsedLineIds({});
@@ -418,7 +424,7 @@ export function LogSaleScreen() {
                 style={styles.input}
               />
 
-              <Text style={[styles.label, styles.labelSpaced]}>Notes (optional)</Text>
+              <Text style={[styles.label, styles.labelSpaced]}>Notes <Text style={styles.optLabel}>(optional)</Text></Text>
               <TextInput
                 value={notes}
                 onChangeText={setNotes}
@@ -427,6 +433,71 @@ export function LogSaleScreen() {
                 style={[styles.input, styles.inputTall]}
                 multiline
               />
+
+              <View style={styles.formRow}>
+                <View style={styles.formHalf}>
+                  <Text style={[styles.label, styles.labelSpaced]}>Extra Cost <Text style={styles.optLabel}>opt.</Text></Text>
+                  <TextInput
+                    style={styles.input}
+                    value={extraCost}
+                    onChangeText={setExtraCost}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={palette.textMuted}
+                    selectTextOnFocus
+                  />
+                </View>
+                <View style={styles.formHalf}>
+                  <Text style={[styles.label, styles.labelSpaced]}>Paid Now <Text style={styles.optLabel}>opt.</Text></Text>
+                  <TextInput
+                    style={styles.input}
+                    value={paidNow}
+                    onChangeText={setPaidNow}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={palette.textMuted}
+                    selectTextOnFocus
+                  />
+                </View>
+              </View>
+
+              {(() => {
+                const totalRev = lines.reduce((sum, ln) => sum + (Number(ln.quantity) || 0) * (Number(ln.unitPrice) || 0), 0);
+                const extra = Number(extraCost) || 0;
+                const paid = Number(paidNow) || 0;
+                const due = totalRev - paid;
+                if (totalRev <= 0 && extra <= 0 && paid <= 0) return null;
+                return (
+                  <View style={styles.summaryStrip}>
+                    <View style={styles.summaryRow}>
+                      {totalRev > 0 && (
+                        <View style={styles.summaryItem}>
+                          <Text style={styles.summaryLabel}>Revenue</Text>
+                          <Text style={styles.summaryVal}>৳{totalRev.toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {extra > 0 && (
+                        <View style={styles.summaryItem}>
+                          <Text style={styles.summaryLabel}>Extra</Text>
+                          <Text style={[styles.summaryVal, { color: '#FBBF24' }]}>−৳{extra.toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {paid > 0 && (
+                        <View style={styles.summaryItem}>
+                          <Text style={styles.summaryLabel}>Paid</Text>
+                          <Text style={[styles.summaryVal, { color: palette.emerald }]}>৳{paid.toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {paid > 0 && totalRev > 0 && due > 0.01 && (
+                        <View style={styles.summaryItem}>
+                          <Text style={styles.summaryLabel}>Due</Text>
+                          <Text style={[styles.summaryVal, { color: '#FBBF24' }]}>৳{due.toLocaleString()}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })()}
             </GlassCard>
 
             {lines.map((ln, idx) => {
@@ -671,7 +742,7 @@ export function LogSaleScreen() {
                       />
 
                       <Text style={[styles.label, styles.labelSpaced]}>
-                        Unit price (BDT)
+                        Unit price (৳)
                       </Text>
                       <TextInput
                         value={ln.unitPrice}
@@ -929,4 +1000,19 @@ const styles = StyleSheet.create({
   },
   primaryMiniOff: { opacity: 0.45 },
   primaryMiniText: { color: palette.onAccent, fontWeight: '900' },
+  formRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  formHalf: { flex: 1 },
+  optLabel: { fontWeight: '600', fontSize: 10, textTransform: 'none' as const, letterSpacing: 0, color: palette.textMuted },
+  summaryStrip: {
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 10,
+  },
+  summaryRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const },
+  summaryItem: { alignItems: 'center' as const },
+  summaryLabel: { fontSize: 10, fontWeight: '600' as const, color: palette.textMuted, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 2 },
+  summaryVal: { fontSize: 13, fontWeight: '800' as const, color: palette.text },
 });

@@ -17,6 +17,7 @@ import {
 import type { MarkedDates } from 'react-native-calendars/src/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { makeMoney } from '../../utils/formatMoney';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
@@ -302,11 +303,7 @@ export function SalesCalendarScreen() {
   );
 }
 
-const money = new Intl.NumberFormat('en-BD', {
-  style: 'currency',
-  currency: 'BDT',
-  maximumFractionDigits: 0,
-});
+const money = makeMoney('en');
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },

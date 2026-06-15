@@ -1,5 +1,5 @@
 import { getJsonServerBaseUrl } from '../config/apiBase';
-import type { Sale, SalesItem } from '../types/models';
+import type { Sale, SalePayment, SalesItem } from '../types/models';
 
 import { requestGraphql } from './http';
 
@@ -9,7 +9,7 @@ export type CreateSaleLine = {
   unitPrice: number;
   currencyId: string;
   lotIds?: string[];
-  bottleBreakdown?: string; // JSON string of BottleBreakdownItem[]
+  bottleBreakdown?: string;
 };
 
 export type CreateSaleRequest = {
@@ -17,6 +17,8 @@ export type CreateSaleRequest = {
   saleDate?: string;
   notes?: string;
   items: CreateSaleLine[];
+  paidAmount?: number;
+  extraCost?: number;
 };
 
 export type CreateSaleResponse = {
@@ -36,21 +38,11 @@ export async function createSale(
       mutation CreateSale($input: CreateSaleInput!) {
         createSale(input: $input) {
           sale {
-            id
-            saleDate
-            warehouseId
-            createdBy
-            notes
+            id saleDate warehouseId createdBy notes
+            paidAmount totalAmount paymentStatus extraCost
           }
           items {
-            id
-            saleId
-            productId
-            quantity
-            unitPrice
-            currencyId
-            unitId
-            bottleBreakdown
+            id saleId productId quantity unitPrice currencyId unitId bottleBreakdown
           }
         }
       }
@@ -58,4 +50,31 @@ export async function createSale(
     variables: { input: payload },
   });
   return data.createSale;
+}
+
+export type AddSalePaymentRequest = {
+  saleId: string;
+  amount: number;
+  notes?: string;
+  paidAt?: string;
+};
+
+export async function addSalePayment(
+  payload: AddSalePaymentRequest,
+  token: string,
+  baseUrl = getJsonServerBaseUrl(),
+): Promise<SalePayment> {
+  const data = await requestGraphql<{ addSalePayment: SalePayment }, { input: AddSalePaymentRequest }>({
+    baseUrl,
+    token,
+    query: `
+      mutation AddSalePayment($input: AddSalePaymentInput!) {
+        addSalePayment(input: $input) {
+          id saleId amount collectedBy collectedByName paidAt notes
+        }
+      }
+    `,
+    variables: { input: payload },
+  });
+  return data.addSalePayment;
 }

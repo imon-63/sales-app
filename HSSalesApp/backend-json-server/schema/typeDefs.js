@@ -7,7 +7,7 @@ const typeDefs = `
   type Currency { id: ID! code: String! }
   type Product { id: ID! name: String! unitId: String! unit: String }
   type Warehouse { id: ID! name: String! }
-  type Sale { id: ID! saleDate: String! warehouseId: String! createdBy: String! notes: String orderId: String status: String cancelledAt: String cancelReason: String }
+  type Sale { id: ID! saleDate: String! warehouseId: String! createdBy: String! notes: String orderId: String status: String cancelledAt: String cancelReason: String paidAmount: Float totalAmount: Float paymentStatus: String extraCost: Float }
   type SalesItem { id: ID! saleId: String! productId: String! quantity: Float! unitPrice: Float! currencyId: String unitId: String bottleBreakdown: String }
   type AdminNotification { id: ID! type: String! saleId: String lotId: String productId: String orderId: String title: String! body: String! createdAt: String! actorUserId: String! unread: Boolean }
   type Lot { id: ID! productId: String! lotNumber: String! }
@@ -51,13 +51,15 @@ const typeDefs = `
   }
 
   input SaleItemInput { productId: String! quantity: Float! unitPrice: Float! currencyId: String unitId: String lotIds: [String!] bottleBreakdown: String }
-  input CreateSaleInput { warehouseId: String! saleDate: String notes: String items: [SaleItemInput!]! }
+  input CreateSaleInput { warehouseId: String! saleDate: String notes: String items: [SaleItemInput!]! paidAmount: Float extraCost: Float }
   input CreateSalesUserInput { email: String! password: String! name: String phone: String }
   input PurchaseLineInput { productId: String! quantity: Float! unitCost: Float! baseUnitCost: Float notes: String lotNumber: String unitId: String }
   input CreatePurchaseInput { warehouseId: String! purchaseDate: String notes: String items: [PurchaseLineInput!]! }
   input TransferLineInput { productId: String! quantity: Float! }
   input CreateTransferInput { fromWarehouseId: String! toWarehouseId: String! transferDate: String notes: String lines: [TransferLineInput!]! }
   input CreateNotificationInput { type: String! saleId: String lotId: String productId: String title: String! body: String! actorUserId: String! readByUserIds: [String!] }
+  input AddLotTrancheInput { lotId: ID! quantity: Float! baseUnitCost: Float! extraCost: Float acquiredAt: String notes: String }
+  type LotPurchaseLog { id: ID! lotId: String! acquiredAt: String! quantity: Float! baseUnitCost: Float! extraCost: Float effectiveUnitCost: Float! notes: String }
 
   type ProductionConsumption {
     id: ID!
@@ -138,6 +140,23 @@ const typeDefs = `
     type: String
   }
 
+  type SalePayment {
+    id: ID!
+    saleId: ID!
+    amount: Float!
+    collectedBy: String!
+    collectedByName: String
+    paidAt: String!
+    notes: String
+  }
+
+  input AddSalePaymentInput {
+    saleId: ID!
+    amount: Float!
+    notes: String
+    paidAt: String
+  }
+
   input OrderItemInput { productId: ID! quantity: Float! unitPrice: Float! currencyId: String lotIds: [String] lotAllocations: String }
   input CreateOrderInput { customerName: String! customerPhone: String customerAddress: String orderDate: String! expectedDelivery: String warehouseId: String advancePaid: Float notes: String items: [OrderItemInput!]! }
   input UpdateOrderInput { customerName: String customerPhone: String customerAddress: String expectedDelivery: String warehouseId: String advancePaid: Float notes: String items: [OrderItemInput!] }
@@ -159,12 +178,14 @@ const typeDefs = `
     inventoryStock: [StockRow!]!
     lots: [Lot!]!
     lotBatches: [LotBatch!]!
+    lotPurchaseLogs: [LotPurchaseLog!]!
     salesItemAllocations: [SalesItemAllocation!]!
     inventoryTransfers: [InventoryTransfer!]!
     inventoryTransferLines: [InventoryTransferLine!]!
     orders: [Order!]!
     orderItems: [OrderItem!]!
     orderPayments(orderId: ID): [OrderPayment!]!
+    salePayments(saleId: ID): [SalePayment!]!
     productions: [Production!]!
     productionConsumptionsForLot(lotId: ID!): [ProductionConsumption!]!
   }
@@ -187,6 +208,7 @@ const typeDefs = `
     updateWarehouse(id: ID!, name: String!): Warehouse!
     deleteWarehouse(id: ID!): Boolean!
     createPurchase(input: CreatePurchaseInput!): ActionResult!
+    addLotTranche(input: AddLotTrancheInput!): ActionResult!
     createInventoryTransfer(input: CreateTransferInput!): ActionResult!
     createNotification(input: CreateNotificationInput!): AdminNotification!
     createOrder(input: CreateOrderInput!): Order!
@@ -194,6 +216,7 @@ const typeDefs = `
     updateOrderStatus(id: ID!, status: String!, cancelReason: String): Order!
     deleteOrder(id: ID!): Boolean!
     addOrderPayment(input: AddOrderPaymentInput!): OrderPayment!
+    addSalePayment(input: AddSalePaymentInput!): SalePayment!
     createProduction(input: CreateProductionInput!): Production!
     updateProduction(id: ID!, input: UpdateProductionInput!): Production!
     updateProductionStatus(id: ID!, status: String!, actualOutputQty: Float, cancelReason: String, bottlePrices: String): Production!

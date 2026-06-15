@@ -6,8 +6,10 @@ import type {
   Currency,
   Lot,
   LotBatch,
+  LotPurchaseLog,
   Product,
   Sale,
+  SalePayment,
   SalesItem,
   SalesItemAllocation,
   Unit,
@@ -22,6 +24,7 @@ import { clearSession } from './authSlice';
 export type SalesDataState = {
   sales: Sale[];
   salesItems: SalesItem[];
+  salePayments: SalePayment[];
   products: Product[];
   warehouses: Warehouse[];
   units: Unit[];
@@ -29,6 +32,7 @@ export type SalesDataState = {
   users: User[];
   lots: Lot[];
   lotBatches: LotBatch[];
+  lotPurchaseLogs: LotPurchaseLog[];
   salesItemAllocations: SalesItemAllocation[];
   inventoryTransfers: InventoryTransfer[];
   inventoryTransferLines: InventoryTransferLine[];
@@ -39,6 +43,7 @@ export type SalesDataState = {
 const initialState: SalesDataState = {
   sales: [],
   salesItems: [],
+  salePayments: [],
   products: [],
   warehouses: [],
   units: [],
@@ -46,6 +51,7 @@ const initialState: SalesDataState = {
   users: [],
   lots: [],
   lotBatches: [],
+  lotPurchaseLogs: [],
   salesItemAllocations: [],
   inventoryTransfers: [],
   inventoryTransferLines: [],
@@ -62,6 +68,7 @@ export const fetchSalesDataset = createAsyncThunk(
       const data = await requestGraphql<{
         sales: Sale[];
         salesItems: SalesItem[];
+        salePayments: SalePayment[];
         products: Product[];
         warehouses: Warehouse[];
         units: Unit[];
@@ -69,6 +76,7 @@ export const fetchSalesDataset = createAsyncThunk(
         users: User[];
         lots: Lot[];
         lotBatches: LotBatch[];
+        lotPurchaseLogs: LotPurchaseLog[];
         salesItemAllocations: SalesItemAllocation[];
         inventoryTransfers: InventoryTransfer[];
         inventoryTransferLines: InventoryTransferLine[];
@@ -77,8 +85,9 @@ export const fetchSalesDataset = createAsyncThunk(
         token: token ?? undefined,
         query: `
           query SalesDataset {
-            sales { id saleDate warehouseId createdBy notes orderId status cancelledAt cancelReason }
+            sales { id saleDate warehouseId createdBy notes orderId status cancelledAt cancelReason paidAmount totalAmount paymentStatus extraCost }
             salesItems { id saleId productId quantity unitPrice currencyId unitId bottleBreakdown }
+            salePayments { id saleId amount collectedBy collectedByName paidAt notes }
             products { id name unitId unit }
             warehouses { id name }
             units { id label globalFactor isWholeNumber }
@@ -86,44 +95,19 @@ export const fetchSalesDataset = createAsyncThunk(
             users { id email name phone role }
             lots { id productId lotNumber }
             lotBatches {
-              id
-              lotId
-              warehouseId
-              acquiredAt
-              unitCost
-              baseUnitCost
-              notes
-              originalQuantity
-              remainingQuantity
+              id lotId warehouseId acquiredAt unitCost baseUnitCost notes originalQuantity remainingQuantity
             }
-            salesItemAllocations {
-              id
-              salesItemId
-              lotBatchId
-              quantityAllocated
-              unitCostAtTime
-            }
-            inventoryTransfers {
-              id
-              transferDate
-              fromWarehouseId
-              toWarehouseId
-              createdBy
-              notes
-            }
-            inventoryTransferLines {
-              id
-              transferId
-              productId
-              lotId
-              quantity
-            }
+            lotPurchaseLogs { id lotId acquiredAt quantity baseUnitCost extraCost effectiveUnitCost notes }
+            salesItemAllocations { id salesItemId lotBatchId quantityAllocated unitCostAtTime }
+            inventoryTransfers { id transferDate fromWarehouseId toWarehouseId createdBy notes }
+            inventoryTransferLines { id transferId productId lotId quantity }
           }
         `,
       });
       return {
         sales: data.sales,
         salesItems: data.salesItems,
+        salePayments: data.salePayments,
         products: data.products,
         warehouses: data.warehouses,
         units: data.units,
@@ -131,6 +115,7 @@ export const fetchSalesDataset = createAsyncThunk(
         users: data.users,
         lots: data.lots,
         lotBatches: data.lotBatches,
+        lotPurchaseLogs: data.lotPurchaseLogs,
         salesItemAllocations: data.salesItemAllocations,
         inventoryTransfers: data.inventoryTransfers,
         inventoryTransferLines: data.inventoryTransferLines,
@@ -156,6 +141,7 @@ const salesDataSlice = createSlice({
         state.status = 'succeeded';
         state.sales = action.payload.sales;
         state.salesItems = action.payload.salesItems;
+        state.salePayments = action.payload.salePayments;
         state.products = action.payload.products;
         state.warehouses = action.payload.warehouses;
         state.units = action.payload.units;
@@ -163,6 +149,7 @@ const salesDataSlice = createSlice({
         state.users = action.payload.users;
         state.lots = action.payload.lots;
         state.lotBatches = action.payload.lotBatches;
+        state.lotPurchaseLogs = action.payload.lotPurchaseLogs;
         state.salesItemAllocations = action.payload.salesItemAllocations;
         state.inventoryTransfers = action.payload.inventoryTransfers;
         state.inventoryTransferLines = action.payload.inventoryTransferLines;

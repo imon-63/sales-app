@@ -331,6 +331,10 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
       }
       if (!resolvedWid) throw new Error('Delivery blocked: insufficient stock across all warehouses.');
     }
+    // Carry forward all payments already collected on this order
+    const priorOrderPayments = (db.get('orderPayments').value() ?? []).filter(p => p.orderId === id && p.type !== 'refund');
+    const totalAlreadyPaid = (order.advancePaid ?? 0) + priorOrderPayments.reduce((s, p) => s + Number(p.amount), 0);
+
     createSale({
       actor, userId,
       input: {
@@ -338,6 +342,7 @@ function updateOrderStatus({ actor, userId, id, status, cancelReason }) {
         saleDate: now,
         orderId: id,
         notes: `অর্ডার: ${order.orderNumber}`,
+        paidAmount: totalAlreadyPaid > 0 ? totalAlreadyPaid : undefined,
         items: orderItems.map(oi => ({
           productId: oi.productId,
           quantity: oi.quantity,
@@ -423,6 +428,29 @@ function addOrderPayment({ actor, userId, input }) {
     paidAt: payment.paidAt,
     orderStatus: order.status,
   });
+
+  // Sync: if the order is already delivered, propagate to the linked sale
+  if (order.status === 'delivered' && (type ?? 'payment') === 'payment') {
+    ensureCollection('sales', []);
+    const linkedSale = (db.get('sales').value() ?? []).find(s => s.orderId === orderId);
+    if (linkedSale) {
+      ensureCollection('salePayments', []);
+      const collector = db.get('users').find({ id: userId }).value();
+      db.get('salePayments').push({
+        id: crypto.randomUUID(),
+        saleId: linkedSale.id,
+        amount: amt,
+        collectedBy: userId,
+        collectedByName: collector?.name || actor.email || '',
+        paidAt: paidAt ?? new Date().toISOString().slice(0, 10),
+        notes: 'Order payment (synced)',
+      }).write();
+      const newPaidAmount = (db.get('salePayments').filter({ saleId: linkedSale.id }).value() ?? []).reduce((s, p) => s + Number(p.amount), 0);
+      const totalAmount = Number(linkedSale.totalAmount) || 0;
+      const payStatus = newPaidAmount >= totalAmount ? 'paid' : newPaidAmount > 0 ? 'partial' : 'due';
+      db.get('sales').find({ id: linkedSale.id }).assign({ paidAmount: newPaidAmount, paymentStatus: payStatus }).write();
+    }
+  }
 
   return payment;
 }

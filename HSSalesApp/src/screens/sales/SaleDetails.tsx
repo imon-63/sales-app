@@ -2,6 +2,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { unitLabelForProduct } from '../../utils/sales';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Easing,
@@ -14,6 +15,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   UIManager,
   View,
 } from 'react-native';
@@ -25,6 +27,10 @@ import { MeshBackground } from '../../components/ui/MeshBackground';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { useT } from '../../i18n/useT';
 import { useAppSelector } from '../../store/hooks';
+import { useAppDispatch } from '../../store/hooks';
+import { fetchSalesDataset } from '../../store/slices/salesDataSlice';
+import * as salesApi from '../../api/sales';
+import { showToast } from '../../store/slices/uiSlice';
 import { palette, radii } from '../../theme/designSystem';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
 import type { MainStackParamList } from '../../navigation/mainStackTypes';
@@ -57,12 +63,100 @@ export function SaleDetails() {
   const [printDrawerVisible, setPrintDrawerVisible] = useState(false);
   const [adminInfoExpanded, setAdminInfoExpanded] = useState(false);
   const printDrawerY = useRef(new Animated.Value(PRINT_DRAWER_HIDDEN_Y)).current;
+  const dispatch = useAppDispatch();
   const currentUser = useAppSelector((s) => s.auth.user);
-  const { sales, salesItems, products, warehouses, users, salesItemAllocations, lots, lotBatches, units } = useAppSelector(
+  const token = useAppSelector((s) => s.auth.token ?? '');
+  const locale = useAppSelector((s) => s.ui.locale);
+  const { sales, salesItems, products, warehouses, users, salesItemAllocations, lots, lotBatches, units, salePayments } = useAppSelector(
     (s) => s.salesData,
   );
+  const { orders, orderPayments } = useAppSelector((s) => s.orders);
+
+  const [payAmount, setPayAmount] = useState('');
+  const [payNotes, setPayNotes] = useState('');
+  const [payBusy, setPayBusy] = useState(false);
 
   const sale = useMemo(() => sales.find((s) => s.id === saleId), [sales, saleId]);
+
+  // Build merged payment list with source labels.
+  // For order-linked sales: show ONLY orderPayments + advance — Fix 2b mirrors every
+  // addSalePayment into orderPayments, so all payments are captured there without duplication.
+  // For direct sales: show salePayments.
+  type MergedPayment = {
+    id: string; amount: number; date: string;
+    collectedByName?: string; notes?: string;
+    source: 'order' | 'sale';
+  };
+  const mergedPayments = useMemo<MergedPayment[]>(() => {
+    const rows: MergedPayment[] = [];
+
+    if (sale?.orderId) {
+      const linkedOrder = orders.find((o) => o.id === sale.orderId);
+
+      // advance paid at order creation
+      if (linkedOrder && Number(linkedOrder.advancePaid) > 0) {
+        rows.push({
+          id: `advance-${sale.orderId}`,
+          amount: Number(linkedOrder.advancePaid),
+          date: linkedOrder.orderDate ?? '',
+          notes: 'Advance at order',
+          source: 'order',
+        });
+      }
+
+      // all order payment instalments (non-refund) — covers both payments taken in the
+      // order flow AND payments added from SaleDetails (Fix 2b mirrors them here)
+      orderPayments
+        .filter((p) => p.orderId === sale.orderId && p.type !== 'refund')
+        .forEach((p) => {
+          rows.push({
+            id: p.id,
+            amount: Number(p.amount),
+            date: p.paidAt ?? '',
+            collectedByName: users.find((u) => u.id === p.recordedBy)?.name,
+            notes: p.notes || undefined,
+            source: 'order',
+          });
+        });
+    } else {
+      // non-order sale — plain salePayments
+      salePayments
+        .filter((p) => p.saleId === saleId)
+        .forEach((p) => {
+          rows.push({
+            id: p.id,
+            amount: Number(p.amount),
+            date: p.paidAt ?? '',
+            collectedByName: p.collectedByName || users.find((u) => u.id === p.collectedBy)?.name,
+            notes: p.notes || undefined,
+            source: 'sale',
+          });
+        });
+    }
+
+    return rows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [sale, orders, orderPayments, salePayments, saleId, users]);
+
+  async function handleAddPayment() {
+    const amt = Number(payAmount);
+    if (!amt || amt <= 0) {
+      Alert.alert(locale === 'bn' ? 'পেমেন্ট' : 'Payment', locale === 'bn' ? 'সঠিক পরিমাণ দিন' : 'Enter a valid amount');
+      return;
+    }
+    setPayBusy(true);
+    try {
+      await salesApi.addSalePayment({ saleId, amount: amt, notes: payNotes.trim() || undefined }, token);
+      dispatch(showToast({ title: locale === 'bn' ? 'পেমেন্ট' : 'Payment', message: `${amt.toLocaleString()} ${locale === 'bn' ? 'সংগ্রহ হয়েছে' : 'collected'}`, type: 'success' }));
+      setPayAmount('');
+      setPayNotes('');
+      await dispatch(fetchSalesDataset()).unwrap();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed to record payment.');
+    } finally {
+      setPayBusy(false);
+    }
+  }
+
   const items = useMemo(
     () => salesItems.filter((it) => it.saleId === saleId && (!productId || it.productId === productId)),
     [salesItems, saleId, productId],
@@ -78,23 +172,40 @@ export function SaleDetails() {
     [users, sale],
   );
 
-  const totalRevenue = useMemo(
-    () => items.reduce((acc, it) => acc + (Number(it.quantity) * Number(it.unitPrice)), 0),
-    [items],
-  );
+  // When navigated from a specific lot batch, show only that batch's portion
+  const totalRevenue = useMemo(() => {
+    return items.reduce((acc, it) => {
+      if (lotBatchId) {
+        const alloc = salesItemAllocations.find((a) => a.salesItemId === it.id && a.lotBatchId === lotBatchId);
+        return acc + (alloc ? Number(alloc.quantityAllocated) * Number(it.unitPrice) : 0);
+      }
+      return acc + Number(it.quantity) * Number(it.unitPrice);
+    }, 0);
+  }, [items, salesItemAllocations, lotBatchId]);
 
   const totalCost = useMemo(() => {
     return items.reduce((acc, it) => {
-      const itemAllocations = salesItemAllocations.filter((a) => a.salesItemId === it.id);
+      const itemAllocations = salesItemAllocations.filter(
+        (a) => a.salesItemId === it.id && (!lotBatchId || a.lotBatchId === lotBatchId),
+      );
       const itemCost = itemAllocations.reduce(
         (iAcc, a) => iAcc + a.quantityAllocated * a.unitCostAtTime,
         0,
       );
       return acc + itemCost;
     }, 0);
-  }, [items, salesItemAllocations]);
+  }, [items, salesItemAllocations, lotBatchId]);
 
-  const totalProfit = totalRevenue - totalCost;
+  // Proportional paid: when viewing from a specific lot, split by this lot's revenue share
+  const totalPaid = useMemo(() => {
+    const fullPaid = Number(sale?.paidAmount) || 0;
+    if (!lotBatchId) return fullPaid;
+    const fullSaleTotal = Number(sale?.totalAmount) || 0;
+    return fullSaleTotal > 0 ? fullPaid * (totalRevenue / fullSaleTotal) : 0;
+  }, [sale, lotBatchId, totalRevenue]);
+
+  const saleExtraCost = Number(sale?.extraCost) || 0;
+  const totalProfit = totalRevenue - totalCost - saleExtraCost;
   const marginPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   const composePrintInput = useCallback(
@@ -135,9 +246,9 @@ export function SaleDetails() {
               lotNumber: a.lotNumber,
               warehouseName: a.warehouseName,
               textLines: [
-                `Sell value: ${a.quantityAllocated.toLocaleString()} × ${Number(it.unitPrice).toLocaleString()} BDT = ${sellValue.toLocaleString()} BDT`,
-                `Cost: ${a.quantityAllocated.toLocaleString()} × ${Number(a.unitCostAtTime).toLocaleString()} BDT = ${costPrice.toLocaleString()} BDT`,
-                `P/L: ${profit.toLocaleString()} BDT`,
+                `Sell value: ${a.quantityAllocated.toLocaleString()} × ${Number(it.unitPrice).toLocaleString()} ৳ = ${sellValue.toLocaleString()} ৳`,
+                `Cost: ${a.quantityAllocated.toLocaleString()} × ${Number(a.unitCostAtTime).toLocaleString()} ৳ = ${costPrice.toLocaleString()} ৳`,
+                `P/L: ${profit.toLocaleString()} ৳`,
               ],
             };
           });
@@ -438,18 +549,26 @@ export function SaleDetails() {
                <View style={styles.summaryGrid}>
                  <View style={styles.summaryCol}>
                    <Text style={styles.summaryLabel}>Selling Value</Text>
-                   <Text style={styles.summaryNum}>BDT {totalRevenue.toLocaleString()}</Text>
+                   <Text style={styles.summaryNum}>৳{totalRevenue.toLocaleString()}</Text>
                  </View>
                  <View style={styles.summaryCol}>
                    <Text style={styles.summaryLabel}>Cost Investment</Text>
-                   <Text style={styles.summaryNum}>BDT {totalCost.toLocaleString()}</Text>
+                   <Text style={styles.summaryNum}>৳{totalCost.toLocaleString()}</Text>
                  </View>
                </View>
+               {saleExtraCost > 0 && (
+                 <View style={[styles.summaryGrid, { marginTop: 4 }]}>
+                   <View style={styles.summaryCol}>
+                     <Text style={styles.summaryLabel}>Extra Sell Cost</Text>
+                     <Text style={[styles.summaryNum, { color: '#FBBF24' }]}>− ৳{saleExtraCost.toLocaleString()}</Text>
+                   </View>
+                 </View>
+               )}
                <View style={styles.profitHighlight}>
                  <View>
                    <Text style={styles.highlightLabel}>{totalProfit >= 0 ? 'Net Profit' : 'Net Loss'}</Text>
                    <Text style={[styles.highlightValue, { color: totalProfit >= 0 ? palette.success : palette.rose }]}>
-                     BDT {totalProfit.toLocaleString()}
+                     ৳{totalProfit.toLocaleString()}
                    </Text>
                  </View>
                  <View style={[styles.marginPill, { backgroundColor: totalProfit >= 0 ? palette.success : palette.rose }]}>
@@ -462,7 +581,6 @@ export function SaleDetails() {
           <Text style={styles.listHeader}>Items ({items.length})</Text>
           {items.map((it) => {
             const prod = products.find((p) => p.id === it.productId);
-            const subtotal = Number(it.quantity) * Number(it.unitPrice);
 
             // Resolve allocations — filter to specific lot batch when navigated from a lot's sales tab
             const allocations = salesItemAllocations
@@ -478,6 +596,12 @@ export function SaleDetails() {
                 };
               });
 
+            // When viewing from a specific lot batch, compute subtotal from allocation qty only
+            const displayQty = lotBatchId
+              ? allocations.reduce((s, a) => s + a.quantityAllocated, 0)
+              : Number(it.quantity);
+            const subtotal = displayQty * Number(it.unitPrice);
+
             const itemCost = allocations.reduce((acc, a) => acc + (a.quantityAllocated * a.unitCostAtTime), 0);
             const itemProfit = subtotal - itemCost;
             const itemMargin = subtotal > 0 ? (itemProfit / subtotal) * 100 : 0;
@@ -488,11 +612,11 @@ export function SaleDetails() {
               <GlassCard key={it.id} style={[styles.leftEdgeRoundCard, styles.itemCard]}>
                 <View style={styles.itemHead}>
                   <Text style={styles.itemProd}>{prod?.name || 'Unknown Product'}</Text>
-                  <Text style={styles.itemTotal}>BDT {(lotBatchId ? itemCost + itemProfit : subtotal).toLocaleString()}</Text>
+                  <Text style={styles.itemTotal}>৳{subtotal.toLocaleString()}</Text>
                 </View>
                 <View style={[styles.row, { marginBottom: 0, marginTop: 4 }]}>
                    <Text style={styles.itemDetail}>
-                    {(lotBatchId ? allocations.reduce((s, a) => s + a.quantityAllocated, 0) : Number(it.quantity)).toLocaleString()} × BDT {Number(it.unitPrice).toLocaleString()}
+                    {displayQty.toLocaleString()} × ৳{Number(it.unitPrice).toLocaleString()}
                   </Text>
                   {isAdmin && (
                     <Text style={[styles.itemMargin, itemMargin < 0 && { color: palette.rose }]}>
@@ -517,14 +641,14 @@ export function SaleDetails() {
                             <View key={bi} style={styles.fulfillmentRow}>
                               <Text style={[styles.fulLot, { color: palette.violet }]}>{b.sizeLiter}L × {b.count}</Text>
                               <Text style={styles.formulaLine}>
-                                {b.count} × ({b.sizeLiter}L × {Number(it.unitPrice).toLocaleString()} + {b.bottleCost.toLocaleString()}) = BDT {(b.count * perBottle).toLocaleString()}
+                                {b.count} × ({b.sizeLiter}L × {Number(it.unitPrice).toLocaleString()} + {b.bottleCost.toLocaleString()}) = ৳{(b.count * perBottle).toLocaleString()}
                               </Text>
                             </View>
                           );
                         })}
                         <View style={[styles.profitResult, { borderTopColor: `${palette.violet}20` }]}>
                           <Text style={[styles.profitResultLabel, { color: palette.violet }]}>Total bottle value:</Text>
-                          <Text style={[styles.profitResultVal, { color: palette.violet }]}>BDT {grandTotal.toLocaleString()}</Text>
+                          <Text style={[styles.profitResultVal, { color: palette.violet }]}>৳{grandTotal.toLocaleString()}</Text>
                         </View>
                       </View>
                     );
@@ -547,15 +671,15 @@ export function SaleDetails() {
                           </View>
                           <View style={styles.fulRight}>
                             <Text style={styles.formulaLine}>
-                              Sell Value: {a.quantityAllocated.toLocaleString()} {itemUnit} × {Number(it.unitPrice).toLocaleString()} BDT = {sellValue.toLocaleString()} BDT
+                              Sell Value: {a.quantityAllocated.toLocaleString()} {itemUnit} × ৳{Number(it.unitPrice).toLocaleString()} = ৳{sellValue.toLocaleString()}
                             </Text>
                             <Text style={styles.formulaLine}>
-                              Cost Price: {a.quantityAllocated.toLocaleString()} {itemUnit} × {Number(a.unitCostAtTime).toLocaleString()} BDT = {costPrice.toLocaleString()} BDT
+                              Cost Price: {a.quantityAllocated.toLocaleString()} {itemUnit} × ৳{Number(a.unitCostAtTime).toLocaleString()} = ৳{costPrice.toLocaleString()}
                             </Text>
                             <View style={styles.profitResult}>
                               <Text style={styles.profitResultLabel}>Profit on this single sale:</Text>
                               <Text style={[styles.profitResultVal, { color: profit >= 0 ? palette.success : palette.rose }]}>
-                                {profit.toLocaleString()} BDT
+                                ৳{profit.toLocaleString()}
                               </Text>
                             </View>
                           </View>
@@ -571,8 +695,80 @@ export function SaleDetails() {
 
           <View style={styles.totalBox}>
             <Text style={styles.totalLabel}>Total Revenue</Text>
-            <Text style={styles.totalValue}>BDT {totalRevenue.toLocaleString()}</Text>
+            <Text style={styles.totalValue}>৳{totalRevenue.toLocaleString()}</Text>
           </View>
+
+          {/* ── Payment History ── */}
+          <GlassCard style={styles.payCard}>
+            <View style={styles.payHeader}>
+              <Text style={styles.payHeaderTitle}>{locale === 'bn' ? 'পেমেন্ট ইতিহাস' : 'Payment History'}</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {totalPaid > 0 && (
+                  <View style={styles.payPaidBadge}>
+                    <Text style={styles.payPaidBadgeText}>✓ {totalPaid.toLocaleString()}</Text>
+                  </View>
+                )}
+                {totalRevenue - totalPaid > 0.01 && (
+                  <View style={styles.payDueBadge}>
+                    <Text style={styles.payDueBadgeText}>{locale === 'bn' ? 'বাকি' : 'Due'} {(totalRevenue - totalPaid).toLocaleString()}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {mergedPayments.length === 0 ? (
+              <Text style={styles.payEmpty}>{locale === 'bn' ? 'কোনো পেমেন্ট নেই' : 'No payments recorded'}</Text>
+            ) : (
+              mergedPayments.map((p, i) => (
+                <View key={p.id} style={[styles.payRow, i > 0 && styles.payRowBorder]}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.payRowDate}>{p.date}</Text>
+                    {p.collectedByName ? <Text style={styles.payRowBy}>{p.collectedByName}</Text> : null}
+                    {p.notes ? <Text style={styles.payRowNote}>{p.notes}</Text> : null}
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <Text style={styles.payRowAmt}>{p.amount.toLocaleString()}</Text>
+                    <View style={[styles.paySourceBadge, p.source === 'order' ? styles.paySourceOrder : styles.paySourceSale]}>
+                      <Text style={styles.paySourceText}>{p.source === 'order' ? 'Order' : 'Sale'}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+
+            {sale?.status !== 'cancelled' && totalRevenue - totalPaid > 0.01 && (
+              <View style={styles.payFormWrap}>
+                <View style={styles.payFormDivider} />
+                <Text style={styles.payFormLabel}>{locale === 'bn' ? 'পেমেন্ট যোগ করুন' : 'Add Payment'}</Text>
+                <TextInput
+                  style={styles.payInput}
+                  value={payAmount}
+                  onChangeText={setPayAmount}
+                  keyboardType="numeric"
+                  placeholder={locale === 'bn' ? 'পরিমাণ' : 'Amount'}
+                  placeholderTextColor={palette.textMuted}
+                  selectTextOnFocus
+                />
+                <TextInput
+                  style={[styles.payInput, { marginTop: 8 }]}
+                  value={payNotes}
+                  onChangeText={setPayNotes}
+                  placeholder={locale === 'bn' ? 'নোট (ঐচ্ছিক)' : 'Notes (optional)'}
+                  placeholderTextColor={palette.textMuted}
+                />
+                <Pressable
+                  onPress={handleAddPayment}
+                  disabled={payBusy}
+                  style={({ pressed }) => [styles.payBtn, pressed && { opacity: 0.85 }, payBusy && { opacity: 0.5 }]}
+                >
+                  {payBusy
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.payBtnText}>{locale === 'bn' ? 'সংগ্রহ করুন' : 'Confirm Payment'}</Text>
+                  }
+                </Pressable>
+              </View>
+            )}
+          </GlassCard>
 
           <Pressable
             onPress={() => navigation.goBack()}
@@ -827,4 +1023,45 @@ const styles = StyleSheet.create({
   printDrawerRowText: { gap: 4 },
   printDrawerRowTitle: { color: palette.text, fontSize: 16, fontWeight: '900' },
   printDrawerRowHint: { color: palette.textMuted, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+
+  /* ── payment history card ── */
+  payCard: { paddingVertical: 14 },
+  payHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 },
+  payHeaderTitle: { color: palette.text, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  payPaidBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(16,185,129,0.15)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' },
+  payPaidBadgeText: { color: '#10B981', fontSize: 11, fontWeight: '700' },
+  payDueBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(251,191,36,0.15)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)' },
+  payDueBadgeText: { color: '#FBbF24', fontSize: 11, fontWeight: '700' },
+  payEmpty: { color: palette.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 8 },
+  payRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 9, gap: 8 },
+  payRowBorder: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' },
+  payRowDate: { color: palette.text, fontSize: 12, fontWeight: '700' },
+  payRowBy: { color: palette.textMuted, fontSize: 11, marginTop: 1 },
+  payRowNote: { color: palette.textMuted, fontSize: 11, fontStyle: 'italic' },
+  payRowAmt: { color: '#10B981', fontSize: 14, fontWeight: '800' },
+  payFormWrap: { gap: 8 },
+  payFormDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 6 },
+  payFormLabel: { color: palette.text, fontSize: 12, fontWeight: '700' },
+  payInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: palette.text,
+    fontSize: 14,
+  },
+  payBtn: {
+    marginTop: 4,
+    backgroundColor: '#10B981',
+    borderRadius: radii.lg,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  payBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  paySourceBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  paySourceOrder: { backgroundColor: 'rgba(139,92,246,0.18)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)' },
+  paySourceSale: { backgroundColor: 'rgba(16,185,129,0.12)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' },
+  paySourceText: { fontSize: 10, fontWeight: '800', color: palette.text },
 });

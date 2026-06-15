@@ -285,10 +285,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  /** Flush circular crop: no inset padding, no contrasting border. */
   brandCircle: {
     overflow: 'hidden',
-    backgroundColor: palette.deep,
+    backgroundColor: '#0D0520',
   },
   brandImgFill: {
     width: '100%',

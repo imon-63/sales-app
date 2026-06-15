@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { makeMoney } from '../../utils/formatMoney';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { useT } from '../../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -70,8 +71,8 @@ function PurchaseCard({
   item: PurchaseItem;
   onNavigate: (id: string) => void;
   locale: string;
-  money: Intl.NumberFormat;
-  costMoney: Intl.NumberFormat;
+  money: { format: (n: number) => string };
+  costMoney: { format: (n: number) => string };
   t: (key: any, p?: any) => string;
   canViewDetails: boolean;
   activeUsers?: Array<{ id: string; name: string }>;
@@ -451,26 +452,9 @@ export function AdminDashboardScreen() {
   const activeViews = useAppSelector((s) => s.notifications.activeViews);
   const unreadCount = useAppSelector((s) => s.notifications.items.filter(n => n.unread).length);
 
-  const money = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', {
-        style: 'currency',
-        currency: 'BDT',
-        maximumFractionDigits: 0,
-      }),
-    [locale],
-  );
+  const money = useMemo(() => makeMoney(locale), [locale]);
 
-  const costMoney = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', {
-        style: 'currency',
-        currency: 'BDT',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 3,
-      }),
-    [locale],
-  );
+  const costMoney = useMemo(() => makeMoney(locale, 0, 3), [locale]);
 
   const purchaseList = useMemo((): PurchaseItem[] => {
     return lotBatches

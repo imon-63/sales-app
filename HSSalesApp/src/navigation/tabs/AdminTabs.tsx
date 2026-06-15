@@ -7,7 +7,7 @@ import { StyleSheet, Text } from 'react-native';
 
 import { AdminDashboardScreen } from '../../screens/dashboard/AdminDashboardScreen';
 import { OperationsScreen } from '../../screens/operations/OperationsScreen';
-import { LogSaleScreen } from '../../screens/sales/LogSaleScreen';
+import { SalesHubScreen } from '../../screens/sales/SalesHubScreen';
 import { OrdersScreen } from '../../screens/orders/OrdersScreen';
 import { ProductionScreen } from '../../screens/production/ProductionScreen';
 import { useT } from '../../i18n/useT';
@@ -83,7 +83,7 @@ export function AdminTabs() {
       />
       <Tab.Screen
         name="AdminLog"
-        component={LogSaleScreen}
+        component={SalesHubScreen}
         options={{
           title: t('tabs.admin.log'),
           tabBarIcon: ({ color }) => (

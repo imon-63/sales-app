@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { makeMoney } from '../../utils/formatMoney';
 import { MeshBackground } from '../../components/ui/MeshBackground';
 import { useT } from '../../i18n/useT';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -61,11 +62,7 @@ function formatTime(iso: string, locale: string) {
 }
 
 function formatMoney(amount: number, locale: string) {
-  return new Intl.NumberFormat(locale === 'bn' ? 'bn-BD' : 'en-BD', {
-    style: 'currency',
-    currency: 'BDT',
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return makeMoney(locale).format(amount);
 }
 
 // ── Translation Helpers ────────────────────────────────────────────────────────
@@ -118,7 +115,7 @@ function translateSaleBody(body: string, locale: string): string {
     updatedPart = updatedPart
       .replace('BOSTA', 'বস্তা')
       .replace('KG', 'কেজি')
-      .replace('BDT', 'টাকা');
+;
     return updatedPart;
   });
 
@@ -527,6 +524,7 @@ export function AdminNotificationsScreen() {
   const listRef = useRef<SectionList<AdminNotification, NotifSection>>(null);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [filterUnread, setFilterUnread] = useState(false);
 
   // Scroll to top when a new notification arrives (newest item id changes)
   const newestId = items[0]?.id;
@@ -689,7 +687,8 @@ export function AdminNotificationsScreen() {
       [olderLabel]: [],
     };
 
-    for (const n of items) {
+    const visibleItems = filterUnread ? items.filter((n) => n.unread) : items;
+    for (const n of visibleItems) {
       const t2 = new Date(n.createdAt).getTime();
       if (t2 >= todayStart) buckets[todayLabel].push(n);
       else if (t2 >= yesterdayStart) buckets[yesterdayLabel].push(n);
@@ -699,7 +698,7 @@ export function AdminNotificationsScreen() {
     return [todayLabel, yesterdayLabel, olderLabel]
       .filter((label) => buckets[label].length > 0)
       .map((label) => ({ title: label, data: buckets[label] }));
-  }, [items, locale]);
+  }, [items, locale, filterUnread]);
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: NotifSection }) => (
@@ -738,6 +737,24 @@ export function AdminNotificationsScreen() {
           {status === 'loading' && items.length > 0 && (
             <ActivityIndicator color={palette.emerald} size="small" />
           )}
+        </View>
+
+        {/* ── Filter bar ── */}
+        <View style={styles.filterBar}>
+          <Pressable
+            onPress={() => setFilterUnread(false)}
+            style={[styles.filterChip, !filterUnread && styles.filterChipActive]}>
+            <Text style={[styles.filterChipText, !filterUnread && styles.filterChipTextActive]}>
+              All
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setFilterUnread(true)}
+            style={[styles.filterChip, filterUnread && styles.filterChipUnread]}>
+            <Text style={[styles.filterChipText, filterUnread && styles.filterChipTextUnread]}>
+              Unread{unreadCount > 0 ? `  ${unreadCount}` : ''}
+            </Text>
+          </Pressable>
         </View>
 
         {/* ── Content ── */}
@@ -818,6 +835,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
   },
+
+  filterBar: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    backgroundColor: palette.cardBgElevated,
+  },
+  filterChipActive: {
+    backgroundColor: `${palette.emerald}18`,
+    borderColor: `${palette.emerald}50`,
+  },
+  filterChipUnread: {
+    backgroundColor: 'rgba(245,168,24,0.14)',
+    borderColor: 'rgba(245,168,24,0.42)',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: palette.textMuted,
+    letterSpacing: 0.3,
+  },
+  filterChipTextActive: { color: palette.emerald },
+  filterChipTextUnread: { color: palette.violet },
 
   list: { paddingHorizontal: 16, paddingTop: 6 },
 

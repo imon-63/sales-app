@@ -30,7 +30,7 @@ export type SalePrintInput = {
 };
 
 function money(n: number) {
-  return `BDT ${Number(n).toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  return `৳${Number(n).toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
 function esc(s: string): string {

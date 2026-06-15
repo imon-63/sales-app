@@ -92,9 +92,69 @@ function createPurchase({ actor, userId, input }) {
     db.get('lots').push({ id: lotId, productId: cl.productId, lotNumber }).write();
     db.get('purchaseItems').push({ id: crypto.randomUUID(), purchaseId, productId: cl.productId, lotId, quantity: cl.quantity, unitCost: cl.unitCost, baseUnitCost: cl.baseUnitCost, notes: cl.notes }).write();
     const cFactor = getConversionFactor(cl.productId, cl.unitId);
-    db.get('lotBatches').push({ id: batchId, lotId, warehouseId, acquiredAt: dateStr, unitCost: cl.unitCost, baseUnitCost: cl.baseUnitCost, notes: cl.notes, originalQuantity: cl.quantity * cFactor, remainingQuantity: cl.quantity * cFactor }).write();
+    const convertedQty = cl.quantity * cFactor;
+    db.get('lotBatches').push({ id: batchId, lotId, warehouseId, acquiredAt: dateStr, unitCost: cl.unitCost, baseUnitCost: cl.baseUnitCost, notes: cl.notes, originalQuantity: convertedQty, remainingQuantity: convertedQty }).write();
+    ensureCollection('lotPurchaseLogs', []);
+    db.get('lotPurchaseLogs').push({ id: crypto.randomUUID(), lotId, acquiredAt: dateStr, quantity: convertedQty, baseUnitCost: cl.baseUnitCost, extraCost: 0, effectiveUnitCost: cl.unitCost, notes: cl.notes || '' }).write();
   }
   return { ok: true, purchaseId };
+}
+
+function addLotTranche({ actor, input }) {
+  if (actor.role !== 'admin') throw new Error('Only admins can add purchase tranches');
+  const { lotId, quantity, baseUnitCost, extraCost, acquiredAt, notes } = input || {};
+
+  const lots = db.get('lots').value() ?? [];
+  const lot = lots.find(l => l.id === lotId);
+  if (!lot) throw new Error('Lot not found');
+
+  const lotBatches = db.get('lotBatches').value() ?? [];
+  const existingBatch = lotBatches.find(b => b.lotId === lotId);
+  if (!existingBatch) throw new Error('No existing batch for this lot');
+
+  const qty = Number(quantity);
+  const bc = Number(baseUnitCost);
+  const ec = Number(extraCost) || 0;
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error('Invalid quantity');
+  if (!Number.isFinite(bc) || bc < 0) throw new Error('Invalid unit cost');
+
+  const effectiveUnitCost = (qty * bc + ec) / qty;
+  const dateStr = typeof acquiredAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(acquiredAt)
+    ? acquiredAt
+    : new Date().toISOString().slice(0, 10);
+
+  const notesStr = notes != null && String(notes).trim()
+    ? String(notes).trim()
+    : [`bc:${bc}`, ec > 0 ? `ec:${ec}` : null].filter(Boolean).join('|');
+
+  // Accumulate into the existing batch with weighted average cost
+  const prevOrigQty = Number(existingBatch.originalQuantity);
+  const prevRemQty = Number(existingBatch.remainingQuantity);
+  const prevCost = Number(existingBatch.unitCost);
+  const newOrigQty = prevOrigQty + qty;
+  const newAvgCost = (prevOrigQty * prevCost + qty * effectiveUnitCost) / newOrigQty;
+
+  db.get('lotBatches').find({ id: existingBatch.id }).assign({
+    unitCost: newAvgCost,
+    originalQuantity: newOrigQty,
+    remainingQuantity: prevRemQty + qty,
+  }).write();
+
+  // Write a log entry so the purchase history UI can show each tranche
+  ensureCollection('lotPurchaseLogs', []);
+  const logId = crypto.randomUUID();
+  db.get('lotPurchaseLogs').push({
+    id: logId,
+    lotId,
+    acquiredAt: dateStr,
+    quantity: qty,
+    baseUnitCost: bc,
+    extraCost: ec,
+    effectiveUnitCost,
+    notes: notesStr,
+  }).write();
+
+  return { ok: true, purchaseId: logId };
 }
 
 function createInventoryTransfer({ actor, userId, input }) {
@@ -156,4 +216,4 @@ function createInventoryTransfer({ actor, userId, input }) {
   return { ok: true, transferId };
 }
 
-module.exports = { getConversionFactor, getInventoryStockRows, createPurchase, createInventoryTransfer };
+module.exports = { getConversionFactor, getInventoryStockRows, createPurchase, addLotTranche, createInventoryTransfer };
