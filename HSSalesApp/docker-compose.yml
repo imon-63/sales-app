@@ -103,8 +103,10 @@ services:
       PORT: 3001
       KAFKA_BROKERS: kafka:29092
     volumes:
-      # Bind-mount db.json so data persists on the host and the streamer can read it
-      - ./backend-json-server/db.json:/app/db.json
+      # Bind-mount entire source so code changes on host are live without rebuilding
+      - ./backend-json-server:/app
+      # Preserve the container's node_modules — don't let the host directory shadow it
+      - /app/node_modules
 
   # ── DB Streamer — watches db.json and streams changes to Kafka + sink file ─
   db-streamer:

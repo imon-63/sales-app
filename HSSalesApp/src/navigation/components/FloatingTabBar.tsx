@@ -180,10 +180,10 @@ const styles = StyleSheet.create({
     borderRadius: TAB_BAR_PILL_BORDER_RADIUS + 4,
     backgroundColor: palette.night,
     borderWidth: 1,
-    borderColor: 'rgba(0,168,255,0.22)',
+    borderColor: 'rgba(34, 197, 94, 0.22)',
     ...Platform.select({
       ios: {
-        shadowColor: '#00A8FF',
+        shadowColor: '#22C55E',
         shadowOpacity: 0.28,
         shadowRadius: 28,
         shadowOffset: { width: 0, height: 10 },
@@ -203,9 +203,9 @@ const styles = StyleSheet.create({
     width: TAB_BAR_ICON_DIAMETER + 10,
     height: TAB_BAR_ICON_DIAMETER + 10,
     borderRadius: (TAB_BAR_ICON_DIAMETER + 10) / 2,
-    backgroundColor: 'rgba(0,168,255,0.14)',
+    backgroundColor: 'rgba(34, 197, 94, 0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(0,168,255,0.30)',
+    borderColor: 'rgba(34, 197, 94, 0.30)',
   },
   iconSlot: {
     width: TAB_BAR_ICON_DIAMETER,
@@ -215,10 +215,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconSlotActive: {
-    backgroundColor: 'rgba(0,168,255,0.18)',
+    backgroundColor: 'rgba(34, 197, 94, 0.18)',
     ...Platform.select({
       ios: {
-        shadowColor: '#00A8FF',
+        shadowColor: '#22C55E',
         shadowOpacity: 0.65,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 0 },

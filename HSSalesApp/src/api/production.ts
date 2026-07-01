@@ -2,7 +2,7 @@ import { getJsonServerBaseUrl } from '../config/apiBase';
 import type { Production } from '../types/models';
 import { requestGraphql } from './http';
 
-const PROD_FIELDS = `id productionNumber status orderDate startDate completedDate cancelDate inputLotBatchId inputQuantity processingCostPerUnit extraCosts outputProductId expectedOutputQty actualOutputQty effectiveCostPerOutputUnit outputLotBatchId cancelReason bottlePrices notes createdBy`;
+const PROD_FIELDS = `id productionNumber status orderDate startDate completedDate cancelDate inputLotBatchId inputQuantity inputLots processingCostPerUnit extraCosts outputProductId expectedOutputQty actualOutputQty effectiveCostPerOutputUnit outputLotBatchId cancelReason bottlePrices notes createdBy`;
 
 export async function fetchProductions(token: string, baseUrl = getJsonServerBaseUrl()) {
   const data = await requestGraphql<{ productions: Production[] }>({
@@ -13,9 +13,10 @@ export async function fetchProductions(token: string, baseUrl = getJsonServerBas
 }
 
 export type ExtraCostInput = { label: string; amount: number };
+export type ProductionInputLotInput = { lotBatchId: string; quantity: number };
+
 export type CreateProductionInput = {
-  inputLotBatchId: string;
-  inputQuantity: number;
+  inputLots: ProductionInputLotInput[];
   processingCostPerUnit?: number;
   extraCosts?: ExtraCostInput[];
   outputProductId: string;

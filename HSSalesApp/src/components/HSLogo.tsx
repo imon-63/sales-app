@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   brandCircle: {
     overflow: 'hidden',
-    backgroundColor: '#0D0520',
+    backgroundColor: '#091410',
   },
   brandImgFill: {
     width: '100%',
@@ -305,16 +305,16 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   outer: {
-    backgroundColor: palette.paper,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: palette.stroke,
-    shadowColor: '#00E676',
-    shadowOpacity: 0.2,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(34, 197, 94, 0.30)',
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
   inner: {
     backgroundColor: palette.emerald,

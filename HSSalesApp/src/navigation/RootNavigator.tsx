@@ -29,7 +29,7 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer theme={navTheme}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.void} />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

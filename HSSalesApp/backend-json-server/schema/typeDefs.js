@@ -79,8 +79,9 @@ const typeDefs = `
     startDate: String
     completedDate: String
     cancelDate: String
-    inputLotBatchId: ID!
-    inputQuantity: Float!
+    inputLotBatchId: ID
+    inputQuantity: Float
+    inputLots: String
     processingCostPerUnit: Float
     extraCosts: String
     outputProductId: ID!
@@ -95,9 +96,9 @@ const typeDefs = `
   }
 
   input ExtraCostInput { label: String! amount: Float! }
+  input ProductionInputLotInput { lotBatchId: ID! quantity: Float! }
   input CreateProductionInput {
-    inputLotBatchId: ID!
-    inputQuantity: Float!
+    inputLots: [ProductionInputLotInput!]!
     processingCostPerUnit: Float
     extraCosts: [ExtraCostInput]
     outputProductId: ID!

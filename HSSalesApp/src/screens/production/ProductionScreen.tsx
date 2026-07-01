@@ -27,7 +27,7 @@ import { showToast } from '../../store/slices/uiSlice';
 import { palette, radii } from '../../theme/designSystem';
 import { useTabScreenBottomPadding } from '../../navigation/tabBarMetrics';
 import * as productionApi from '../../api/production';
-import type { Production, ExtraCost } from '../../types/models';
+import type { Production, ExtraCost, ProductionInputLot } from '../../types/models';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -113,18 +113,41 @@ function ProductionCard({
   const bn = locale === 'bn';
   const st = STATUS[prod.status as ProdStatus] ?? STATUS.draft;
 
-  const inputBatch = lotBatches.find(b => b.id === prod.inputLotBatchId);
-  const inputLot = inputBatch ? lots.find(l => l.id === inputBatch.lotId) : undefined;
-  const inputProd = inputLot ? products.find(p => p.id === inputLot.productId) : undefined;
   const outputProd = products.find(p => p.id === prod.outputProductId);
 
   const extraCosts: ExtraCost[] = useMemo(() => {
     try { return prod.extraCosts ? JSON.parse(prod.extraCosts) : []; } catch { return []; }
   }, [prod.extraCosts]);
-  const inputCost = prod.inputQuantity * Number(inputBatch?.unitCost ?? 0);
-  const processingCost = prod.inputQuantity * (prod.processingCostPerUnit ?? 0);
+
+  // Parse multi-lot input — fall back to single-lot for old records
+  const inputLotsParsed: ProductionInputLot[] = useMemo(() => {
+    if (prod.inputLots) { try { return JSON.parse(prod.inputLots); } catch {} }
+    if (prod.inputLotBatchId) return [{ lotBatchId: prod.inputLotBatchId, quantity: prod.inputQuantity ?? 0 }];
+    return [];
+  }, [prod.inputLots, prod.inputLotBatchId, prod.inputQuantity]);
+
+  // Per-lot cost breakdown for the expanded card
+  const inputLotDetails = useMemo(() => inputLotsParsed.map(entry => {
+    const batch = lotBatches.find(b => b.id === entry.lotBatchId);
+    const lot = batch ? lots.find(l => l.id === batch.lotId) : undefined;
+    const prodName = lot ? products.find(p => p.id === lot.productId)?.name : undefined;
+    const unitCost = Number(batch?.unitCost ?? 0);
+    return { ...entry, unitCost, cost: entry.quantity * unitCost, lotNumber: lot?.lotNumber, productName: prodName };
+  }), [inputLotsParsed, lotBatches, lots, products]);
+
+  const inputCost = inputLotDetails.reduce((s, e) => s + e.cost, 0);
+  const totalInputQty = prod.inputQuantity ?? inputLotsParsed.reduce((s, e) => s + e.quantity, 0);
+  const processingCost = totalInputQty * (prod.processingCostPerUnit ?? 0);
   const extraTotal = extraCosts.reduce((a, e) => a + e.amount, 0);
   const totalCost = inputCost + processingCost + extraTotal;
+
+  // First lot details for the card headline
+  const firstLotDetail = inputLotDetails[0];
+  const inputProd = firstLotDetail?.productName ? { name: firstLotDetail.productName } : undefined;
+  const inputLabel = inputLotDetails.length > 1
+    ? `${firstLotDetail?.productName ?? '?'} (${inputLotDetails.length} lots)`
+    : firstLotDetail?.productName ?? '?';
+  const inputBatch = lotBatches.find(b => b.id === (prod.inputLotBatchId ?? inputLotsParsed[0]?.lotBatchId));
   const refQty = prod.actualOutputQty ?? prod.expectedOutputQty ?? 1;
   const effectiveCost = refQty > 0 ? totalCost / refQty : 0;
 
@@ -157,9 +180,9 @@ function ProductionCard({
         {/* Flow headline */}
         <View style={pc.headRow}>
           <View style={{ flex: 1 }}>
-            <Text style={pc.flow}>{inputProd?.name ?? '?'} → {outputProd?.name ?? '?'}</Text>
+            <Text style={pc.flow}>{inputLabel} → {outputProd?.name ?? '?'}</Text>
             <Text style={pc.sub}>
-              {prod.inputQuantity.toLocaleString()} {bn ? 'কেজি ইনপুট' : 'kg input'}
+              {totalInputQty.toLocaleString()} {bn ? 'ইনপুট' : 'input'}
               {prod.expectedOutputQty ? `  ·  ~${prod.expectedOutputQty}L ${bn ? 'আউটপুট' : 'output'}` : ''}
             </Text>
             <Text style={pc.dateText}>📅 {prod.orderDate}{prod.startDate ? ` · ⚙️ ${prod.startDate}` : ''}{prod.completedDate ? ` · ✅ ${prod.completedDate}` : ''}</Text>
@@ -190,12 +213,20 @@ function ProductionCard({
               <View style={pc.costSectionHeader}>
                 <Text style={pc.sectionTitle}>{bn ? '💰 খরচ বিশ্লেষণ' : '💰 Cost Breakdown'}</Text>
               </View>
-              <CostRow label={bn ? `কাঁচামাল (${prod.inputQuantity} × ${costMoney.format(inputBatch?.unitCost ?? 0)})` : `Input (${prod.inputQuantity} × ${costMoney.format(inputBatch?.unitCost ?? 0)})`} value={money.format(inputCost)} />
+              {inputLotDetails.map((e, i) => (
+                <CostRow
+                  key={i}
+                  label={bn
+                    ? `কাঁচামাল ${inputLotDetails.length > 1 ? `(লট ${i + 1}: ${e.quantity} × ৳${e.unitCost.toFixed(2)})` : `(${e.quantity} × ${costMoney.format(e.unitCost)})`}`
+                    : `Input ${inputLotDetails.length > 1 ? `(Lot ${i + 1}: ${e.quantity} × ৳${e.unitCost.toFixed(2)})` : `(${e.quantity} × ${costMoney.format(e.unitCost)})`}`}
+                  value={money.format(e.cost)}
+                />
+              ))}
               {processingCost > 0 && <CostRow label={bn ? `প্রক্রিয়া (×${prod.processingCostPerUnit}/unit)` : `Processing (×${prod.processingCostPerUnit}/unit)`} value={money.format(processingCost)} />}
               {extraCosts.map((e, i) => <CostRow key={i} label={e.label} value={`+ ${money.format(e.amount)}`} />)}
               <CostRow label={bn ? 'মোট খরচ' : 'Total Cost'} value={money.format(totalCost)} bold />
-              {prod.actualOutputQty && <CostRow label={bn ? `কার্যকর (${prod.actualOutputQty}L)` : `Effective (${prod.actualOutputQty}L)`} value={costMoney.format(effectiveCost)} bold accent />}
-              {prod.expectedOutputQty && !prod.actualOutputQty && <CostRow label={bn ? `আনুমানিক (~${prod.expectedOutputQty}L)` : `Estimated (~${prod.expectedOutputQty}L)`} value={costMoney.format(effectiveCost)} />}
+              {prod.actualOutputQty != null && <CostRow label={bn ? `কার্যকর (${prod.actualOutputQty}L)` : `Effective (${prod.actualOutputQty}L)`} value={costMoney.format(refQty > 0 ? totalCost / refQty : 0)} bold accent />}
+              {prod.expectedOutputQty != null && prod.actualOutputQty == null && <CostRow label={bn ? `আনুমানিক (~${prod.expectedOutputQty}L)` : `Estimated (~${prod.expectedOutputQty}L)`} value={costMoney.format(refQty > 0 ? totalCost / refQty : 0)} />}
             </View>
 
             {bottlePrices && Object.keys(bottlePrices).length > 0 && (
@@ -310,8 +341,9 @@ function NewProductionForm({ lots, lotBatches, products, locale, onClose, onCrea
 }) {
   const token = useAppSelector(s => s.auth.token);
   const bn = locale === 'bn';
-  const [inputBatchId, setInputBatchId] = useState('');
-  const [inputQty, setInputQty] = useState('');
+
+  type LotRow = { lotBatchId: string; quantity: string };
+  const [lotRows, setLotRows] = useState<LotRow[]>([{ lotBatchId: '', quantity: '' }]);
   const [processingCost, setProcessingCost] = useState('');
   const [extraCosts, setExtraCosts] = useState<{ label: string; amount: string }[]>([]);
   const [outputProductId, setOutputProductId] = useState('');
@@ -319,7 +351,12 @@ function NewProductionForm({ lots, lotBatches, products, locale, onClose, onCrea
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const batchOptions = useMemo(() => {
+  const addLotRow = () => setLotRows(prev => [...prev, { lotBatchId: '', quantity: '' }]);
+  const removeLotRow = (i: number) => setLotRows(prev => prev.filter((_, j) => j !== i));
+  const updateLotRow = (i: number, field: keyof LotRow, value: string) =>
+    setLotRows(prev => prev.map((r, j) => j === i ? { ...r, [field]: value } : r));
+
+  const allBatchOptions = useMemo(() => {
     return lotBatches
       .filter(b => Number(b.remainingQuantity) > 0)
       .map(b => {
@@ -331,25 +368,35 @@ function NewProductionForm({ lots, lotBatches, products, locale, onClose, onCrea
 
   const productOptions = products.map(p => ({ value: p.id, label: p.name }));
 
-  const selectedBatch = lotBatches.find(b => b.id === inputBatchId);
-  const available = selectedBatch ? Number(selectedBatch.remainingQuantity) : 0;
-  const qty = Number(inputQty) || 0;
   const pCost = Number(processingCost) || 0;
   const eCostTotal = extraCosts.reduce((a, e) => a + (Number(e.amount) || 0), 0);
-  const inputCostPer = Number(selectedBatch?.unitCost ?? 0);
-  const totalCost = qty * inputCostPer + qty * pCost + eCostTotal;
+  const totalInputQty = lotRows.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+  const inputCostEstimate = lotRows.reduce((s, r) => {
+    const batch = lotBatches.find(b => b.id === r.lotBatchId);
+    return s + (Number(r.quantity) || 0) * Number(batch?.unitCost ?? 0);
+  }, 0);
+  const totalCost = inputCostEstimate + totalInputQty * pCost + eCostTotal;
   const expQty = Number(expectedQty) || 0;
   const estUnit = expQty > 0 ? totalCost / expQty : 0;
 
   async function submit() {
-    if (!token || !inputBatchId || !outputProductId) { Alert.alert(bn ? 'ত্রুটি' : 'Error', bn ? 'সব তথ্য দিন' : 'Fill all required fields'); return; }
-    if (qty <= 0) { Alert.alert(bn ? 'ত্রুটি' : 'Error', bn ? 'পরিমাণ দিন' : 'Enter quantity'); return; }
-    if (qty > available) { Alert.alert(bn ? 'ত্রুটি' : 'Error', bn ? `মজুদ কম। পাওয়া যাচ্ছে: ${available}` : `Insufficient stock. Available: ${available}`); return; }
+    const validLots = lotRows.filter(r => r.lotBatchId && Number(r.quantity) > 0);
+    if (!token || validLots.length === 0 || !outputProductId) {
+      Alert.alert(bn ? 'ত্রুটি' : 'Error', bn ? 'সব তথ্য দিন' : 'Fill all required fields');
+      return;
+    }
+    for (const row of validLots) {
+      const batch = lotBatches.find(b => b.id === row.lotBatchId);
+      const avail = batch ? Number(batch.remainingQuantity) : 0;
+      if (Number(row.quantity) > avail) {
+        Alert.alert(bn ? 'ত্রুটি' : 'Error', bn ? `মজুদ কম। পাওয়া যাচ্ছে: ${avail}` : `Insufficient stock. Available: ${avail}`);
+        return;
+      }
+    }
     setBusy(true);
     try {
       const result = await productionApi.createProduction({
-        inputLotBatchId: inputBatchId,
-        inputQuantity: qty,
+        inputLots: validLots.map(r => ({ lotBatchId: r.lotBatchId, quantity: Number(r.quantity) })),
         processingCostPerUnit: pCost || undefined,
         extraCosts: extraCosts.filter(e => e.label && Number(e.amount) > 0).map(e => ({ label: e.label, amount: Number(e.amount) })),
         outputProductId,
@@ -372,11 +419,49 @@ function NewProductionForm({ lots, lotBatches, products, locale, onClose, onCrea
           <Pressable onPress={onClose}><Text style={nf.close}>✕</Text></Pressable>
         </View>
 
-        {lbl(bn ? 'কাঁচামালের লট *' : 'Input Lot *')}
-        <SelectMenu label={bn ? 'লট বেছে নিন' : 'Select lot'} value={inputBatchId} options={batchOptions} onChange={setInputBatchId} />
-
-        {lbl(bn ? `পরিমাণ * (পাওয়া যাচ্ছে: ${available.toLocaleString()})` : `Quantity * (available: ${available.toLocaleString()})`)}
-        <TextInput value={inputQty} onChangeText={setInputQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} style={nf.input} />
+        {lbl(bn ? 'কাঁচামালের লট *' : 'Input Lots *')}
+        <View style={nf.lotSection}>
+          {lotRows.map((row, i) => {
+            const batch = lotBatches.find(b => b.id === row.lotBatchId);
+            const avail = batch ? Number(batch.remainingQuantity) : 0;
+            const rowQty = Number(row.quantity) || 0;
+            const overQty = row.lotBatchId !== '' && rowQty > avail && avail > 0;
+            const selectedElsewhere = new Set(lotRows.filter((_, j) => j !== i).map(r => r.lotBatchId));
+            const rowOptions = allBatchOptions.filter(opt => !selectedElsewhere.has(opt.value));
+            return (
+              <View key={i} style={nf.lotRow}>
+                <View style={nf.lotRowHeader}>
+                  <Text style={nf.lotRowLabel}>{bn ? `লট ${i + 1}` : `Lot ${i + 1}`}</Text>
+                  {lotRows.length > 1 && (
+                    <Pressable onPress={() => removeLotRow(i)} hitSlop={8}>
+                      <Text style={nf.lotRowRemove}>✕</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <SelectMenu
+                  label={bn ? 'লট বেছে নিন' : 'Select lot'}
+                  value={row.lotBatchId}
+                  options={rowOptions}
+                  onChange={v => updateLotRow(i, 'lotBatchId', v)}
+                />
+                <TextInput
+                  value={row.quantity}
+                  onChangeText={v => updateLotRow(i, 'quantity', v)}
+                  keyboardType="numeric"
+                  placeholder={row.lotBatchId ? `0  (${bn ? 'পাওয়া' : 'avail'}: ${avail.toLocaleString()})` : '0'}
+                  placeholderTextColor={palette.textMuted}
+                  style={[nf.input, { marginTop: 6 }, overQty && nf.inputError]}
+                />
+                {overQty && (
+                  <Text style={nf.errorText}>{bn ? `মজুদ কম। পাওয়া যাচ্ছে: ${avail}` : `Exceeds available: ${avail}`}</Text>
+                )}
+              </View>
+            );
+          })}
+          <Pressable onPress={addLotRow} style={nf.addLotBtn}>
+            <Text style={nf.addLotText}>+ {bn ? 'আরেকটি লট যোগ করুন' : 'Add Another Lot'}</Text>
+          </Pressable>
+        </View>
 
         {lbl(bn ? 'মাড়াই/প্রক্রিয়া খরচ/একক (৳)' : 'Processing cost/unit (৳)')}
         <TextInput value={processingCost} onChangeText={setProcessingCost} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} style={nf.input} />
@@ -400,11 +485,11 @@ function NewProductionForm({ lots, lotBatches, products, locale, onClose, onCrea
         <TextInput value={expectedQty} onChangeText={setExpectedQty} keyboardType="numeric" placeholder="0" placeholderTextColor={palette.textMuted} style={nf.input} />
 
         {/* Live estimate */}
-        {qty > 0 && outputProductId && (
+        {totalInputQty > 0 && outputProductId && (
           <View style={nf.estimate}>
             <Text style={nf.estimateTitle}>{bn ? 'আনুমানিক হিসাব' : 'Cost Estimate'}</Text>
-            <Text style={nf.estimateLine}>{bn ? `কাঁচামাল: ${qty} × ৳${inputCostPer} = ৳${(qty * inputCostPer).toLocaleString()}` : `Input: ${qty} × ৳${inputCostPer} = ৳${(qty * inputCostPer).toLocaleString()}`}</Text>
-            {pCost > 0 && <Text style={nf.estimateLine}>{bn ? `মাড়াই: ${qty} × ৳${pCost} = ৳${(qty * pCost).toLocaleString()}` : `Processing: ${qty} × ৳${pCost} = ৳${(qty * pCost).toLocaleString()}`}</Text>}
+            <Text style={nf.estimateLine}>{bn ? `কাঁচামাল: ৳${inputCostEstimate.toLocaleString()} (${totalInputQty} ${lotRows.filter(r => r.lotBatchId && Number(r.quantity) > 0).length > 1 ? `${lotRows.filter(r => r.lotBatchId && Number(r.quantity) > 0).length} লট` : 'লট'})` : `Input: ৳${inputCostEstimate.toLocaleString()} (${totalInputQty} from ${lotRows.filter(r => r.lotBatchId && Number(r.quantity) > 0).length} lot${lotRows.filter(r => r.lotBatchId && Number(r.quantity) > 0).length > 1 ? 's' : ''})`}</Text>
+            {pCost > 0 && <Text style={nf.estimateLine}>{bn ? `মাড়াই: ${totalInputQty} × ৳${pCost} = ৳${(totalInputQty * pCost).toLocaleString()}` : `Processing: ${totalInputQty} × ৳${pCost} = ৳${(totalInputQty * pCost).toLocaleString()}`}</Text>}
             {eCostTotal > 0 && <Text style={nf.estimateLine}>{bn ? `অতিরিক্ত: ৳${eCostTotal.toLocaleString()}` : `Extra: ৳${eCostTotal.toLocaleString()}`}</Text>}
             <Text style={nf.estimateTotal}>{bn ? `মোট খরচ: ৳${totalCost.toLocaleString()}` : `Total: ৳${totalCost.toLocaleString()}`}</Text>
             {estUnit > 0 && <Text style={nf.estimateUnit}>{bn ? `প্রতি আউটপুট একক: ৳${estUnit.toFixed(3)}` : `Per output unit: ৳${estUnit.toFixed(3)}`}</Text>}
@@ -441,6 +526,15 @@ const nf = StyleSheet.create({
   estimateUnit: { color: palette.emerald, fontSize: 14, fontWeight: '900' },
   submitBtn: { backgroundColor: palette.emerald, borderRadius: radii.lg, paddingVertical: 16, alignItems: 'center', marginTop: 20, shadowColor: palette.emerald, shadowOpacity: 0.50, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 9 },
   submitText: { color: palette.onAccent, fontSize: 16, fontWeight: '900' },
+  lotSection: { gap: 10, marginTop: 4 },
+  lotRow: { backgroundColor: palette.cardBgElevated, borderRadius: radii.md, borderWidth: 1, borderColor: palette.cardBorder, padding: 12, gap: 2 },
+  lotRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  lotRowLabel: { color: palette.textLabel, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+  lotRowRemove: { color: palette.rose, fontSize: 15, fontWeight: '900', padding: 4 },
+  inputError: { borderColor: palette.rose },
+  errorText: { color: palette.rose, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  addLotBtn: { borderWidth: 1, borderColor: palette.emerald, borderRadius: radii.md, borderStyle: 'dashed' as const, paddingVertical: 10, alignItems: 'center' as const },
+  addLotText: { color: palette.emerald, fontSize: 13, fontWeight: '900' },
 });
 
 // ── Complete production dialog ────────────────────────────────────────────────

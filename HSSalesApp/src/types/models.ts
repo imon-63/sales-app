@@ -171,6 +171,8 @@ export type ProductionStatus = 'draft' | 'in_progress' | 'completed' | 'cancelle
 
 export type ExtraCost = { label: string; amount: number };
 
+export type ProductionInputLot = { lotBatchId: string; quantity: number };
+
 export type Production = {
   id: string;
   productionNumber: string;
@@ -179,8 +181,9 @@ export type Production = {
   startDate?: string;
   completedDate?: string;
   cancelDate?: string;
-  inputLotBatchId: string;
-  inputQuantity: number;
+  inputLotBatchId?: string;  // first lot — kept for backward compat
+  inputQuantity?: number;    // total across all lots — kept for backward compat
+  inputLots?: string;        // JSON: ProductionInputLot[]
   processingCostPerUnit?: number;
   extraCosts?: string; // JSON string of ExtraCost[]
   outputProductId: string;

@@ -22,9 +22,9 @@ const styles = StyleSheet.create({
   topGlow: {
     position: 'absolute',
     width: '100%',
-    height: 2,
+    height: 3,
     top: 0,
     left: 0,
-    backgroundColor: 'rgba(0, 168, 255, 0.45)',
+    backgroundColor: 'rgba(34, 197, 94, 0.45)',
   },
 });

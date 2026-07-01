@@ -565,7 +565,7 @@ export function AdminDashboardScreen() {
         {/* Remaining / Sold tab switcher */}
         <View style={styles.feedTabBar}>
           {([
-            { key: 'remaining' as const, icon: '📦', label: locale === 'bn' ? 'বাকি আছে' : 'Remaining', count: remainingCount, activeColor: '#00A8FF' },
+            { key: 'remaining' as const, icon: '📦', label: locale === 'bn' ? 'বাকি আছে' : 'Remaining', count: remainingCount, activeColor: '#22C55E' },
             { key: 'sold'      as const, icon: '🔴', label: locale === 'bn' ? 'বিক্রিত'  : 'Sold',      count: soldCount,      activeColor: '#FF3B5C' },
           ]).map(tab => {
             const active = feedTab === tab.key;

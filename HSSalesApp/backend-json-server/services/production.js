@@ -15,20 +15,38 @@ function bengaliProductionNumber() {
   return `উৎপা-${bNum(now.getDate())}-${BN_MONTHS[now.getMonth()]}-${year2}-${bNum(count, 3)}`;
 }
 
+// Returns [{lotBatchId, quantity}] — handles both new multi-lot and old single-lot records
+function parseInputLots(prod) {
+  if (prod.inputLots) {
+    try { return JSON.parse(prod.inputLots); } catch {}
+  }
+  if (prod.inputLotBatchId) {
+    return [{ lotBatchId: prod.inputLotBatchId, quantity: Number(prod.inputQuantity) || 0 }];
+  }
+  return [];
+}
+
 // ── Create production order ────────────────────────────────────────────────────
 function createProduction({ actor, userId, input }) {
   if (!actor || actor.role !== 'admin') throw new Error('Admin only');
-  const { inputLotBatchId, inputQuantity, outputProductId, expectedOutputQty, processingCostPerUnit, extraCosts, notes, orderDate } = input || {};
-  if (!inputLotBatchId || !outputProductId) throw new Error('inputLotBatchId and outputProductId required');
-  const qty = Number(inputQuantity);
-  if (!Number.isFinite(qty) || qty <= 0) throw new Error('Valid inputQuantity required');
+  const { inputLots, outputProductId, expectedOutputQty, processingCostPerUnit, extraCosts, notes, orderDate } = input || {};
 
-  // Validate lot batch
-  const batch = db.get('lotBatches').find({ id: inputLotBatchId }).value();
-  if (!batch) throw new Error('Input lot batch not found');
-  if (Number(batch.remainingQuantity) < qty) throw new Error(`Insufficient stock. Available: ${batch.remainingQuantity}`);
+  if (!Array.isArray(inputLots) || inputLots.length === 0) throw new Error('inputLots required');
+  if (!outputProductId) throw new Error('outputProductId required');
 
-  // Validate output product
+  // Validate each lot entry
+  let totalInputQty = 0;
+  const resolvedLots = [];
+  for (const entry of inputLots) {
+    const qty = Number(entry.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error('Valid quantity required for each lot');
+    const batch = db.get('lotBatches').find({ id: entry.lotBatchId }).value();
+    if (!batch) throw new Error(`Lot batch not found: ${entry.lotBatchId}`);
+    if (Number(batch.remainingQuantity) < qty) throw new Error(`Insufficient stock in lot (${entry.lotBatchId}). Available: ${batch.remainingQuantity}`);
+    totalInputQty += qty;
+    resolvedLots.push({ lotBatchId: entry.lotBatchId, quantity: qty });
+  }
+
   const outProd = db.get('products').find({ id: outputProductId }).value();
   if (!outProd) throw new Error('Output product not found');
 
@@ -44,10 +62,10 @@ function createProduction({ actor, userId, input }) {
     startDate: null,
     completedDate: null,
     cancelDate: null,
-    inputLotBatchId,
-    inputQuantity: qty,
+    inputLotBatchId: resolvedLots[0].lotBatchId,  // backward compat: first lot's id
+    inputQuantity: totalInputQty,                  // backward compat: total quantity
+    inputLots: JSON.stringify(resolvedLots),        // full multi-lot data
     processingCostPerUnit: Number(processingCostPerUnit) || 0,
-    // Stored as JSON string so GraphQL's String type resolves cleanly
     extraCosts: JSON.stringify(Array.isArray(extraCosts) ? extraCosts.map(e => ({ label: String(e.label || ''), amount: Number(e.amount) || 0 })) : []),
     outputProductId,
     expectedOutputQty: Number(expectedOutputQty) || null,
@@ -95,26 +113,35 @@ function updateProductionStatus({ actor, userId, id, status, actualOutputQty, ca
 
   const patch = { status };
   const now = new Date().toISOString().slice(0, 10);
+  const lots = parseInputLots(prod);
 
   if (status === 'in_progress') {
     patch.startDate = now;
-    // Deduct input stock
-    const batch = db.get('lotBatches').find({ id: prod.inputLotBatchId }).value();
-    if (!batch) throw new Error('Input lot batch not found');
-    if (Number(batch.remainingQuantity) < prod.inputQuantity) throw new Error(`Insufficient stock. Available: ${batch.remainingQuantity}`);
-    db.get('lotBatches').find({ id: prod.inputLotBatchId }).assign({ remainingQuantity: Number(batch.remainingQuantity) - prod.inputQuantity }).write();
 
-    // Record consumption so lot history shows WHY the quantity was deducted
+    // Validate all lots have sufficient stock before touching any
+    for (const entry of lots) {
+      const batch = db.get('lotBatches').find({ id: entry.lotBatchId }).value();
+      if (!batch) throw new Error(`Input lot batch not found: ${entry.lotBatchId}`);
+      if (Number(batch.remainingQuantity) < entry.quantity) throw new Error(`Insufficient stock (${entry.lotBatchId}). Available: ${batch.remainingQuantity}`);
+    }
+
+    // Deduct stock and create a consumption record for each lot
     ensureCollection('productionConsumptions', []);
-    db.get('productionConsumptions').push({
-      id: crypto.randomUUID(),
-      productionId: id,
-      productionNumber: prod.productionNumber,
-      lotBatchId: prod.inputLotBatchId,
-      quantity: prod.inputQuantity,
-      consumedAt: now,
-      createdBy: userId,
-    }).write();
+    for (const entry of lots) {
+      const batch = db.get('lotBatches').find({ id: entry.lotBatchId }).value();
+      db.get('lotBatches').find({ id: entry.lotBatchId }).assign({
+        remainingQuantity: Number(batch.remainingQuantity) - entry.quantity,
+      }).write();
+      db.get('productionConsumptions').push({
+        id: crypto.randomUUID(),
+        productionId: id,
+        productionNumber: prod.productionNumber,
+        lotBatchId: entry.lotBatchId,
+        quantity: entry.quantity,
+        consumedAt: now,
+        createdBy: userId,
+      }).write();
+    }
   }
 
   if (status === 'completed') {
@@ -124,36 +151,40 @@ function updateProductionStatus({ actor, userId, id, status, actualOutputQty, ca
     patch.actualOutputQty = outQty;
     if (bottlePrices) patch.bottlePrices = bottlePrices;
 
-    // Calculate effective cost per output unit
-    const inputBatch = db.get('lotBatches').find({ id: prod.inputLotBatchId }).value();
-    const inputUnitCost = Number(inputBatch?.unitCost ?? 0);
-    const totalInputCost = prod.inputQuantity * inputUnitCost;
-    const processingCost = prod.inputQuantity * (Number(prod.processingCostPerUnit) || 0);
+    // Weighted-average input cost across all lots
+    let totalInputCost = 0;
+    for (const entry of lots) {
+      const batch = db.get('lotBatches').find({ id: entry.lotBatchId }).value();
+      totalInputCost += entry.quantity * Number(batch?.unitCost ?? 0);
+    }
+    const processingCost = (prod.inputQuantity ?? 0) * (Number(prod.processingCostPerUnit) || 0);
     const parsedExtras = (() => { try { return JSON.parse(prod.extraCosts || '[]'); } catch { return []; } })();
     const extraTotal = parsedExtras.reduce((s, e) => s + Number(e.amount || 0), 0);
     const totalCost = totalInputCost + processingCost + extraTotal;
     const effectiveCostPerUnit = outQty > 0 ? totalCost / outQty : 0;
     patch.effectiveCostPerOutputUnit = effectiveCostPerUnit;
 
-    // Check depleted lot
-    const inputBatchAfter = db.get('lotBatches').find({ id: prod.inputLotBatchId }).value();
-    const inputLot = db.get('lots').find({ id: inputBatchAfter?.lotId }).value();
-    if (inputLot) {
-      const lotTotal = (db.get('lotBatches').value() ?? []).filter(b => b.lotId === inputLot.id).reduce((s, b) => s + Number(b.remainingQuantity), 0);
-      if (lotTotal === 0 && !(db.get('notifications').value() ?? []).find(n => n.type === 'lot_depleted' && n.lotId === inputLot.id)) {
-        const inProd = db.get('products').find({ id: inputLot.productId }).value();
-        persistNotification({ id: crypto.randomUUID(), type: 'lot_depleted', lotId: inputLot.id, title: 'লট সম্পূর্ণ ব্যবহৃত', body: `উৎপাদনে ব্যবহারের পর লট ${inputLot.lotNumber} (${inProd?.name || 'পণ্য'}) নিঃশেষ হয়েছে।`, createdAt: new Date().toISOString(), actorUserId: userId, readByUserIds: [] });
+    // Check each input lot for depletion notification
+    for (const entry of lots) {
+      const batchAfter = db.get('lotBatches').find({ id: entry.lotBatchId }).value();
+      const inputLot = batchAfter ? db.get('lots').find({ id: batchAfter.lotId }).value() : null;
+      if (inputLot) {
+        const lotTotal = (db.get('lotBatches').value() ?? []).filter(b => b.lotId === inputLot.id).reduce((s, b) => s + Number(b.remainingQuantity), 0);
+        if (lotTotal === 0 && !(db.get('notifications').value() ?? []).find(n => n.type === 'lot_depleted' && n.lotId === inputLot.id)) {
+          const inProd = db.get('products').find({ id: inputLot.productId }).value();
+          persistNotification({ id: crypto.randomUUID(), type: 'lot_depleted', lotId: inputLot.id, title: 'লট সম্পূর্ণ ব্যবহৃত', body: `উৎপাদনে ব্যবহারের পর লট ${inputLot.lotNumber} (${inProd?.name || 'পণ্য'}) নিঃশেষ হয়েছে।`, createdAt: new Date().toISOString(), actorUserId: userId, readByUserIds: [] });
+        }
       }
     }
 
-    // Create output lot + batch
+    // Create output lot + batch (warehouseId from first input lot)
+    const firstBatch = db.get('lotBatches').find({ id: lots[0]?.lotBatchId }).value();
     const outLotId = crypto.randomUUID();
     const outBatchId = crypto.randomUUID();
-    const outLotNum = prod.productionNumber;
-    db.get('lots').push({ id: outLotId, productId: prod.outputProductId, lotNumber: outLotNum }).write();
+    db.get('lots').push({ id: outLotId, productId: prod.outputProductId, lotNumber: prod.productionNumber }).write();
     db.get('lotBatches').push({
       id: outBatchId, lotId: outLotId,
-      warehouseId: (db.get('lotBatches').find({ id: prod.inputLotBatchId }).value() || {}).warehouseId,
+      warehouseId: firstBatch?.warehouseId ?? null,
       acquiredAt: now, unitCost: effectiveCostPerUnit, baseUnitCost: effectiveCostPerUnit,
       notes: `উৎপাদন: ${prod.productionNumber}`,
       originalQuantity: outQty, remainingQuantity: outQty,
@@ -164,11 +195,16 @@ function updateProductionStatus({ actor, userId, id, status, actualOutputQty, ca
   if (status === 'cancelled') {
     patch.cancelDate = now;
     patch.cancelReason = cancelReason ?? null;
-    // If was in_progress, restore the reserved input stock and remove consumption record
+    // If was in_progress, restore stock for every consumed lot and remove consumption records
     if (prod.status === 'in_progress') {
-      const b = db.get('lotBatches').find({ id: prod.inputLotBatchId }).value();
-      if (b) db.get('lotBatches').find({ id: prod.inputLotBatchId }).assign({ remainingQuantity: Number(b.remainingQuantity) + prod.inputQuantity }).write();
-      // Remove the consumption record (stock was returned)
+      for (const entry of lots) {
+        const b = db.get('lotBatches').find({ id: entry.lotBatchId }).value();
+        if (b) {
+          db.get('lotBatches').find({ id: entry.lotBatchId }).assign({
+            remainingQuantity: Number(b.remainingQuantity) + entry.quantity,
+          }).write();
+        }
+      }
       db.get('productionConsumptions').remove({ productionId: id }).write();
     }
   }
@@ -179,7 +215,6 @@ function updateProductionStatus({ actor, userId, id, status, actualOutputQty, ca
 
 function listProductions({ actor }) {
   if (!actor) throw new Error('Unauthorized');
-  // All authenticated users can read productions (creation/editing remains admin-only)
   ensureCollection('productions', []);
   return (db.get('productions').value() ?? []).sort((a, b) => String(b.orderDate).localeCompare(String(a.orderDate)));
 }

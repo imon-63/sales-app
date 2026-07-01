@@ -1,57 +1,59 @@
 /**
- * Electric Sky-Blue + Hot Amber on near-black.
- * Maximum contrast, premium trading-dashboard feel.
+ * Forest Night — deep dark-green canvas with vivid #22C55E accent.
+ * Premium trading-dashboard feel: near-black greens, glowing emerald highlights.
  */
 export const palette = {
-  /** Near-black canvas */
-  void: '#01070F',
-  deep: '#020C1C',
-  night: '#03152A',
-  paper: '#051E3C',
-  highlight: '#072850',
+  /** Near-black green canvas layers */
+  void:      '#060C08',
+  deep:      '#091410',
+  night:     '#0E1D14',
+  paper:     '#142819',
+  highlight: '#1A3320',
 
-  mist: 'rgba(0, 168, 255, 0.08)',
-  glass: 'rgba(1, 7, 15, 0.96)',
-  stroke: 'rgba(0, 168, 255, 0.20)',
+  mist:   'rgba(34, 197, 94, 0.06)',
+  glass:  'rgba(6, 12, 8, 0.97)',
+  stroke: 'rgba(34, 197, 94, 0.18)',
 
-  /** Primary text — icy blue-white */
-  text: '#E8F5FF',
-  textMuted: 'rgba(130, 185, 225, 0.76)',
-  textLabel: 'rgba(110, 168, 215, 0.90)',
+  /** Text — warm white with green tint */
+  text:       '#ECFDF5',
+  textMuted:  'rgba(134, 239, 172, 0.62)',
+  textLabel:  'rgba(167, 243, 208, 0.80)',
 
-  /** Primary accent — electric sky blue */
-  emerald: '#00A8FF',
-  emeraldLight: 'rgba(0, 168, 255, 0.15)',
-  emeraldDeep: '#007ACC',
+  /** Primary accent — vivid emerald green */
+  emerald:      '#22C55E',
+  emeraldLight: 'rgba(34, 197, 94, 0.14)',
+  emeraldDeep:  '#16A34A',
 
-  /** Secondary accent — hot amber/gold */
-  violet: '#FFB300',
-  amber: 'rgba(0, 168, 255, 0.08)',
-  cyan: 'rgba(255, 179, 0, 0.12)',
-  rose: '#FF3B5C',
-  success: '#00D68F',
-  calendarEventDot: '#00A8FF',
-  calendarDotDeep: '#007ACC',
-  danger: '#FF3B5C',
+  /** Secondary — lighter spring green */
+  violet: '#86EFAC',
+  amber:  'rgba(34, 197, 94, 0.07)',
+  cyan:   'rgba(134, 239, 172, 0.10)',
 
-  /** Text on blue CTA buttons */
-  onAccent: '#000C1A',
+  rose:    '#F43F5E',
+  success: '#22C55E',
+  danger:  '#F43F5E',
 
-  tabBar: 'rgba(1, 8, 18, 0.97)',
-  tabBarInactive: 'rgba(130, 185, 225, 0.44)',
+  calendarEventDot: '#22C55E',
+  calendarDotDeep:  '#16A34A',
 
-  chipSelectedBorder: 'rgba(0, 168, 255, 0.32)',
-  chipSelectedFill: 'rgba(0, 168, 255, 0.12)',
-  chipAltBorder: 'rgba(255, 179, 0, 0.28)',
-  chipAltFill: 'rgba(255, 179, 0, 0.10)',
+  /** Near-black text on vivid green buttons */
+  onAccent: '#021206',
 
-  inputInset: 'rgba(0, 5, 14, 0.93)',
+  tabBar:         'rgba(6, 12, 8, 0.98)',
+  tabBarInactive: 'rgba(134, 239, 172, 0.38)',
 
-  cardBg: 'rgba(2, 14, 34, 0.93)',
-  cardBgElevated: 'rgba(3, 20, 46, 0.96)',
-  cardBgPrimary: 'rgba(4, 28, 60, 0.97)',
-  cardBorder: 'rgba(0, 168, 255, 0.14)',
-  cardBorderAccent: 'rgba(255, 179, 0, 0.32)',
+  chipSelectedBorder: 'rgba(34, 197, 94, 0.32)',
+  chipSelectedFill:   'rgba(34, 197, 94, 0.12)',
+  chipAltBorder:      'rgba(134, 239, 172, 0.26)',
+  chipAltFill:        'rgba(134, 239, 172, 0.09)',
+
+  inputInset: 'rgba(3, 8, 4, 0.94)',
+
+  cardBg:           'rgba(10, 20, 13, 0.93)',
+  cardBgElevated:   'rgba(14, 28, 18, 0.96)',
+  cardBgPrimary:    'rgba(18, 36, 22, 0.97)',
+  cardBorder:       'rgba(34, 197, 94, 0.12)',
+  cardBorderAccent: 'rgba(134, 239, 172, 0.24)',
 } as const;
 
 export const radii = {
@@ -63,29 +65,29 @@ export const radii = {
 
 export const shadows = {
   card: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.45,
+    shadowColor: '#22C55E',
+    shadowOpacity: 0.18,
     shadowRadius: 28,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 12,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
 } as const;
 
 /** Login sheet */
 export const loginLight = {
-  canvas: '#01070F',
-  glow: 'rgba(0, 168, 255, 0.24)',
-  glowSoft: 'rgba(0, 168, 255, 0.10)',
-  sheet: '#051E3C',
-  text: '#E8F5FF',
-  textMuted: 'rgba(130, 185, 225, 0.76)',
-  hairline: 'rgba(0, 168, 255, 0.20)',
-  inputFill: '#03152A',
-  segmentTrack: '#020C1C',
-  segmentActive: '#03152A',
-  primary: '#00A8FF',
-  primaryDeep: '#007ACC',
-  primaryTint: 'rgba(0, 168, 255, 0.15)',
-  link: '#FFB300',
-  danger: '#FF3B5C',
+  canvas:        '#060C08',
+  glow:          'rgba(34, 197, 94, 0.30)',
+  glowSoft:      'rgba(34, 197, 94, 0.10)',
+  sheet:         '#0E1D14',
+  text:          '#ECFDF5',
+  textMuted:     'rgba(134, 239, 172, 0.62)',
+  hairline:      'rgba(34, 197, 94, 0.18)',
+  inputFill:     '#091410',
+  segmentTrack:  '#091410',
+  segmentActive: '#0E1D14',
+  primary:       '#22C55E',
+  primaryDeep:   '#16A34A',
+  primaryTint:   'rgba(34, 197, 94, 0.14)',
+  link:          '#86EFAC',
+  danger:        '#F43F5E',
 } as const;
